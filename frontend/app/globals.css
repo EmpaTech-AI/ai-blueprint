@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-blue: #2E5FA1;
+  --brand-blue-light: #D6E4F7;
+  --brand-blue-dark: #1E4080;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1a1a1a;
+  background: #f8fafc;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-blue text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-blue-dark transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-white text-brand-blue border border-brand-blue font-semibold px-6 py-3 rounded-lg hover:bg-brand-blue-light transition-colors duration-200;
+  }
+  .input-field {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all duration-200;
+  }
+  .section-card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6;
+  }
+}

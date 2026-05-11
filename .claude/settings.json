@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(Head -50)",
+      "Read(//d/Shiz/AI Assist BG/**)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\app\\\\api\\\\submit\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\app\\\\admin\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\app\\\\confirmation\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\components\\\\IntakeForm\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\components\\\\ui\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\lib\" -Force)",
+      "PowerShell(New-Item -ItemType Directory -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\public\" -Force)"
+    ]
+  }
+}
