@@ -42,8 +42,16 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: err.message });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   log('info', `Backend running on port ${PORT}`);
+});
+
+process.on('SIGTERM', () => {
+  log('info', 'Received SIGTERM, shutting down gracefully');
+  server.close(() => {
+    log('info', 'Server closed');
+    process.exit(0);
+  });
 });
 
 export default app;
