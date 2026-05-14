@@ -125,6 +125,9 @@ export default function AdminPage() {
   const downloadUrl = (jobId: string) =>
     `${apiUrl}/api/download/${jobId}?token=${encodeURIComponent(token)}`;
 
+  const previewUrl = (jobId: string) =>
+    `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
+
   const stepDownloadUrl = (jobId: string, step: string) =>
     `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`;
 
@@ -208,14 +211,24 @@ export default function AdminPage() {
                   {/* Actions */}
                   <div className="flex gap-3 flex-wrap">
                     {(job.status === 'review_ready' || job.status === 'approved') && (
-                      <a
-                        href={downloadUrl(job.jobId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn-primary text-sm py-2"
-                      >
-                        Download DOCX
-                      </a>
+                      <>
+                        <a
+                          href={previewUrl(job.jobId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-secondary text-sm py-2"
+                        >
+                          Preview
+                        </a>
+                        <a
+                          href={downloadUrl(job.jobId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-primary text-sm py-2"
+                        >
+                          Download DOCX
+                        </a>
+                      </>
                     )}
                     {job.status === 'review_ready' && (
                       <button
