@@ -21,6 +21,8 @@ export default function IntakePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   const { register, handleSubmit, getValues, setValue, formState: { errors }, trigger, reset } = useForm<FormValues>({
     mode: 'onBlur',
   });
@@ -68,6 +70,16 @@ export default function IntakePage() {
     setSubmitError(null);
     saveDraft();
     setCurrentStep((s) => s - 1);
+    window.scrollTo(0, 0);
+  };
+
+  const handleReset = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    reset({});
+    setUploadedFiles({});
+    setCurrentStep(1);
+    setSubmitError(null);
+    setShowResetConfirm(false);
     window.scrollTo(0, 0);
   };
 
@@ -140,9 +152,43 @@ export default function IntakePage() {
             </div>
             <span className="font-bold text-gray-900 text-sm">AI Value Blueprint</span>
           </Link>
-          <span className="text-xs text-gray-500">Your progress is saved automatically</span>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-500">Your progress is saved automatically</span>
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(true)}
+              className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors"
+            >
+              Start Over
+            </button>
+          </div>
         </div>
       </header>
+
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 w-full max-w-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Start over?</h2>
+            <p className="text-sm text-gray-500 mb-6">This will clear all your answers and uploaded files. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex-1 bg-red-600 text-white font-semibold text-sm px-4 py-2 rounded-lg hover:bg-red-700"
+              >
+                Yes, start over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         {currentStep === 1 && (
