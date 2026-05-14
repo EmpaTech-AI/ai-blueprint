@@ -149,27 +149,28 @@ Brief explanation of the methodology:
 - Note that this Blueprint uses a streamlined version of the full methodology;
   a comprehensive AI Company Audit provides deeper analysis
 
-## Document Formatting
+## Output Format
 
-Generate the deliverable as a `.docx` file using the `docx` skill with these specifications:
+Output the complete Blueprint as **clean markdown text only**. Do not write any code, scripts,
+or file-generation commands. The document infrastructure (DOCX conversion, branding, headers,
+footers, page numbers) is handled automatically by the pipeline — your job is to produce
+the content.
 
-**Branding:**
-- Font: Arial throughout (12pt body, 16pt H1, 14pt H2)
-- Accent color: #2E5FA1 (AI Assist BG blue)
-- Secondary color: #A6A6A6 (gray for subtitles and metadata)
-- Header: "AI Assist BG | AI Value Blueprint" on every page
-- Footer: page numbers, centered
-- Title page: Client name, "AI Value Blueprint", date, "Prepared by AI Assist BG"
+**Markdown conventions to use:**
+- `# Section Title` for the 8 major sections (e.g. `# 1. Executive Summary`)
+- `## Sub-heading` for named sub-sections within a section
+- `### Minor heading` for labelled sub-points or individual opportunity cards
+- `**Bold text**` for emphasis, labels, and key terms
+- `- Bullet` for lists
+- Plain paragraphs for narrative prose
 
-**Layout:**
-- US Letter (8.5 x 11 inches)
-- 1-inch margins
-- Table of Contents after title page
-- Page break before each major section
-- Tables with blue header rows (#2E5FA1 background, white text)
-- Clean, professional, consulting-grade presentation
-
-**Naming convention:** `AI Value Blueprint — {Client Name}.docx`
+**Content quality:**
+- Write every word as if it will be read by the client's CEO directly
+- Remove all internal labels: no `[Document-Backed]`, `[Inferred]`, `[Assumption]` tags
+- Remove all pipeline references: no "Step 1 output", "from the dossier", "per the snapshot"
+- Remove all methodology codes, scoring formulas, and internal shorthand
+- Resolve all placeholders — if you don't have a value, make a professional inference or omit
+- Spell out the client name consistently throughout; do not use placeholders like `{CLIENT_NAME}`
 
 ## Quality Checks Before Finalizing
 
@@ -193,7 +194,7 @@ For shared methodology standards, read
 ## First-Turn Behavior
 
 When the user provides all 4 upstream outputs:
-1. Confirm all inputs are received and complete
+1. Confirm all inputs are received and complete (one short paragraph — do not reproduce the inputs)
 2. Flag any missing or incomplete sections
-3. Produce the complete AI Value Blueprint deliverable as a .docx file
-4. Present a brief summary of what's in the document (section-by-section overview in 5–6 sentences)
+3. Output the complete AI Value Blueprint in clean markdown, following the 8-section structure above
+4. Do not add a summary after the document — the document is the output
