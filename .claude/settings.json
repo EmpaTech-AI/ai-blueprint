@@ -17,7 +17,8 @@
       "PowerShell(vercel --version)",
       "PowerShell(vercel whoami 2>&1)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
