@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -86,6 +87,22 @@ export default function AdminPage() {
       fetchJobs(password);
     } else {
       setError('Invalid password');
+    }
+  };
+
+  const handleRetry = async (jobId: string) => {
+    setRetryingId(jobId);
+    try {
+      const res = await fetch(`${apiUrl}/api/status/${jobId}/retry`, {
+        method: 'POST',
+        headers: { 'x-reviewer-token': token },
+      });
+      if (!res.ok) throw new Error('Failed to retry');
+      await fetchJobs(token);
+    } catch {
+      setError('Failed to retry job');
+    } finally {
+      setRetryingId(null);
     }
   };
 
@@ -207,6 +224,15 @@ export default function AdminPage() {
                         className="bg-green-600 text-white font-semibold text-sm px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
                       >
                         {approvingId === job.jobId ? 'Approving...' : 'Approve for Delivery'}
+                      </button>
+                    )}
+                    {job.status === 'failed' && (
+                      <button
+                        onClick={() => handleRetry(job.jobId)}
+                        disabled={retryingId === job.jobId}
+                        className="bg-orange-600 text-white font-semibold text-sm px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                      >
+                        {retryingId === job.jobId ? 'Retrying...' : '↻ Retry Pipeline'}
                       </button>
                     )}
                   </div>

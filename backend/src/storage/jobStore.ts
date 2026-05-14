@@ -127,6 +127,26 @@ export function approveJob(jobId: string): void {
   db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
 }
 
+export function resetJobForRetry(jobId: string): void {
+  db.prepare(`
+    UPDATE jobs SET
+      status = 'pending',
+      currentStep = 'A',
+      completedAt = NULL,
+      stepA_corpus = NULL,
+      stepB_dossier = NULL,
+      stepC_maturity = NULL,
+      stepD_opportunities = NULL,
+      stepD2_roadmap = NULL,
+      stepE_assembly = NULL,
+      confidenceScores = NULL,
+      reviewerFlags = NULL,
+      outputDocxPath = NULL,
+      errorLog = NULL
+    WHERE jobId = ?
+  `).run(jobId);
+}
+
 function deserializeJob(row: Record<string, unknown>): PipelineJob {
   return {
     ...(row as unknown as PipelineJob),
