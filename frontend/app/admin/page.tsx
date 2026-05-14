@@ -51,15 +51,26 @@ export default function AdminPage() {
   const fetchJobs = useCallback(async (reviewerToken: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiUrl}/api/status`, {
-        headers: { 'x-reviewer-token': reviewerToken },
-      });
-      if (!res.ok) throw new Error('Unauthorized');
+      let res: Response;
+      try {
+        res = await fetch(`${apiUrl}/api/status`, {
+          headers: { 'x-reviewer-token': reviewerToken },
+        });
+      } catch {
+        setError(`Cannot reach the backend at ${apiUrl}. Make sure Railway is deployed and NEXT_PUBLIC_API_URL is set correctly on Vercel.`);
+        return;
+      }
+      if (res.status === 401) {
+        setError('Token rejected by the backend. Make sure REVIEWER_SECRET_TOKEN on Railway matches the password you entered.');
+        return;
+      }
+      if (!res.ok) {
+        setError(`Backend returned an error (${res.status}). Check Railway logs.`);
+        return;
+      }
       const data = await res.json() as JobSummary[];
       setJobs(data);
       setError('');
-    } catch {
-      setError('Failed to load jobs. Check your token.');
     } finally {
       setLoading(false);
     }
