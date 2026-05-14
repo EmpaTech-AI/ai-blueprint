@@ -1,29 +1,38 @@
 import pdfParse from 'pdf-parse';
 import fs from 'fs';
+import path from 'path';
 import { ParsedDocument } from '../types/pipeline';
 
+const MAX_CHARS = 15000;
+
 export async function parsePDF(filePath: string, category: string): Promise<ParsedDocument> {
-  const filename = require('path').basename(filePath);
+  const filename = path.basename(filePath);
   try {
     const buffer = fs.readFileSync(filePath);
     const data = await pdfParse(buffer);
-    const text = data.text?.trim() || '';
+    let text = data.text?.trim() || '';
 
-    if (text.length < 100) {
+    if (text.length === 0) {
       return {
         category,
         filename,
-        text,
+        text: '',
         status: 'likely_scanned',
         confidence: 'low',
         pageCount: data.numpages,
         wordCount: 0,
-        error: 'Extracted text is too short — document may be scanned or image-based. Manual review required.',
+        error: 'No text extracted — document is likely scanned or image-based. Manual review required.',
       };
     }
 
-    if (text.length === 0) {
-      return { category, filename, text: '', status: 'empty', confidence: 'low', pageCount: data.numpages, wordCount: 0 };
+    let truncated = false;
+    if (text.length > MAX_CHARS) {
+      text = text.slice(0, MAX_CHARS);
+      truncated = true;
+    }
+
+    if (truncated) {
+      text += `\n[... truncated at ${MAX_CHARS.toLocaleString()} characters — full document is ${data.numpages} page(s)]`;
     }
 
     return {
@@ -31,7 +40,7 @@ export async function parsePDF(filePath: string, category: string): Promise<Pars
       filename,
       text,
       status: 'ok',
-      confidence: 'high',
+      confidence: text.length < 200 ? 'low' : 'high',
       pageCount: data.numpages,
       wordCount: text.split(/\s+/).length,
     };
