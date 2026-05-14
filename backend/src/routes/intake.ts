@@ -10,7 +10,8 @@ import { log } from '../utils/logger';
 
 const router = express.Router();
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads');
+const UPLOADS_DIR = process.env.UPLOADS_DIR ||
+  (process.env.NODE_ENV === 'production' ? '/app/data/uploads' : path.join(__dirname, '../../uploads'));
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({

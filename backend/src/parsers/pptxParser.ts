@@ -1,24 +1,30 @@
 import * as XLSX from 'xlsx';
 import path from 'path';
-import fs from 'fs';
 import { ParsedDocument } from '../types/pipeline';
 
 export function parsePPTX(filePath: string, category: string): ParsedDocument {
   const filename = path.basename(filePath);
   try {
-    // xlsx library can read PPTX text content
     const workbook = XLSX.readFile(filePath);
     const slides: string[] = [];
 
     workbook.SheetNames.forEach((name, i) => {
       const sheet = workbook.Sheets[name];
-      const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      const text = rows
-        .flat()
-        .map(String)
-        .filter((s) => s.trim())
-        .join(' ');
-      if (text) slides.push(`Slide ${i + 1}: ${text}`);
+
+      // Iterate cell values directly — sheet_to_json returns empty arrays for PPTX slides
+      const cellTexts: string[] = [];
+      for (const key of Object.keys(sheet)) {
+        if (key.startsWith('!')) continue; // skip metadata keys
+        const cell = sheet[key] as XLSX.CellObject;
+        if (cell && cell.v != null) {
+          const val = String(cell.v).trim();
+          if (val) cellTexts.push(val);
+        }
+      }
+
+      if (cellTexts.length > 0) {
+        slides.push(`[Slide ${i + 1} — ${name}]\n${cellTexts.join(' ')}`);
+      }
     });
 
     const text = slides.join('\n\n');
@@ -28,7 +34,7 @@ export function parsePPTX(filePath: string, category: string): ParsedDocument {
       text: text || '[No text content found in presentation]',
       status: text ? 'ok' : 'empty',
       confidence: text ? 'medium' : 'low',
-      wordCount: text.split(/\s+/).length,
+      wordCount: text ? text.split(/\s+/).length : 0,
     };
   } catch (err: unknown) {
     return {

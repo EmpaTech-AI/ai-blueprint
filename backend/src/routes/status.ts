@@ -51,6 +51,7 @@ router.get('/', (req: Request, res: Response) => {
     completedAt: j.completedAt,
     confidenceScores: j.confidenceScores || {},
     reviewerFlags: j.reviewerFlags || [],
+    errorLog: j.status === 'failed' ? (j.errorLog || []) : [],
     progress: STEP_PROGRESS[j.currentStep] || 0,
   })));
 });

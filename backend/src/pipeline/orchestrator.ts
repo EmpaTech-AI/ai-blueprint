@@ -19,7 +19,8 @@ import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
 
-const JOBS_DIR = process.env.JOBS_DIR || path.join(__dirname, '../../jobs');
+const JOBS_DIR = process.env.JOBS_DIR ||
+  (process.env.NODE_ENV === 'production' ? '/app/data/jobs' : path.join(__dirname, '../../jobs'));
 
 export async function runPipeline(jobId: string): Promise<void> {
   const job = loadJob(jobId);

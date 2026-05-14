@@ -13,6 +13,7 @@ interface JobSummary {
   completedAt?: string;
   confidenceScores: Record<string, number>;
   reviewerFlags: string[];
+  errorLog: string[];
   progress: number;
 }
 
@@ -247,6 +248,21 @@ export default function AdminPage() {
                     <ul className="text-xs text-amber-700 space-y-0.5">
                       {job.reviewerFlags.map((flag, i) => <li key={i}>• {flag}</li>)}
                     </ul>
+                  </div>
+                )}
+
+                {/* Error log (failed jobs only) */}
+                {job.status === 'failed' && job.errorLog.length > 0 && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs font-semibold text-red-800 mb-1">Pipeline Error — Failed at Step {job.currentStep}</p>
+                    <ul className="text-xs text-red-700 space-y-1 font-mono">
+                      {job.errorLog.map((entry, i) => <li key={i} className="break-all">{entry}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {job.status === 'failed' && job.errorLog.length === 0 && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs font-semibold text-red-800">Pipeline failed at Step {job.currentStep} — no error details stored. Check Railway logs.</p>
                   </div>
                 )}
 
