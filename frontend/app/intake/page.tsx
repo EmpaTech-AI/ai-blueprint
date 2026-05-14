@@ -10,7 +10,7 @@ import { DocumentUpload, UploadedFiles } from '@/components/IntakeForm/DocumentU
 import Link from 'next/link';
 
 const STORAGE_KEY = 'blueprint-intake-draft';
-const TOTAL_STEPS = FORM_SECTIONS.length + 1; // +1 for document upload step
+const TOTAL_STEPS = FORM_SECTIONS.length + 1;
 
 type FormValues = Record<string, string | string[]>;
 
@@ -25,7 +25,6 @@ export default function IntakePage() {
     mode: 'onBlur',
   });
 
-  // Restore draft from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -35,11 +34,10 @@ export default function IntakePage() {
         setCurrentStep(draft.step);
       }
     } catch {
-      // ignore
+      // ignore corrupt draft
     }
   }, [reset]);
 
-  // Save draft on values change
   const saveDraft = () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ step: currentStep, values: getValues() }));
@@ -58,12 +56,14 @@ export default function IntakePage() {
       const valid = await trigger(fieldIds as (keyof FormValues)[]);
       if (!valid) return;
     }
+    setSubmitError(null);
     saveDraft();
     setCurrentStep((s) => s + 1);
     window.scrollTo(0, 0);
   };
 
   const handleBack = () => {
+    setSubmitError(null);
     saveDraft();
     setCurrentStep((s) => s - 1);
     window.scrollTo(0, 0);
@@ -75,8 +75,8 @@ export default function IntakePage() {
 
     try {
       const formData = new FormData();
-      formData.append('clientName', String(data.clientName || data.company_name || 'Unknown Client'));
-      formData.append('clientEmail', String(data.clientEmail || data.contact_email || ''));
+      formData.append('clientName', String(data.clientName || 'Unknown Client'));
+      formData.append('clientEmail', String(data.clientEmail || ''));
       formData.append('formAnswers', JSON.stringify(data));
 
       for (const [categoryId, file] of Object.entries(uploadedFiles)) {
@@ -84,14 +84,29 @@ export default function IntakePage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/intake`, {
-        method: 'POST',
-        body: formData,
-      });
+      let response: Response;
+
+      try {
+        response = await fetch(`${apiUrl}/api/intake`, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch {
+        throw new Error(
+          'Could not reach the server. The backend may not be running yet. ' +
+          'Please contact us directly at viktor.serafimov@aiassist.bg'
+        );
+      }
 
       if (!response.ok) {
-        const err = await response.json() as { error?: string };
-        throw new Error(err.error || 'Submission failed');
+        // Backend may return HTML error pages — handle gracefully
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const err = await response.json() as { error?: string };
+          throw new Error(err.error || `Server error (${response.status})`);
+        } else {
+          throw new Error(`Server error (${response.status}). Please try again or contact support.`);
+        }
       }
 
       const result = await response.json() as { jobId: string };
@@ -106,7 +121,6 @@ export default function IntakePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
@@ -120,7 +134,6 @@ export default function IntakePage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
-        {/* Contact fields — shown on step 1 */}
         {currentStep === 1 && (
           <div className="section-card mb-0">
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Start Your AI Value Blueprint</h1>
@@ -177,7 +190,8 @@ export default function IntakePage() {
 
             {submitError && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {submitError}
+                <p className="font-semibold mb-1">Submission failed</p>
+                <p>{submitError}</p>
               </div>
             )}
 
