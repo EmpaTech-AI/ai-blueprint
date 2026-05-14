@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FORM_SECTIONS } from '@/lib/formSchema';
 import { ProgressBar } from '@/components/IntakeForm/ProgressBar';
 import { FormSection } from '@/components/IntakeForm/FormSection';
-import { DocumentUpload, UploadedFiles } from '@/components/IntakeForm/DocumentUpload';
+import { DocumentUpload, UploadedFiles, allRequiredDocumentsUploaded, missingRequiredDocumentLabels } from '@/components/IntakeForm/DocumentUpload';
 import Link from 'next/link';
 
 const STORAGE_KEY = 'blueprint-intake-draft';
@@ -74,6 +74,11 @@ export default function IntakePage() {
   const onSubmit = async (data: FormValues) => {
     if (!data.clientName || !data.clientEmail) {
       setSubmitError('Your name and email are required. Please go back to step 1 and fill them in.');
+      return;
+    }
+    const missingDocs = missingRequiredDocumentLabels(uploadedFiles);
+    if (missingDocs.length > 0) {
+      setSubmitError(`Please upload all required documents before submitting: ${missingDocs.join(', ')}.`);
       return;
     }
     setIsSubmitting(true);
@@ -215,7 +220,7 @@ export default function IntakePage() {
                   Save & Continue →
                 </button>
               ) : (
-                <button type="button" onClick={handleSubmit(onSubmit)} disabled={isSubmitting} className="btn-primary min-w-[180px]">
+                <button type="button" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || !allRequiredDocumentsUploaded(uploadedFiles)} className="btn-primary min-w-[180px] disabled:opacity-40 disabled:cursor-not-allowed">
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

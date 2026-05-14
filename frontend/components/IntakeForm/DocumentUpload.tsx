@@ -8,6 +8,14 @@ export interface UploadedFiles {
   [categoryId: string]: File;
 }
 
+export function allRequiredDocumentsUploaded(uploadedFiles: UploadedFiles): boolean {
+  return UPLOAD_CATEGORIES.filter((c) => c.required).every((c) => !!uploadedFiles[c.id]);
+}
+
+export function missingRequiredDocumentLabels(uploadedFiles: UploadedFiles): string[] {
+  return UPLOAD_CATEGORIES.filter((c) => c.required && !uploadedFiles[c.id]).map((c) => c.label);
+}
+
 interface DocumentUploadProps {
   uploadedFiles: UploadedFiles;
   onFilesChange: (files: UploadedFiles) => void;
@@ -38,21 +46,29 @@ export function DocumentUpload({ uploadedFiles, onFilesChange }: DocumentUploadP
     onFilesChange(next);
   };
 
-  const requiredUploaded = UPLOAD_CATEGORIES.filter((c) => c.required && uploadedFiles[c.id]).length;
-  const requiredTotal = UPLOAD_CATEGORIES.filter((c) => c.required).length;
-  const missingRequired = requiredTotal - requiredUploaded;
+  const missingRequiredDocs = UPLOAD_CATEGORIES.filter((c) => c.required && !uploadedFiles[c.id]);
+  const allRequiredUploaded = missingRequiredDocs.length === 0;
 
   return (
     <div>
       <div className="mb-6">
         <h3 className="text-lg font-bold text-gray-900 mb-1">Supporting Documents</h3>
         <p className="text-sm text-gray-600">
-          Upload documents to help us provide the most accurate analysis. Required documents are marked with *.
+          The 4 required documents (marked <span className="text-red-500 font-semibold">*</span>) must be uploaded before you can submit.
         </p>
-        {missingRequired > 0 && (
-          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
-            ⚠ {missingRequired} required document{missingRequired > 1 ? 's are' : ' is'} still missing.
-            Your Blueprint will be less accurate without them.
+        {!allRequiredUploaded && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            <p className="font-semibold mb-1">Still required:</p>
+            <ul className="space-y-0.5">
+              {missingRequiredDocs.map((c) => (
+                <li key={c.id}>• {c.label}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {allRequiredUploaded && (
+          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-semibold">
+            ✓ All required documents uploaded — you can now submit.
           </div>
         )}
       </div>

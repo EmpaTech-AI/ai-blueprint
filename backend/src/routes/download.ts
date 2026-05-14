@@ -51,6 +51,33 @@ router.get('/:jobId/preview', (req: Request, res: Response) => {
   }
 });
 
+// Pipeline logs — document parse results + error log
+router.get('/:jobId/logs', (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
+    res.status(401).send('<p>Unauthorized</p>');
+    return;
+  }
+
+  try {
+    const job = loadJob(req.params.jobId);
+    const corpus = job.stepA_corpus
+      ? (JSON.parse(job.stepA_corpus) as {
+          parsedAt?: string;
+          documents?: Array<{ filename: string; category: string; status: string; confidence: string; wordCount?: number; pageCount?: number; error?: string }>;
+          failedDocuments?: Array<{ filename: string; category: string; status: string; confidence: string; error?: string }>;
+          missingRequiredCategories?: string[];
+        })
+      : null;
+
+    const html = renderLogsHtml(job, corpus);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch {
+    res.status(404).send('<p>Job not found</p>');
+  }
+});
+
 // Intermediate output download
 router.get('/:jobId/step/:step', (req: Request, res: Response) => {
   const token = req.query.token || req.headers['x-reviewer-token'];
@@ -83,6 +110,97 @@ router.get('/:jobId/step/:step', (req: Request, res: Response) => {
 });
 
 export default router;
+
+type Corpus = {
+  parsedAt?: string;
+  documents?: Array<{ filename: string; category: string; status: string; confidence: string; wordCount?: number; pageCount?: number; error?: string }>;
+  failedDocuments?: Array<{ filename: string; category: string; status: string; confidence: string; error?: string }>;
+  missingRequiredCategories?: string[];
+} | null;
+
+function renderLogsHtml(job: { clientName: string; status: string; currentStep: string; startedAt: string; errorLog?: string[] }, corpus: Corpus): string {
+  const statusColor: Record<string, string> = {
+    ok: '#16a34a', likely_scanned: '#d97706', parse_error: '#dc2626', empty: '#dc2626', unsupported: '#dc2626',
+  };
+
+  const docRows = (docs: NonNullable<Corpus>['documents'], failed: boolean) =>
+    (docs || []).map((d) => `
+      <tr>
+        <td>${esc(d.filename)}</td>
+        <td style="font-size:12px;color:#6b7280">${esc(d.category)}</td>
+        <td><span style="color:${statusColor[d.status] || '#374151'};font-weight:600">${esc(d.status)}</span></td>
+        <td>${d.wordCount ?? '—'}</td>
+        <td>${failed && d.error ? `<span style="color:#dc2626;font-family:monospace;font-size:12px">${esc(d.error)}</span>` : '—'}</td>
+      </tr>`).join('');
+
+  const parsedSection = corpus ? `
+    <h2>Document Parsing — Step A</h2>
+    <p style="color:#6b7280;font-size:13px;margin-bottom:16px">Parsed at: ${corpus.parsedAt ?? 'unknown'}</p>
+
+    ${(corpus.documents?.length ?? 0) > 0 ? `
+    <h3 style="color:#16a34a">✓ Successfully Parsed (${corpus.documents!.length})</h3>
+    <table>
+      <thead><tr><th>File</th><th>Category</th><th>Status</th><th>Words</th><th>Error</th></tr></thead>
+      <tbody>${docRows(corpus.documents, false)}</tbody>
+    </table>` : '<p style="color:#6b7280">No documents were successfully parsed.</p>'}
+
+    ${(corpus.failedDocuments?.length ?? 0) > 0 ? `
+    <h3 style="color:#dc2626;margin-top:24px">✗ Failed to Parse (${corpus.failedDocuments!.length})</h3>
+    <table>
+      <thead><tr><th>File</th><th>Category</th><th>Status</th><th>Words</th><th>Error</th></tr></thead>
+      <tbody>${docRows(corpus.failedDocuments, true)}</tbody>
+    </table>` : ''}
+
+    ${(corpus.missingRequiredCategories?.length ?? 0) > 0 ? `
+    <h3 style="color:#d97706;margin-top:24px">⚠ Missing Required Categories</h3>
+    <ul>${corpus.missingRequiredCategories!.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+  ` : '<p style="color:#6b7280">Step A (document parsing) has not run yet or produced no output.</p>';
+
+  const errorSection = job.errorLog && job.errorLog.length > 0 ? `
+    <h2 style="color:#dc2626;margin-top:32px">Pipeline Error Log</h2>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:16px">
+      ${job.errorLog.map((e) => `<p style="font-family:monospace;font-size:13px;color:#991b1b;margin-bottom:6px">${esc(e)}</p>`).join('')}
+    </div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logs — ${esc(job.clientName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#374151;background:#f9fafb;padding:32px 24px}
+  .page{max-width:900px;margin:0 auto}
+  .header{background:#2E5FA1;color:#fff;padding:24px 28px;border-radius:8px 8px 0 0}
+  .header h1{font-size:20px;font-weight:700}
+  .header .meta{font-size:13px;opacity:.8;margin-top:6px}
+  .body{background:#fff;border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 8px 8px}
+  h2{font-size:16px;font-weight:700;color:#2E5FA1;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #e5e7eb}
+  h2:first-child{margin-top:0}
+  h3{font-size:14px;font-weight:700;margin:16px 0 8px}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  th{background:#f3f4f6;text-align:left;padding:8px 10px;font-weight:600;color:#374151;border:1px solid #e5e7eb}
+  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
+  tr:nth-child(even) td{background:#f9fafb}
+  ul{padding-left:20px;margin-top:4px}
+  li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Pipeline Logs — ${esc(job.clientName)}</h1>
+    <div class="meta">Status: ${esc(job.status)} &nbsp;·&nbsp; Last step: ${esc(job.currentStep)} &nbsp;·&nbsp; Started: ${new Date(job.startedAt).toLocaleString()}</div>
+  </div>
+  <div class="body">
+    ${parsedSection}
+    ${errorSection}
+  </div>
+</div>
+</body>
+</html>`;
+}
 
 function renderPreviewHtml(clientName: string, markdown: string): string {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });

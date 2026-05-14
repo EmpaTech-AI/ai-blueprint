@@ -128,6 +128,9 @@ export default function AdminPage() {
   const previewUrl = (jobId: string) =>
     `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
 
+  const logsUrl = (jobId: string) =>
+    `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
+
   const stepDownloadUrl = (jobId: string, step: string) =>
     `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`;
 
@@ -248,6 +251,14 @@ export default function AdminPage() {
                         {retryingId === job.jobId ? 'Retrying...' : '↻ Retry Pipeline'}
                       </button>
                     )}
+                    <a
+                      href={logsUrl(job.jobId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-gray-500 font-semibold px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                    >
+                      Logs
+                    </a>
                   </div>
                 </div>
 
