@@ -10,18 +10,19 @@ import { log } from './utils/logger';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+const allowedOrigins = new Set([
   'http://localhost:3000',
-];
+  'http://localhost:3001',
+  ...((process.env.FRONTEND_URL || '').split(',').map((u) => u.trim()).filter(Boolean)),
+]);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: origin ${origin} not allowed`));
-    }
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    // allow any vercel.app preview/production URL
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
 }));
