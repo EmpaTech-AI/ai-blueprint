@@ -31,7 +31,9 @@ export default function IntakePage() {
       if (saved) {
         const draft = JSON.parse(saved) as { step: number; values: FormValues };
         reset(draft.values);
-        setCurrentStep(draft.step);
+        // Don't jump to a late step if contact info is missing from a previous failed session
+        const hasContactInfo = draft.values.clientName && draft.values.clientEmail;
+        setCurrentStep(hasContactInfo ? draft.step : 1);
       }
     } catch {
       // ignore corrupt draft
@@ -70,13 +72,17 @@ export default function IntakePage() {
   };
 
   const onSubmit = async (data: FormValues) => {
+    if (!data.clientName || !data.clientEmail) {
+      setSubmitError('Your name and email are required. Please go back to step 1 and fill them in.');
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
       const formData = new FormData();
-      formData.append('clientName', String(data.clientName || 'Unknown Client'));
-      formData.append('clientEmail', String(data.clientEmail || ''));
+      formData.append('clientName', String(data.clientName));
+      formData.append('clientEmail', String(data.clientEmail));
       formData.append('formAnswers', JSON.stringify(data));
 
       for (const [categoryId, file] of Object.entries(uploadedFiles)) {
@@ -175,7 +181,7 @@ export default function IntakePage() {
         <div className="section-card">
           <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} stepTitle={stepTitle} />
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <div>
             {!isDocumentStep && currentSection ? (
               <FormSection
                 section={currentSection}
@@ -209,7 +215,7 @@ export default function IntakePage() {
                   Save & Continue →
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting} className="btn-primary min-w-[180px]">
+                <button type="button" onClick={handleSubmit(onSubmit)} disabled={isSubmitting} className="btn-primary min-w-[180px]">
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -222,7 +228,7 @@ export default function IntakePage() {
                 </button>
               )}
             </div>
-          </form>
+          </div>
         </div>
       </main>
     </div>
