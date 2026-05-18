@@ -28,6 +28,14 @@ interface JobSummary {
   progress: number;
 }
 
+const STEP_INFO: Record<string, { label: string; description: string }> = {
+  B:  { label: 'Intake Analysis',      description: 'Compresses form responses & documents into an internal client dossier' },
+  C:  { label: 'Maturity Assessment',  description: 'Scores AI readiness across 6 dimensions: Strategy, Data, Technology, People, Processes, Governance' },
+  D:  { label: 'Opportunity Mapping',  description: 'Identifies and ranks the top 5–7 AI use cases by impact, feasibility, and strategic alignment' },
+  D2: { label: 'Action Roadmap',       description: 'Sequences opportunities into a Now / Next / Later 12-month implementation plan' },
+  E:  { label: 'Document Assembly',    description: 'Compiles all outputs into the final 12–18 page client-facing AI Value Blueprint DOCX' },
+};
+
 const STATUS_BADGE: Record<string, string> = {
   pending:      'badge-pending',
   running:      'badge-running',
@@ -419,7 +427,11 @@ export default function AdminPage() {
                 {/* Progress bar */}
                 <div className="mt-5">
                   <div className="flex justify-between text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                    <span>Pipeline: Step {job.currentStep}</span>
+                    <span>
+                      {STEP_INFO[job.currentStep]
+                        ? <>{STEP_INFO[job.currentStep].label} <span style={{ color: 'rgba(255,255,255,0.28)' }}>· Step {job.currentStep}</span></>
+                        : `Step ${job.currentStep}`}
+                    </span>
                     <span>{job.progress}%</span>
                   </div>
                   <div
@@ -515,30 +527,48 @@ export default function AdminPage() {
                 {/* Intermediate output downloads */}
                 {(job.status === 'review_ready' || job.status === 'approved') && (
                   <div
-                    className="mt-5 pt-4 flex flex-wrap gap-2 items-center"
+                    className="mt-5 pt-5"
                     style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
                   >
-                    <p className="text-xs font-semibold mr-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                      Intermediate outputs:
+                    <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      Pipeline outputs — download each step&apos;s raw output for review
                     </p>
-                    {['B', 'C', 'D', 'D2', 'E'].map((step) => (
-                      <a
-                        key={step}
-                        href={stepDownloadUrl(job.jobId, step)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-semibold rounded-lg transition-all duration-150 hover:-translate-y-px"
-                        style={{
-                          padding: '5px 12px',
-                          background: 'rgba(99,102,241,0.12)',
-                          border: '1px solid rgba(99,102,241,0.25)',
-                          color: '#a5b4fc',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        Step {step}
-                      </a>
-                    ))}
+                    <div className="flex flex-wrap gap-2">
+                      {(['B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
+                        const info = STEP_INFO[step];
+                        return (
+                          <a
+                            key={step}
+                            href={stepDownloadUrl(job.jobId, step)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={info.description}
+                            className="inline-flex flex-col transition-all duration-150 hover:-translate-y-px"
+                            style={{
+                              padding: '8px 14px',
+                              background: 'rgba(99,102,241,0.10)',
+                              border: '1px solid rgba(99,102,241,0.22)',
+                              borderRadius: '10px',
+                              textDecoration: 'none',
+                              minWidth: '120px',
+                            }}
+                          >
+                            <span
+                              className="text-xs font-bold leading-none mb-1"
+                              style={{ color: '#a5b4fc' }}
+                            >
+                              {info.label}
+                            </span>
+                            <span
+                              className="text-xs"
+                              style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem' }}
+                            >
+                              Step {step}
+                            </span>
+                          </a>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
