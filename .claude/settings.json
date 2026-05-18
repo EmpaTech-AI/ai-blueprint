@@ -19,7 +19,16 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "WebFetch(domain:ai-blueprint-production.up.railway.app)"
+      "WebFetch(domain:ai-blueprint-production.up.railway.app)",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(cd \"/d/Shiz/AI Assist BG/AI Blueprint\" && find . -type f -o -type d | head -100)",
+      "Read(//d/d/Shiz/AI Assist BG/**)",
+      "Bash(copy \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\AI Value Blueprint Skills Pipeline\\\\blueprint-orchestrator\\\\references\\\\validate_data_contract.py\" \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\validate_data_contract.py\")",
+      "PowerShell(Copy-Item \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\AI Value Blueprint Skills Pipeline\\\\blueprint-orchestrator\\\\references\\\\validate_data_contract.py\" \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\validate_data_contract.py\" -Force)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Force)"
     ]
   }
 }

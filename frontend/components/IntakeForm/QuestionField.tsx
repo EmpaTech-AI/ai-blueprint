@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { UseFormRegister, FieldErrors, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
 import { Question } from '@/lib/formSchema';
 import { cn } from '@/lib/utils';
+import { CheckIcon } from '@/components/ui/icons';
 
 interface QuestionFieldProps {
   question: Question;
@@ -13,22 +14,35 @@ interface QuestionFieldProps {
   setValue: UseFormSetValue<Record<string, string | string[]>>;
 }
 
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  color: 'rgba(255,255,255,0.8)',
+  marginBottom: '8px',
+};
+
+const errorStyle: React.CSSProperties = {
+  fontSize: '0.75rem',
+  color: '#fca5a5',
+  marginTop: '5px',
+};
+
 export function QuestionField({ question, register, errors, getValues, setValue }: QuestionFieldProps) {
   const error = errors[question.id];
-  const baseInputClass = cn(
-    'input-field',
-    error && 'border-red-400 ring-red-200'
-  );
+  const inputClass = cn('input-glass', error && 'error');
 
   const label = (
-    <label htmlFor={question.id} className="block text-sm font-semibold text-gray-800 mb-1.5">
+    <label htmlFor={question.id} style={labelStyle}>
       {question.label}
-      {question.required && <span className="text-red-500 ml-1">*</span>}
+      {question.required && (
+        <span style={{ color: '#f87171', marginLeft: '4px' }}>*</span>
+      )}
     </label>
   );
 
   const errorMsg = error && (
-    <p className="text-red-500 text-xs mt-1">{String(error.message || 'This field is required')}</p>
+    <p style={errorStyle}>{String(error.message || 'This field is required')}</p>
   );
 
   if (question.type === 'multiselect') {
@@ -50,7 +64,8 @@ export function QuestionField({ question, register, errors, getValues, setValue 
           id={question.id}
           placeholder={question.placeholder}
           rows={4}
-          className={cn(baseInputClass, 'resize-y min-h-[100px]')}
+          className={cn(inputClass, 'resize-y min-h-[100px]')}
+          style={{ lineHeight: 1.6 }}
           {...register(question.id, { required: question.required ? 'This field is required' : false })}
         />
         {errorMsg}
@@ -64,7 +79,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
         {label}
         <select
           id={question.id}
-          className={baseInputClass}
+          className={inputClass}
           {...register(question.id, { required: question.required ? 'Please select an option' : false })}
         >
           <option value="">— Select an option —</option>
@@ -86,7 +101,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
           type="number"
           min={1}
           placeholder={question.placeholder}
-          className={baseInputClass}
+          className={inputClass}
           {...register(question.id, {
             required: question.required ? 'This field is required' : false,
             min: { value: 1, message: 'Must be at least 1' },
@@ -104,7 +119,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
         id={question.id}
         type="text"
         placeholder={question.placeholder}
-        className={baseInputClass}
+        className={inputClass}
         {...register(question.id, { required: question.required ? 'This field is required' : false })}
       />
       {errorMsg}
@@ -112,7 +127,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
   );
 }
 
-// Separate component so it owns its own state — re-renders correctly on selection
+// ── MultiSelectField ────────────────────────────────────────────────────────
 function MultiSelectField({
   question,
   initialValues,
@@ -136,11 +151,14 @@ function MultiSelectField({
 
   return (
     <div className="mb-5">
-      <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+      <label style={labelStyle}>
         {question.label}
-        {question.required && <span className="text-red-500 ml-1">*</span>}
+        {question.required && (
+          <span style={{ color: '#f87171', marginLeft: '4px' }}>*</span>
+        )}
       </label>
-      <div className="flex gap-3 flex-wrap">
+
+      <div className="flex gap-2.5 flex-wrap">
         {question.options?.map((opt) => {
           const isSelected = selected.includes(opt);
           return (
@@ -148,24 +166,53 @@ function MultiSelectField({
               key={opt}
               type="button"
               onClick={() => toggle(opt)}
-              className={cn(
-                'px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all duration-150 select-none',
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold transition-all duration-150 select-none cursor-pointer focus-visible:outline-none"
+              style={
                 isSelected
-                  ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-brand-blue hover:text-brand-blue'
-              )}
+                  ? {
+                      background: 'rgba(99,102,241,0.22)',
+                      border: '1px solid rgba(99,102,241,0.55)',
+                      color: '#a5b4fc',
+                      boxShadow: '0 0 12px rgba(99,102,241,0.2)',
+                    }
+                  : {
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'rgba(255,255,255,0.65)',
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(99,102,241,0.4)';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#a5b4fc';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.15)';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.65)';
+                }
+              }}
             >
-              {isSelected && <span className="mr-1.5">✓</span>}
+              {isSelected && (
+                <CheckIcon
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={{ color: '#818CF8' } as React.CSSProperties}
+                />
+              )}
               {opt}
             </button>
           );
         })}
       </div>
+
       {selected.length === 0 && error && (
-        <p className="text-red-500 text-xs mt-1">Please select at least one option</p>
+        <p style={errorStyle}>Please select at least one option</p>
       )}
       {selected.length > 0 && (
-        <p className="text-xs text-gray-400 mt-1.5">{selected.length} selected</p>
+        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>
+          {selected.length} selected
+        </p>
       )}
     </div>
   );

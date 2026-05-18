@@ -15,10 +15,15 @@ interface FormSectionProps {
 export function FormSection({ section, register, errors, getValues, setValue }: FormSectionProps) {
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
-        <p className="text-gray-600 text-sm mt-1">{section.description}</p>
+      <div className="mb-7">
+        <h2 className="text-xl font-bold mb-1.5" style={{ color: '#fff' }}>
+          {section.title}
+        </h2>
+        <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          {section.description}
+        </p>
       </div>
+
       {section.questions.map((q) => (
         <QuestionField
           key={q.id}

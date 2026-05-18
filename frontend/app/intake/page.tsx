@@ -6,26 +6,34 @@ import { useRouter } from 'next/navigation';
 import { FORM_SECTIONS } from '@/lib/formSchema';
 import { ProgressBar } from '@/components/IntakeForm/ProgressBar';
 import { FormSection } from '@/components/IntakeForm/FormSection';
-import { DocumentUpload, UploadedFiles, allRequiredDocumentsUploaded, missingRequiredDocumentLabels } from '@/components/IntakeForm/DocumentUpload';
+import {
+  DocumentUpload,
+  UploadedFiles,
+  allRequiredDocumentsUploaded,
+  missingRequiredDocumentLabels,
+} from '@/components/IntakeForm/DocumentUpload';
+import {
+  BotIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
+  SpinnerIcon,
+} from '@/components/ui/icons';
 import Link from 'next/link';
 
-const STORAGE_KEY = 'blueprint-intake-draft';
-const TOTAL_STEPS = FORM_SECTIONS.length + 1;
-
-type FormValues = Record<string, string | string[]>;
+const STORAGE_KEY  = 'blueprint-intake-draft';
+const TOTAL_STEPS  = FORM_SECTIONS.length + 1;
+type FormValues    = Record<string, string | string[]>;
 
 export default function IntakePage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [currentStep,      setCurrentStep]      = useState(1);
+  const [uploadedFiles,    setUploadedFiles]     = useState<UploadedFiles>({});
+  const [isSubmitting,     setIsSubmitting]      = useState(false);
+  const [submitError,      setSubmitError]       = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm]  = useState(false);
 
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  const { register, handleSubmit, getValues, setValue, formState: { errors }, trigger, reset } = useForm<FormValues>({
-    mode: 'onBlur',
-  });
+  const { register, handleSubmit, getValues, setValue, formState: { errors }, trigger, reset } =
+    useForm<FormValues>({ mode: 'onBlur' });
 
   useEffect(() => {
     try {
@@ -33,31 +41,26 @@ export default function IntakePage() {
       if (saved) {
         const draft = JSON.parse(saved) as { step: number; values: FormValues };
         reset(draft.values);
-        // Don't jump to a late step if contact info is missing from a previous failed session
         const hasContactInfo = draft.values.clientName && draft.values.clientEmail;
         setCurrentStep(hasContactInfo ? draft.step : 1);
       }
-    } catch {
-      // ignore corrupt draft
-    }
+    } catch { /* ignore corrupt draft */ }
   }, [reset]);
 
   const saveDraft = () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ step: currentStep, values: getValues() }));
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   };
 
-  const isDocumentStep = currentStep === TOTAL_STEPS;
-  const currentSection = !isDocumentStep ? FORM_SECTIONS[currentStep - 1] : null;
-  const stepTitle = isDocumentStep ? 'Supporting Documents' : (currentSection?.title || '');
+  const isDocumentStep  = currentStep === TOTAL_STEPS;
+  const currentSection  = !isDocumentStep ? FORM_SECTIONS[currentStep - 1] : null;
+  const stepTitle       = isDocumentStep ? 'Supporting Documents' : (currentSection?.title || '');
 
   const handleNext = async () => {
     if (!isDocumentStep && currentSection) {
       const fieldIds = currentSection.questions.map((q) => q.id);
-      const valid = await trigger(fieldIds as (keyof FormValues)[]);
+      const valid    = await trigger(fieldIds as (keyof FormValues)[]);
       if (!valid) return;
     }
     setSubmitError(null);
@@ -90,7 +93,7 @@ export default function IntakePage() {
     }
     const missingDocs = missingRequiredDocumentLabels(uploadedFiles);
     if (missingDocs.length > 0) {
-      setSubmitError(`Please upload all required documents before submitting: ${missingDocs.join(', ')}.`);
+      setSubmitError(`Please upload all required documents: ${missingDocs.join(', ')}.`);
       return;
     }
     setIsSubmitting(true);
@@ -98,33 +101,26 @@ export default function IntakePage() {
 
     try {
       const formData = new FormData();
-      formData.append('clientName', String(data.clientName));
-      formData.append('clientEmail', String(data.clientEmail));
-      formData.append('formAnswers', JSON.stringify(data));
-
+      formData.append('clientName',   String(data.clientName));
+      formData.append('clientEmail',  String(data.clientEmail));
+      formData.append('formAnswers',  JSON.stringify(data));
       for (const [categoryId, file] of Object.entries(uploadedFiles)) {
         formData.append(categoryId, file);
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       let response: Response;
-
       try {
-        response = await fetch(`${apiUrl}/api/intake`, {
-          method: 'POST',
-          body: formData,
-        });
+        response = await fetch(`${apiUrl}/api/intake`, { method: 'POST', body: formData });
       } catch {
         throw new Error(
-          'Could not reach the server. The backend may not be running yet. ' +
-          'Please contact us directly at viktor.serafimov@aiassist.bg'
+          'Could not reach the server. Please contact us directly at viktor.serafimov@aiassist.bg'
         );
       }
 
       if (!response.ok) {
-        // Backend may return HTML error pages — handle gracefully
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
           const err = await response.json() as { error?: string };
           throw new Error(err.error || `Server error (${response.status})`);
         } else {
@@ -143,45 +139,88 @@ export default function IntakePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">AI</span>
+    <div className="min-h-screen">
+
+      {/* ── Floating Navbar ─────────────────────────────────────────────── */}
+      <div className="sticky top-4 z-50 px-4">
+        <header
+          className="glass-card max-w-3xl mx-auto px-5 py-3 flex items-center justify-between"
+          style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
+        >
+          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Back to home">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)', color: '#fff' }}
+            >
+              <BotIcon className="w-[18px] h-[18px]" />
             </div>
-            <span className="font-bold text-gray-900 text-sm">AI Value Blueprint</span>
+            <span className="font-bold text-white text-sm tracking-tight">AI Value Blueprint</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-500">Your progress is saved automatically</span>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs hidden sm:block" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Progress saved automatically
+            </span>
             <button
               type="button"
               onClick={() => setShowResetConfirm(true)}
-              className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors"
+              className="btn-ghost text-xs"
+              style={{ padding: '6px 14px' }}
             >
               Start Over
             </button>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
+      {/* ── Reset confirm modal ──────────────────────────────────────────── */}
       {showResetConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 w-full max-w-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Start over?</h2>
-            <p className="text-sm text-gray-500 mb-6">This will clear all your answers and uploaded files. This cannot be undone.</p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{
+            background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-dialog-title"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-7"
+            style={{
+              background: 'rgba(18,18,32,0.96)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            }}
+          >
+            <h2 id="reset-dialog-title" className="text-lg font-bold text-white mb-2">
+              Start over?
+            </h2>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              This will clear all your answers and uploaded files. This cannot be undone.
+            </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
                 className="btn-secondary flex-1"
+                style={{ padding: '10px 20px', fontSize: '0.875rem' }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex-1 bg-red-600 text-white font-semibold text-sm px-4 py-2 rounded-lg hover:bg-red-700"
+                className="flex-1 inline-flex items-center justify-center font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
+                style={{
+                  padding: '10px 20px',
+                  background: 'rgba(239,68,68,0.18)',
+                  border: '1px solid rgba(239,68,68,0.38)',
+                  color: '#fca5a5',
+                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.28)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.18)')}
               >
                 Yes, start over
               </button>
@@ -190,46 +229,61 @@ export default function IntakePage() {
         </div>
       )}
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
+      {/* ── Main content ────────────────────────────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 py-10">
+
+        {/* Contact info card (step 1 only) */}
         {currentStep === 1 && (
-          <div className="section-card mb-0">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Start Your AI Value Blueprint</h1>
-            <p className="text-gray-600 text-sm mb-6">
+          <div className="glass-card p-6 mb-4">
+            <h1 className="text-2xl font-bold text-white mb-1.5">
+              Start Your AI Value Blueprint
+            </h1>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: 'rgba(255,255,255,0.52)' }}>
               This intake form takes 20–30 minutes. Your answers are saved as you go — you can return anytime.
             </p>
-            <div className="grid md:grid-cols-2 gap-4 mb-2">
+
+            <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-                  Your name <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  Your name <span style={{ color: '#f87171' }}>*</span>
                 </label>
                 <input
                   type="text"
-                  className="input-field"
+                  className={`input-glass${errors.clientName ? ' error' : ''}`}
                   placeholder="e.g., Maria Petrova"
                   {...register('clientName', { required: 'Please enter your name' })}
                 />
-                {errors.clientName && <p className="text-red-500 text-xs mt-1">{String(errors.clientName.message)}</p>}
+                {errors.clientName && (
+                  <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>
+                    {String(errors.clientName.message)}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-                  Your email <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  Your email <span style={{ color: '#f87171' }}>*</span>
                 </label>
                 <input
                   type="email"
-                  className="input-field"
+                  className={`input-glass${errors.clientEmail ? ' error' : ''}`}
                   placeholder="e.g., maria@company.com"
                   {...register('clientEmail', {
                     required: 'Please enter your email',
-                    pattern: { value: /^\S+@\S+\.\S+$/, message: 'Please enter a valid email address' },
+                    pattern: { value: /^\S+@\S+\.\S+$/, message: 'Please enter a valid email' },
                   })}
                 />
-                {errors.clientEmail && <p className="text-red-500 text-xs mt-1">{String(errors.clientEmail.message)}</p>}
+                {errors.clientEmail && (
+                  <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>
+                    {String(errors.clientEmail.message)}
+                  </p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        <div className="section-card">
+        {/* Progress + form card */}
+        <div className="glass-card p-6">
           <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} stepTitle={stepTitle} />
 
           <div>
@@ -245,37 +299,69 @@ export default function IntakePage() {
               <DocumentUpload uploadedFiles={uploadedFiles} onFilesChange={setUploadedFiles} />
             )}
 
+            {/* Submit error */}
             {submitError && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <div
+                className="mt-4 p-4 rounded-xl text-sm"
+                style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.28)',
+                  color: '#fca5a5',
+                }}
+              >
                 <p className="font-semibold mb-1">Submission failed</p>
-                <p>{submitError}</p>
+                <p style={{ color: 'rgba(252,165,165,0.85)' }}>{submitError}</p>
               </div>
             )}
 
-            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+            {/* Navigation */}
+            <div
+              className="flex justify-between items-center mt-8 pt-6"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+            >
               {currentStep > 1 ? (
-                <button type="button" onClick={handleBack} className="btn-secondary">
-                  ← Back
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="btn-secondary"
+                  style={{ padding: '10px 22px', fontSize: '0.9rem' }}
+                >
+                  <ArrowLeftIcon className="w-4 h-4" />
+                  Back
                 </button>
               ) : (
                 <div />
               )}
 
               {!isDocumentStep ? (
-                <button type="button" onClick={handleNext} className="btn-primary">
-                  Save & Continue →
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="btn-primary"
+                  style={{ padding: '10px 26px', fontSize: '0.9rem' }}
+                >
+                  Save &amp; Continue
+                  <ArrowRightIcon className="w-4 h-4" />
                 </button>
               ) : (
-                <button type="button" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || !allRequiredDocumentsUploaded(uploadedFiles)} className="btn-primary min-w-[180px] disabled:opacity-40 disabled:cursor-not-allowed">
+                <button
+                  type="button"
+                  onClick={handleSubmit(onSubmit)}
+                  disabled={isSubmitting || !allRequiredDocumentsUploaded(uploadedFiles)}
+                  className="btn-primary min-w-[180px]"
+                  style={{ padding: '10px 26px', fontSize: '0.9rem' }}
+                >
                   {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                      Submitting...
-                    </span>
-                  ) : 'Submit My Intake'}
+                    <>
+                      <SpinnerIcon className="w-4 h-4 animate-spin" />
+                      Submitting…
+                    </>
+                  ) : (
+                    <>
+                      Submit My Intake
+                      <ArrowRightIcon className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               )}
             </div>
