@@ -45,7 +45,7 @@ export default function LandingPage() {
           className="glass-card max-w-5xl mx-auto px-6 py-3.5 flex items-center justify-between"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
         >
-          <Link href="/" className="flex items-center gap-2 group" aria-label="AI Assist BG home">
+          <Link href="/" className="flex items-center gap-3 group" aria-label="AI Assist BG home">
             <Image
               src="/logo.png"
               alt="AI Assist BG"
@@ -53,6 +53,7 @@ export default function LandingPage() {
               height={40}
               className="flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
             />
+            <span className="font-bold text-white text-[15px] tracking-tight">AI Assist BG</span>
           </Link>
 
           <Link href="/intake" className="btn-primary" style={{ padding: '9px 22px', fontSize: '0.875rem' }}>

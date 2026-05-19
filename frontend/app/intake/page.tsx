@@ -147,7 +147,7 @@ export default function IntakePage() {
           className="glass-card max-w-3xl mx-auto px-5 py-3 flex items-center justify-between"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
         >
-          <Link href="/" className="flex items-center gap-2 group" aria-label="Back to home">
+          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Back to home">
             <Image
               src="/logo.png"
               alt="AI Assist BG"
@@ -155,6 +155,7 @@ export default function IntakePage() {
               height={36}
               className="flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
             />
+            <span className="font-bold text-white text-sm tracking-tight">AI Assist BG</span>
           </Link>
 
           <div className="flex items-center gap-3">
