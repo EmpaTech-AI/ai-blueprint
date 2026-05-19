@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { BotIcon, CheckIcon, ArrowRightIcon } from '@/components/ui/icons';
+import Image from 'next/image';
+import { CheckIcon, ArrowRightIcon } from '@/components/ui/icons';
 
 const DELIVERABLES = [
   'Company profile and strategic context analysis',
@@ -44,14 +45,14 @@ export default function LandingPage() {
           className="glass-card max-w-5xl mx-auto px-6 py-3.5 flex items-center justify-between"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
         >
-          <Link href="/" className="flex items-center gap-3 group" aria-label="AI Assist BG home">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)' }}
-            >
-              <BotIcon className="w-[22px] h-[22px]" style={{ color: '#fff' } as React.CSSProperties} />
-            </div>
-            <span className="font-bold text-white text-[15px] tracking-tight">AI Assist BG</span>
+          <Link href="/" className="flex items-center gap-2 group" aria-label="AI Assist BG home">
+            <Image
+              src="/logo.png"
+              alt="AI Assist BG"
+              width={40}
+              height={40}
+              className="flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+            />
           </Link>
 
           <Link href="/intake" className="btn-primary" style={{ padding: '9px 22px', fontSize: '0.875rem' }}>

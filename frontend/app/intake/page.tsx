@@ -13,12 +13,12 @@ import {
   missingRequiredDocumentLabels,
 } from '@/components/IntakeForm/DocumentUpload';
 import {
-  BotIcon,
   ArrowRightIcon,
   ArrowLeftIcon,
   SpinnerIcon,
 } from '@/components/ui/icons';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const STORAGE_KEY  = 'blueprint-intake-draft';
 const TOTAL_STEPS  = FORM_SECTIONS.length + 1;
@@ -147,14 +147,14 @@ export default function IntakePage() {
           className="glass-card max-w-3xl mx-auto px-5 py-3 flex items-center justify-between"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
         >
-          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Back to home">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)', color: '#fff' }}
-            >
-              <BotIcon className="w-[18px] h-[18px]" />
-            </div>
-            <span className="font-bold text-white text-sm tracking-tight">AI Value Blueprint</span>
+          <Link href="/" className="flex items-center gap-2 group" aria-label="Back to home">
+            <Image
+              src="/logo.png"
+              alt="AI Assist BG"
+              width={36}
+              height={36}
+              className="flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+            />
           </Link>
 
           <div className="flex items-center gap-3">

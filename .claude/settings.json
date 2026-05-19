@@ -28,7 +28,9 @@
       "Read(//d/d/Shiz/AI Assist BG/**)",
       "Bash(copy \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\AI Value Blueprint Skills Pipeline\\\\blueprint-orchestrator\\\\references\\\\validate_data_contract.py\" \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\validate_data_contract.py\")",
       "PowerShell(Copy-Item \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\AI Value Blueprint Skills Pipeline\\\\blueprint-orchestrator\\\\references\\\\validate_data_contract.py\" \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\Fiels\\\\validate_data_contract.py\" -Force)",
-      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Force)"
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Force)",
+      "Bash(Copy-Item -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\669f94497ac849dd375f6287.png\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\public\\\\logo.png\")",
+      "PowerShell(Copy-Item -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\669f94497ac849dd375f6287.png\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\public\\\\logo.png\")"
     ]
   }
 }

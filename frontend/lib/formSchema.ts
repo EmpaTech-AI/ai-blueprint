@@ -155,13 +155,13 @@ export const UPLOAD_CATEGORIES = [
     description: 'e.g., CRM export, sales pipeline report, pipeline by stage.' },
   { id: 'process_docs', label: 'Process Documentation (SOPs, Workflows)', required: true,
     description: 'e.g., Standard operating procedures, workflow diagrams, process maps.' },
-  { id: 'marketing_data', label: 'Marketing or Customer Data', required: false,
+  { id: 'marketing_data', label: 'Marketing or Customer Data', required: true,
     description: 'e.g., Customer list overview, marketing performance, churn data.' },
-  { id: 'tech_inventory', label: 'Technology Inventory', required: false,
+  { id: 'tech_inventory', label: 'Technology Inventory', required: true,
     description: 'e.g., List of software tools, systems, subscriptions, IT architecture.' },
-  { id: 'strategic_docs', label: 'Strategic Documents', required: false,
+  { id: 'strategic_docs', label: 'Strategic Documents', required: true,
     description: 'e.g., Board deck, annual plan, company strategy presentation.' },
-  { id: 'previous_ai', label: 'Previous AI or Digital Initiative Descriptions', required: false,
+  { id: 'previous_ai', label: 'Previous AI or Digital Initiative Descriptions', required: true,
     description: 'e.g., Any past AI pilots, digital transformation reports, technology assessments.' },
 ];
 
