@@ -31,7 +31,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Force)",
       "Bash(Copy-Item -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\669f94497ac849dd375f6287.png\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\public\\\\logo.png\")",
       "PowerShell(Copy-Item -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\669f94497ac849dd375f6287.png\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\frontend\\\\public\\\\logo.png\")",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(node -e \"require\\('pdfmake/src/printer'\\); console.log\\('pdfmake OK'\\)\")"
     ]
   }
 }
