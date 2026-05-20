@@ -172,3 +172,12 @@ export function ShieldIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
     </Icon>
   );
 }
+
+export function TrashIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+    </Icon>
+  );
+}

@@ -12,6 +12,7 @@ import {
   TerminalIcon,
   LogOutIcon,
   SpinnerIcon,
+  TrashIcon,
 } from '@/components/ui/icons';
 
 interface ConfidenceBreakdown {
@@ -217,6 +218,8 @@ export default function AdminPage() {
   const [approvingId,    setApprovingId]    = useState<string | null>(null);
   const [retryingId,     setRetryingId]     = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+  const [deletingId,     setDeletingId]     = useState<string | null>(null);
+  const [confirmDeleteId,setConfirmDeleteId]= useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -327,11 +330,39 @@ export default function AdminPage() {
     }
   }, [apiUrl, token]);
 
+  const handleDelete = useCallback(async (jobId: string) => {
+    if (confirmDeleteId !== jobId) {
+      setConfirmDeleteId(jobId);
+      return;
+    }
+    setConfirmDeleteId(null);
+    setDeletingId(jobId);
+    try {
+      const res = await fetch(`${apiUrl}/api/status/${jobId}`, {
+        method: 'DELETE',
+        headers: { 'x-reviewer-token': token },
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      await fetchJobs(token);
+    } catch {
+      setError('Failed to delete job');
+    } finally {
+      setDeletingId(null);
+    }
+  }, [apiUrl, token, confirmDeleteId, fetchJobs]);
+
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(() => fetchJobs(token), 30000);
     return () => clearInterval(interval);
   }, [authenticated, token, fetchJobs]);
+
+  // Auto-cancel delete confirmation after 4 seconds of no action
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const timer = setTimeout(() => setConfirmDeleteId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmDeleteId]);
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authenticated) {
@@ -566,6 +597,31 @@ export default function AdminPage() {
                       <TerminalIcon className="w-3.5 h-3.5" />
                       Logs
                     </a>
+
+                    {/* Delete — two-click confirm */}
+                    <button
+                      onClick={() => handleDelete(job.jobId)}
+                      disabled={deletingId === job.jobId}
+                      className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={confirmDeleteId === job.jobId ? {
+                        padding: '8px 16px',
+                        background: 'rgba(239,68,68,0.22)',
+                        border: '1px solid rgba(239,68,68,0.5)',
+                        color: '#fca5a5',
+                      } : {
+                        padding: '8px 16px',
+                        background: 'rgba(239,68,68,0.07)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        color: 'rgba(252,165,165,0.6)',
+                      }}
+                    >
+                      {deletingId === job.jobId
+                        ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Deleting…</>
+                        : confirmDeleteId === job.jobId
+                        ? <><TrashIcon className="w-3.5 h-3.5" /> Confirm Delete</>
+                        : <><TrashIcon className="w-3.5 h-3.5" /> Delete</>
+                      }
+                    </button>
                   </div>
                 </div>
 

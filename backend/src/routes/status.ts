@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { loadJob, getAllJobs, approveJob, resetJobForRetry } from '../storage/jobStore';
+import { loadJob, getAllJobs, approveJob, resetJobForRetry, deleteJob } from '../storage/jobStore';
 import { runPipeline } from '../pipeline/orchestrator';
 import { log } from '../utils/logger';
 import fs from 'fs';
@@ -93,6 +93,22 @@ router.post('/:jobId/approve', (req: Request, res: Response) => {
     approveJob(req.params.jobId);
     res.json({ success: true });
   } catch (err) {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: delete a job
+router.delete('/:jobId', (req: Request, res: Response) => {
+  const token = req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    loadJob(req.params.jobId); // throws if not found
+    deleteJob(req.params.jobId);
+    res.json({ success: true });
+  } catch {
     res.status(404).json({ error: 'Job not found' });
   }
 });

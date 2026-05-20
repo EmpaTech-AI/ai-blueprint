@@ -147,6 +147,10 @@ export function approveJob(jobId: string): void {
   db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
 }
 
+export function deleteJob(jobId: string): void {
+  db.prepare('DELETE FROM jobs WHERE jobId = ?').run(jobId);
+}
+
 export function resetJobForRetry(jobId: string): void {
   db.prepare(`
     UPDATE jobs SET
