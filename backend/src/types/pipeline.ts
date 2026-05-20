@@ -68,5 +68,6 @@ export interface PipelineJob {
   };
   reviewerFlags?: string[];
   outputDocxPath?: string;
+  outputDocxData?: string;
   errorLog?: string[];
 }

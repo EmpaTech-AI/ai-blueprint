@@ -31,9 +31,13 @@ db.exec(`
     confidenceScores TEXT,
     reviewerFlags TEXT,
     outputDocxPath TEXT,
+    outputDocxData TEXT,
     errorLog TEXT
   );
 `);
+
+// Safe migration for databases created before outputDocxData column was added
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputDocxData TEXT'); } catch { /* already exists */ }
 
 export function createJob(job: PipelineJob): void {
   const stmt = db.prepare(`
@@ -123,6 +127,10 @@ export function getAllJobs(): PipelineJob[] {
   return rows.map(deserializeJob);
 }
 
+export function saveDocxData(jobId: string, base64: string): void {
+  db.prepare('UPDATE jobs SET outputDocxData = ? WHERE jobId = ?').run(base64, jobId);
+}
+
 export function approveJob(jobId: string): void {
   db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
 }
@@ -142,6 +150,7 @@ export function resetJobForRetry(jobId: string): void {
       confidenceScores = NULL,
       reviewerFlags = NULL,
       outputDocxPath = NULL,
+      outputDocxData = NULL,
       errorLog = NULL
     WHERE jobId = ?
   `).run(jobId);

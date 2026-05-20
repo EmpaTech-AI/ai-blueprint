@@ -37,7 +37,7 @@ export async function generateBlueprintDocx(
   clientName: string,
   assembledContent: string,
   outputPath: string
-): Promise<void> {
+): Promise<Buffer> {
   log('info', `Generating DOCX for ${clientName}`, { outputPath });
 
   const sections = parseAssembledContent(assembledContent);
@@ -108,6 +108,7 @@ export async function generateBlueprintDocx(
   const buffer = await Packer.toBuffer(doc);
   fs.writeFileSync(outputPath, buffer);
   log('info', `DOCX written: ${outputPath}`, { sizeBytes: buffer.length });
+  return buffer;
 }
 
 function buildTitlePage(clientName: string): Paragraph[] {

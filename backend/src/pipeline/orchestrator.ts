@@ -6,6 +6,7 @@ import {
   appendErrorLog,
   updateConfidenceScores,
   updateReviewerFlags,
+  saveDocxData,
 } from '../storage/jobStore';
 import { runStepA } from './stepA-parser';
 import { runStepB } from './stepB-intake';
@@ -87,7 +88,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     const docxFilename = `AI Value Blueprint - ${sanitizeName(job.clientName)}.docx`;
     const docxPath = path.join(JOBS_DIR, jobId, docxFilename);
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
-    await generateBlueprintDocx(job.clientName, assembled, docxPath);
+    const docxBuffer = await generateBlueprintDocx(job.clientName, assembled, docxPath);
+
+    // Persist the DOCX in the database so downloads survive container restarts
+    await saveDocxData(jobId, docxBuffer.toString('base64'));
 
     await updateConfidenceScores(jobId, confidenceScores);
     await updateReviewerFlags(jobId, reviewerFlags);

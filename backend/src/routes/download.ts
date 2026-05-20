@@ -14,15 +14,26 @@ router.get('/:jobId', (req: Request, res: Response) => {
 
   try {
     const job = loadJob(req.params.jobId);
-    if (!job.outputDocxPath || !fs.existsSync(job.outputDocxPath)) {
-      res.status(404).json({ error: 'Document not available yet' });
+    const filename = job.outputDocxPath
+      ? path.basename(job.outputDocxPath)
+      : `AI Value Blueprint - ${job.clientName}.docx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Fast path: serve from disk if the file still exists
+    if (job.outputDocxPath && fs.existsSync(job.outputDocxPath)) {
+      fs.createReadStream(job.outputDocxPath).pipe(res);
       return;
     }
 
-    const filename = path.basename(job.outputDocxPath);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    fs.createReadStream(job.outputDocxPath).pipe(res);
+    // Fallback: serve from the base64 copy persisted in the database
+    if (job.outputDocxData) {
+      res.send(Buffer.from(job.outputDocxData, 'base64'));
+      return;
+    }
+
+    res.status(404).json({ error: 'Document not available yet' });
   } catch (err) {
     res.status(404).json({ error: 'Job not found' });
   }
