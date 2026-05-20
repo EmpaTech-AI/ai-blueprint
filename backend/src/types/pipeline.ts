@@ -36,11 +36,20 @@ export interface IntakeSubmission {
   };
 }
 
+export interface ConfidenceBreakdown {
+  documentBacked: number;
+  formStated: number;
+  inferred: number;
+  assumption: number;
+  total: number;
+}
+
 export interface ConfidenceResult {
   score: number;
   highConfidenceCount: number;
   lowConfidenceCount: number;
   needsReview: boolean;
+  breakdown: ConfidenceBreakdown;
 }
 
 export interface PipelineJob {
@@ -59,15 +68,11 @@ export interface PipelineJob {
   stepD_opportunities?: string;
   stepD2_roadmap?: string;
   stepE_assembly?: string;
-  confidenceScores?: {
-    stepB?: number;
-    stepC?: number;
-    stepD?: number;
-    stepD2?: number;
-    stepE?: number;
-  };
+  confidenceScores?: Record<string, ConfidenceResult>;
   reviewerFlags?: string[];
   outputDocxPath?: string;
   outputDocxData?: string;
+  outputPdfData?: string;
+  outputTxtData?: string;
   errorLog?: string[];
 }

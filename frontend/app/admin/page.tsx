@@ -14,6 +14,22 @@ import {
   SpinnerIcon,
 } from '@/components/ui/icons';
 
+interface ConfidenceBreakdown {
+  documentBacked: number;
+  formStated: number;
+  inferred: number;
+  assumption: number;
+  total: number;
+}
+
+interface StepConfidence {
+  score: number;
+  highConfidenceCount: number;
+  lowConfidenceCount: number;
+  needsReview: boolean;
+  breakdown: ConfidenceBreakdown;
+}
+
 interface JobSummary {
   jobId: string;
   clientName: string;
@@ -22,18 +38,24 @@ interface JobSummary {
   currentStep: string;
   startedAt: string;
   completedAt?: string;
-  confidenceScores: Record<string, number>;
+  confidenceScores: Record<string, StepConfidence | number>;
   reviewerFlags: string[];
   errorLog: string[];
   progress: number;
 }
 
-const STEP_INFO: Record<string, { label: string; description: string }> = {
-  B:  { label: 'Intake Analysis',      description: 'Compresses form responses & documents into an internal client dossier' },
-  C:  { label: 'Maturity Assessment',  description: 'Scores AI readiness across 6 dimensions: Strategy, Data, Technology, People, Processes, Governance' },
-  D:  { label: 'Opportunity Mapping',  description: 'Identifies and ranks the top 5–7 AI use cases by impact, feasibility, and strategic alignment' },
-  D2: { label: 'Action Roadmap',       description: 'Sequences opportunities into a Now / Next / Later 12-month implementation plan' },
-  E:  { label: 'Document Assembly',    description: 'Compiles all outputs into the final 12–18 page client-facing AI Value Blueprint DOCX' },
+const STEP_INFO: Record<string, { stage: string; label: string; description: string }> = {
+  A:  { stage: 'Pre-Processing', label: 'Document Parsing',    description: 'Parses all uploaded files (PDF, DOCX, XLSX, PPTX) into a searchable text corpus for the AI pipeline' },
+  B:  { stage: 'Stage 1',        label: 'Intake Analysis',     description: 'Compresses form responses & documents into an internal client dossier (3–4 pages)' },
+  C:  { stage: 'Stage 2',        label: 'Maturity Scoring',    description: 'Scores AI readiness across 6 dimensions: Strategy, Data, Technology, People, Processes, Governance' },
+  D:  { stage: 'Stage 3',        label: 'Opportunity Mapping', description: 'Identifies and ranks the top 5–7 AI use cases by impact, feasibility, and strategic alignment' },
+  D2: { stage: 'Stage 4',        label: 'Action Roadmap',      description: 'Sequences opportunities into a Now / Next / Later 12-month implementation plan' },
+  E:  { stage: 'Stage 5',        label: 'Document Assembly',   description: 'Compiles all outputs into the final 12–18 page client-facing AI Value Blueprint' },
+};
+
+// Maps the confidenceScores key (e.g. "stepB") to the STEP_INFO key (e.g. "B")
+const SCORE_KEY_TO_STEP: Record<string, string> = {
+  stepB: 'B', stepC: 'C', stepD: 'D', stepD2: 'D2', stepE: 'E',
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -52,11 +74,123 @@ const STATUS_LABELS: Record<string, string> = {
   failed:       'Failed',
 };
 
-function ConfidenceBadge({ score }: { score: number }) {
-  const cls = score >= 80 ? 'badge-confidence-green'
-            : score >= 60 ? 'badge-confidence-amber'
-            : 'badge-confidence-red';
-  return <span className={cls}>{score}%</span>;
+// 4-band system per EmpaTech quality gate spec:
+// 🟢 Green 90–100  🟡 Amber 76–89  🔵 Blue 60–75  🔴 Red <60
+function scoreColor(score: number) {
+  if (score >= 90) return { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',  text: '#86efac', band: 'Green',  action: 'Quick scan (5 min) — output is solid.' };
+  if (score >= 76) return { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Amber',  action: 'Review flagged items (15–30 min). Fix specific issues before proceeding.' };
+  if (score >= 60) return { badge: 'badge-confidence-blue',  bar: '#3b82f6', barGlow: 'rgba(59,130,246,0.4)', text: '#93c5fd', band: 'Blue',   action: 'Detailed review required (30–60 min). Fill gaps from source documents.' };
+  return           { badge: 'badge-confidence-red',          bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',  text: '#fca5a5', band: 'Red',    action: 'Critical concern — stop and assess root cause before proceeding.' };
+}
+
+function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfidence | number }) {
+  const stepId   = SCORE_KEY_TO_STEP[stepKey] ?? stepKey;
+  const stepMeta = STEP_INFO[stepId];
+  const stage    = stepMeta?.stage ?? stepKey;
+  const label    = stepMeta?.label ?? stepKey;
+
+  // Support both old format (plain number) and new format (full object)
+  const score    = typeof data === 'number' ? data : data.score;
+  const colors   = scoreColor(score);
+  const full     = typeof data === 'object' ? data : null;
+
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}
+    >
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {stage}
+          </span>
+          <p className="text-sm font-semibold leading-tight" style={{ color: 'rgba(255,255,255,0.85)' }}>
+            {label}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className={colors.badge}>{colors.band}</span>
+          <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{score}%</span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div
+        className="w-full rounded-full mb-2 mt-2"
+        style={{ height: '4px', background: 'rgba(255,255,255,0.08)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${score}%`, background: colors.bar, boxShadow: `0 0 6px ${colors.barGlow}` }}
+        />
+      </div>
+
+      {/* Verdict / action */}
+      <p className="text-xs mb-3 leading-relaxed" style={{ color: colors.text }}>
+        {colors.action}
+      </p>
+
+      {/* Detailed breakdown (new format only) */}
+      {full && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Citation breakdown — {full.breakdown.total} total tags
+          </p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'rgba(255,255,255,0.45)' }}>Document-Backed</span>
+              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>
+                {full.breakdown.documentBacked}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'rgba(255,255,255,0.45)' }}>Form-Stated</span>
+              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>
+                {full.breakdown.formStated}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'rgba(255,255,255,0.45)' }}>Inferred</span>
+              <span className="font-semibold tabular-nums" style={{ color: '#fcd34d' }}>
+                {full.breakdown.inferred}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'rgba(255,255,255,0.45)' }}>Assumption</span>
+              <span className="font-semibold tabular-nums" style={{ color: '#fca5a5' }}>
+                {full.breakdown.assumption}
+              </span>
+            </div>
+          </div>
+
+          {full.breakdown.total > 0 && (
+            <p className="text-xs mt-2 pt-2" style={{
+              color: 'rgba(255,255,255,0.35)',
+              borderTop: '1px solid rgba(255,255,255,0.07)',
+            }}>
+              {full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total
+              {' '}= {score}% grounded
+              {full.breakdown.total === 0 && ' (no tags found — defaulting to 50%)'}
+            </p>
+          )}
+
+          {full.breakdown.total === 0 && (
+            <p className="text-xs mt-1" style={{ color: '#fcd34d' }}>
+              No confidence tags found in output — score defaulted to 50%.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Fallback: old format with no breakdown */}
+      {!full && (
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Run the pipeline again to see the full citation breakdown.
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ── Skeleton card ────────────────────────────────────────────────────────────
@@ -74,14 +208,15 @@ function SkeletonCard() {
 }
 
 export default function AdminPage() {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password,      setPassword]      = useState('');
-  const [token,         setToken]         = useState('');
-  const [jobs,          setJobs]          = useState<JobSummary[]>([]);
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState('');
-  const [approvingId,   setApprovingId]   = useState<string | null>(null);
-  const [retryingId,    setRetryingId]    = useState<string | null>(null);
+  const [authenticated,  setAuthenticated]  = useState(false);
+  const [password,       setPassword]       = useState('');
+  const [token,          setToken]          = useState('');
+  const [jobs,           setJobs]           = useState<JobSummary[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [error,          setError]          = useState('');
+  const [approvingId,    setApprovingId]    = useState<string | null>(null);
+  const [retryingId,     setRetryingId]     = useState<string | null>(null);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -157,11 +292,40 @@ export default function AdminPage() {
     }
   };
 
-  const downloadUrl  = (jobId: string) => `${apiUrl}/api/download/${jobId}?token=${encodeURIComponent(token)}`;
-  const previewUrl   = (jobId: string) => `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
-  const logsUrl      = (jobId: string) => `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
+  const previewUrl      = (jobId: string) => `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
+  const logsUrl         = (jobId: string) => `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
   const stepDownloadUrl = (jobId: string, step: string) =>
     `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`;
+
+  const handleDownload = useCallback(async (
+    jobId: string,
+    format: 'docx' | 'pdf' | 'txt',
+    clientName: string,
+  ) => {
+    const key  = `${jobId}-${format}`;
+    const path = format === 'docx' ? '' : `/${format}`;
+    setDownloadingKey(key);
+    try {
+      const res = await fetch(`${apiUrl}/api/download/${jobId}${path}?token=${encodeURIComponent(token)}`);
+      if (!res.ok) {
+        let msg = `Download failed (${res.status})`;
+        try { const d = await res.json() as { error?: string }; msg = d.error ?? msg; } catch { /* ignore */ }
+        setError(msg);
+        return;
+      }
+      const blob = await res.blob();
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `AI Value Blueprint - ${clientName}.${format}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setError('');
+    } catch {
+      setError('Download failed — check your connection and try again.');
+    } finally {
+      setDownloadingKey(null);
+    }
+  }, [apiUrl, token]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -330,41 +494,22 @@ export default function AdminPage() {
                   {/* Action buttons */}
                   <div className="flex gap-2.5 flex-wrap items-center">
                     {(job.status === 'review_ready' || job.status === 'approved') && (
-                      <>
-                        <a
-                          href={previewUrl(job.jobId)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
-                          style={{
-                            padding: '8px 18px',
-                            background: 'rgba(255,255,255,0.07)',
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            color: 'rgba(255,255,255,0.85)',
-                            textDecoration: 'none',
-                          }}
-                        >
-                          <EyeIcon className="w-3.5 h-3.5" />
-                          Preview
-                        </a>
-                        <a
-                          href={downloadUrl(job.jobId)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
-                          style={{
-                            padding: '8px 18px',
-                            background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            color: '#fff',
-                            textDecoration: 'none',
-                            boxShadow: '0 0 16px rgba(99,102,241,0.3)',
-                          }}
-                        >
-                          <DownloadIcon className="w-3.5 h-3.5" />
-                          Download DOCX
-                        </a>
-                      </>
+                      <a
+                        href={previewUrl(job.jobId)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
+                        style={{
+                          padding: '8px 18px',
+                          background: 'rgba(255,255,255,0.07)',
+                          border: '1px solid rgba(255,255,255,0.18)',
+                          color: 'rgba(255,255,255,0.85)',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <EyeIcon className="w-3.5 h-3.5" />
+                        Preview
+                      </a>
                     )}
 
                     {job.status === 'review_ready' && (
@@ -424,13 +569,42 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                {/* Download format buttons */}
+                {(job.status === 'review_ready' || job.status === 'approved') && (
+                  <div className="flex gap-2 mt-3 flex-wrap items-center">
+                    <span className="text-xs mr-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Download as:</span>
+                    {(['pdf', 'docx', 'txt'] as const).map((fmt) => {
+                      const key = `${job.jobId}-${fmt}`;
+                      const colors = {
+                        pdf:  { bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.3)',  color: '#93c5fd' },
+                        docx: { bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)',  color: '#a5b4fc' },
+                        txt:  { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.55)' },
+                      }[fmt];
+                      return (
+                        <button
+                          key={fmt}
+                          onClick={() => handleDownload(job.jobId, fmt, job.clientName)}
+                          disabled={downloadingKey === key}
+                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ padding: '7px 16px', background: colors.bg, border: `1px solid ${colors.border}`, color: colors.color }}
+                        >
+                          {downloadingKey === key
+                            ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Downloading…</>
+                            : <><DownloadIcon className="w-3.5 h-3.5" /> {fmt.toUpperCase()}</>
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Progress bar */}
                 <div className="mt-5">
                   <div className="flex justify-between text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     <span>
                       {STEP_INFO[job.currentStep]
-                        ? <>{STEP_INFO[job.currentStep].label} <span style={{ color: 'rgba(255,255,255,0.28)' }}>· Step {job.currentStep}</span></>
-                        : `Step ${job.currentStep}`}
+                        ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
+                        : job.currentStep}
                     </span>
                     <span>{job.progress}%</span>
                   </div>
@@ -457,16 +631,13 @@ export default function AdminPage() {
 
                 {/* Confidence scores */}
                 {Object.keys(job.confidenceScores).length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      Confidence Scores
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      AI Output Quality — Confidence Scores
                     </p>
-                    <div className="flex gap-3 flex-wrap">
-                      {Object.entries(job.confidenceScores).map(([step, score]) => (
-                        <div key={step} className="flex items-center gap-1.5">
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{step}:</span>
-                          <ConfidenceBadge score={score} />
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                      {Object.entries(job.confidenceScores).map(([stepKey, data]) => (
+                        <ConfidenceCard key={stepKey} stepKey={stepKey} data={data} />
                       ))}
                     </div>
                   </div>
@@ -506,7 +677,9 @@ export default function AdminPage() {
                   >
                     <p className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: '#fca5a5' }}>
                       <TerminalIcon className="w-3.5 h-3.5" />
-                      Pipeline Error — Failed at Step {job.currentStep}
+                      Pipeline Error — Failed at {STEP_INFO[job.currentStep]
+                        ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
+                        : job.currentStep}
                     </p>
                     {job.errorLog.length > 0 ? (
                       <ul className="space-y-1">
@@ -531,10 +704,10 @@ export default function AdminPage() {
                     style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                      Pipeline outputs — download each step&apos;s raw output for review
+                      Raw pipeline outputs — download each stage&apos;s AI output for detailed review
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {(['B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
+                      {(['A', 'B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
                         const info = STEP_INFO[step];
                         return (
                           <a
@@ -554,16 +727,16 @@ export default function AdminPage() {
                             }}
                           >
                             <span
-                              className="text-xs font-bold leading-none mb-1"
+                              className="text-xs font-semibold uppercase tracking-wide leading-none mb-0.5"
+                              style={{ color: 'rgba(165,180,252,0.7)', fontSize: '0.65rem' }}
+                            >
+                              {info.stage}
+                            </span>
+                            <span
+                              className="text-xs font-bold leading-tight"
                               style={{ color: '#a5b4fc' }}
                             >
                               {info.label}
-                            </span>
-                            <span
-                              className="text-xs"
-                              style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem' }}
-                            >
-                              Step {step}
                             </span>
                           </a>
                         );

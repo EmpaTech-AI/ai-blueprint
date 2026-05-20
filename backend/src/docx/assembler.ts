@@ -196,6 +196,149 @@ function buildSection(section: Section): Paragraph[] {
   return paragraphs;
 }
 
+// ─── PDF Generator ───────────────────────────────────────────────────────────
+
+export async function generateBlueprintPdf(
+  clientName: string,
+  assembledContent: string,
+): Promise<Buffer> {
+  log('info', `Generating PDF for ${clientName}`);
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const PdfPrinter = require('pdfmake/src/printer') as new (
+    fonts: Record<string, Record<string, Buffer>>
+  ) => { createPdfKitDocument: (def: unknown) => NodeJS.EventEmitter & { end(): void } };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const vfs = (require('pdfmake/build/vfs_fonts') as { pdfMake: { vfs: Record<string, string> } }).pdfMake.vfs;
+
+  const fonts = {
+    Roboto: {
+      normal:      Buffer.from(vfs['Roboto-Regular.ttf'],       'base64'),
+      bold:        Buffer.from(vfs['Roboto-Medium.ttf'],         'base64'),
+      italics:     Buffer.from(vfs['Roboto-Italic.ttf'],         'base64'),
+      bolditalics: Buffer.from(vfs['Roboto-MediumItalic.ttf'],   'base64'),
+    },
+  };
+
+  const printer  = new PdfPrinter(fonts);
+  const today    = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const sections = parseAssembledContent(assembledContent);
+  const W        = 451; // printable width at 1-inch margins on A4
+
+  const content: unknown[] = [
+    { text: '\n\n\n', fontSize: 12 },
+    { text: 'AI VALUE BLUEPRINT',   style: 'coverTitle',        alignment: 'center' },
+    { text: clientName,             style: 'coverClient',       alignment: 'center' },
+    { text: ' ',                    fontSize: 14 },
+    { text: 'Prepared by AI Assist BG', style: 'coverMeta',    alignment: 'center' },
+    { text: today,                  style: 'coverMeta',         alignment: 'center' },
+    { text: ' ',                    fontSize: 20 },
+    { text: 'CONFIDENTIAL',         style: 'coverConfidential', alignment: 'center', pageBreak: 'after' },
+  ];
+
+  sections.forEach((section, idx) => {
+    content.push({ text: section.heading, style: 'h1', pageBreak: idx > 0 ? 'before' : undefined });
+    content.push({
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 1.5, lineColor: '#2E5FA1' }],
+      margin: [0, 2, 0, 10],
+    });
+
+    for (const line of section.content.split('\n')) {
+      const t = line.trim();
+      if (!t) { content.push({ text: ' ', fontSize: 5 }); continue; }
+
+      if      (t.startsWith('### ')) content.push({ text: t.slice(4), style: 'h3' });
+      else if (t.startsWith('## '))  content.push({ text: t.slice(3), style: 'h2' });
+      else if (t.startsWith('**') && t.endsWith('**'))
+        content.push({ text: t.slice(2, -2), style: 'body', bold: true });
+      else if (t.startsWith('- ') || t.startsWith('• '))
+        content.push({ text: `• ${t.slice(2)}`, style: 'bullet' });
+      else
+        content.push({ text: stripInlineMarkdown(t), style: 'body' });
+    }
+  });
+
+  const def = {
+    pageSize: 'A4',
+    pageMargins: [72, 72, 72, 72],
+    defaultStyle: { font: 'Roboto', fontSize: 11, color: '#404040', lineHeight: 1.5 },
+    header: (pg: number) => pg > 1 ? {
+      text: 'AI Assist BG  |  AI Value Blueprint',
+      alignment: 'right', margin: [72, 24, 72, 0], fontSize: 9, color: '#2E5FA1',
+    } : undefined,
+    footer: (pg: number, total: number) => pg > 1 ? {
+      text: `Confidential  |  Page ${pg} of ${total}`,
+      alignment: 'center', margin: [72, 0, 72, 24], fontSize: 9, color: '#A6A6A6',
+    } : undefined,
+    content,
+    styles: {
+      coverTitle:        { fontSize: 28, bold: true,  color: '#2E5FA1', margin: [0, 0, 0, 16] },
+      coverClient:       { fontSize: 20, bold: true,  color: '#404040', margin: [0, 0, 0, 24] },
+      coverMeta:         { fontSize: 12,               color: '#A6A6A6', margin: [0, 0, 0, 6]  },
+      coverConfidential: { fontSize: 10, bold: true,  color: '#A6A6A6'                          },
+      h1:  { fontSize: 18, bold: true, color: '#2E5FA1', margin: [0, 16, 0, 4]  },
+      h2:  { fontSize: 14, bold: true, color: '#404040', margin: [0, 12, 0, 6]  },
+      h3:  { fontSize: 12, bold: true, color: '#404040', margin: [0, 8,  0, 4]  },
+      body:   { fontSize: 11, margin: [0, 0, 0, 6]  },
+      bullet: { fontSize: 11, margin: [14, 0, 0, 4] },
+    },
+  };
+
+  const doc = printer.createPdfKitDocument(def);
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    doc.on('data',  (c: Buffer) => chunks.push(c));
+    doc.on('end',   () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.end();
+  });
+}
+
+function stripInlineMarkdown(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+}
+
+// ─── TXT Generator ───────────────────────────────────────────────────────────
+
+export function generateBlueprintTxt(clientName: string, assembledContent: string): string {
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const HR1   = '═'.repeat(70);
+  const HR2   = '─'.repeat(70);
+
+  const out: string[] = [
+    HR1, '',
+    '   AI VALUE BLUEPRINT',
+    `   ${clientName}`,
+    '',
+    `   Prepared by AI Assist BG`,
+    `   ${today}`,
+    '   CONFIDENTIAL',
+    '', HR1, '',
+  ];
+
+  const sections = parseAssembledContent(assembledContent);
+  sections.forEach((section, idx) => {
+    if (idx > 0) out.push('', '');
+    out.push(HR2, `${idx + 1}. ${section.heading.toUpperCase()}`, HR2, '');
+
+    for (const line of section.content.split('\n')) {
+      const t = line.trim();
+      if (!t) { out.push(''); continue; }
+
+      if      (t.startsWith('### ')) { out.push('', `   ▸ ${t.slice(4).toUpperCase()}`, ''); }
+      else if (t.startsWith('## '))  { out.push('', `  ${t.slice(3)}`, `  ${'─'.repeat(t.slice(3).length)}`, ''); }
+      else if (t.startsWith('**') && t.endsWith('**')) { out.push(`  ${t.slice(2, -2)}`); }
+      else if (t.startsWith('- ') || t.startsWith('• ')) { out.push(`  • ${t.slice(2)}`); }
+      else { out.push(`  ${stripInlineMarkdown(t)}`); }
+    }
+  });
+
+  out.push('', HR1, '   End of Document — AI Assist BG', HR1);
+  return out.join('\n');
+}
+
+// ─── Content parser ───────────────────────────────────────────────────────────
+
 function parseAssembledContent(content: string): Section[] {
   const sections: Section[] = [];
   const lines = content.split('\n');

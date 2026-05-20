@@ -32,12 +32,16 @@ db.exec(`
     reviewerFlags TEXT,
     outputDocxPath TEXT,
     outputDocxData TEXT,
+    outputPdfData TEXT,
+    outputTxtData TEXT,
     errorLog TEXT
   );
 `);
 
-// Safe migration for databases created before outputDocxData column was added
+// Safe migrations for columns added after initial schema
 try { db.exec('ALTER TABLE jobs ADD COLUMN outputDocxData TEXT'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputPdfData TEXT'); }  catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputTxtData TEXT'); }  catch { /* already exists */ }
 
 export function createJob(job: PipelineJob): void {
   const stmt = db.prepare(`
@@ -131,6 +135,14 @@ export function saveDocxData(jobId: string, base64: string): void {
   db.prepare('UPDATE jobs SET outputDocxData = ? WHERE jobId = ?').run(base64, jobId);
 }
 
+export function savePdfData(jobId: string, base64: string): void {
+  db.prepare('UPDATE jobs SET outputPdfData = ? WHERE jobId = ?').run(base64, jobId);
+}
+
+export function saveTxtData(jobId: string, txt: string): void {
+  db.prepare('UPDATE jobs SET outputTxtData = ? WHERE jobId = ?').run(txt, jobId);
+}
+
 export function approveJob(jobId: string): void {
   db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
 }
@@ -151,6 +163,8 @@ export function resetJobForRetry(jobId: string): void {
       reviewerFlags = NULL,
       outputDocxPath = NULL,
       outputDocxData = NULL,
+      outputPdfData = NULL,
+      outputTxtData = NULL,
       errorLog = NULL
     WHERE jobId = ?
   `).run(jobId);

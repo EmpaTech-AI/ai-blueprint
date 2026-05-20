@@ -7,6 +7,8 @@ import {
   updateConfidenceScores,
   updateReviewerFlags,
   saveDocxData,
+  savePdfData,
+  saveTxtData,
 } from '../storage/jobStore';
 import { runStepA } from './stepA-parser';
 import { runStepB } from './stepB-intake';
@@ -14,7 +16,7 @@ import { runStepC } from './stepC-maturity';
 import { runStepD } from './stepD-opportunities';
 import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
-import { generateBlueprintDocx } from '../docx/assembler';
+import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { calculateConfidence } from '../utils/confidenceScorer';
 import { log } from '../utils/logger';
 import path from 'path';
@@ -48,40 +50,40 @@ export async function runPipeline(jobId: string): Promise<void> {
     const dossier = await runStepB(job.formAnswers, corpus);
     await saveStepOutput(jobId, 'B', dossier);
     const bScore = calculateConfidence(dossier);
-    confidenceScores.stepB = bScore.score;
-    if (bScore.needsReview) reviewerFlags.push(`Step B confidence score low: ${bScore.score}%`);
+    confidenceScores.stepB = bScore;
+    if (bScore.needsReview) reviewerFlags.push(`Stage 1 (Intake Analysis) confidence: ${bScore.score}% — below Amber threshold (76%)`);
 
     // Step C — blueprint-maturity
     await updateJobStatus(jobId, 'running', 'C');
     const maturity = await runStepC(dossier);
     await saveStepOutput(jobId, 'C', maturity);
     const cScore = calculateConfidence(maturity);
-    confidenceScores.stepC = cScore.score;
-    if (cScore.needsReview) reviewerFlags.push(`Step C confidence score low: ${cScore.score}%`);
+    confidenceScores.stepC = cScore;
+    if (cScore.needsReview) reviewerFlags.push(`Stage 2 (Maturity Scoring) confidence: ${cScore.score}% — below Amber threshold (76%)`);
 
     // Step D — blueprint-opportunities
     await updateJobStatus(jobId, 'running', 'D');
     const opportunities = await runStepD(dossier, maturity);
     await saveStepOutput(jobId, 'D', opportunities);
     const dScore = calculateConfidence(opportunities);
-    confidenceScores.stepD = dScore.score;
-    if (dScore.needsReview) reviewerFlags.push(`Step D confidence score low: ${dScore.score}%`);
+    confidenceScores.stepD = dScore;
+    if (dScore.needsReview) reviewerFlags.push(`Stage 3 (Opportunity Mapping) confidence: ${dScore.score}% — below Amber threshold (76%)`);
 
     // Step D2 — blueprint-roadmap
     await updateJobStatus(jobId, 'running', 'D2');
     const roadmap = await runStepD2(opportunities, maturity);
     await saveStepOutput(jobId, 'D2', roadmap);
     const d2Score = calculateConfidence(roadmap);
-    confidenceScores.stepD2 = d2Score.score;
-    if (d2Score.needsReview) reviewerFlags.push(`Step D2 confidence score low: ${d2Score.score}%`);
+    confidenceScores.stepD2 = d2Score;
+    if (d2Score.needsReview) reviewerFlags.push(`Stage 4 (Action Roadmap) confidence: ${d2Score.score}% — below Amber threshold (76%)`);
 
     // Step E — blueprint-assembly
     await updateJobStatus(jobId, 'running', 'E');
     const assembled = await runStepE(dossier, maturity, opportunities, roadmap);
     await saveStepOutput(jobId, 'E', assembled);
     const eScore = calculateConfidence(assembled);
-    confidenceScores.stepE = eScore.score;
-    if (eScore.needsReview) reviewerFlags.push(`Step E confidence score low: ${eScore.score}%`);
+    confidenceScores.stepE = eScore;
+    if (eScore.needsReview) reviewerFlags.push(`Stage 5 (Document Assembly) confidence: ${eScore.score}% — below Amber threshold (76%)`);
 
     // Generate DOCX
     fs.mkdirSync(JOBS_DIR, { recursive: true });
@@ -90,8 +92,14 @@ export async function runPipeline(jobId: string): Promise<void> {
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
     const docxBuffer = await generateBlueprintDocx(job.clientName, assembled, docxPath);
 
-    // Persist the DOCX in the database so downloads survive container restarts
+    // Persist all download formats in the database so they survive container restarts
     await saveDocxData(jobId, docxBuffer.toString('base64'));
+
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, assembled);
+    await savePdfData(jobId, pdfBuffer.toString('base64'));
+
+    const txtContent = generateBlueprintTxt(job.clientName, assembled);
+    await saveTxtData(jobId, txtContent);
 
     await updateConfidenceScores(jobId, confidenceScores);
     await updateReviewerFlags(jobId, reviewerFlags);

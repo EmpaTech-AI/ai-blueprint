@@ -23,7 +23,11 @@ router.get('/:jobId', (req: Request, res: Response) => {
 
     // Fast path: serve from disk if the file still exists
     if (job.outputDocxPath && fs.existsSync(job.outputDocxPath)) {
-      fs.createReadStream(job.outputDocxPath).pipe(res);
+      const stream = fs.createReadStream(job.outputDocxPath);
+      stream.on('error', () => {
+        if (!res.headersSent) res.status(500).json({ error: 'File read error' });
+      });
+      stream.pipe(res);
       return;
     }
 
@@ -35,6 +39,50 @@ router.get('/:jobId', (req: Request, res: Response) => {
 
     res.status(404).json({ error: 'Document not available yet' });
   } catch (err) {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// PDF download
+router.get('/:jobId/pdf', (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const job = loadJob(req.params.jobId);
+    if (!job.outputPdfData) {
+      res.status(404).json({ error: 'PDF not available — re-run the pipeline to generate it' });
+      return;
+    }
+    const filename = `AI Value Blueprint - ${sanitizeFilename(job.clientName)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(Buffer.from(job.outputPdfData, 'base64'));
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// TXT download
+router.get('/:jobId/txt', (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const job = loadJob(req.params.jobId);
+    if (!job.outputTxtData) {
+      res.status(404).json({ error: 'TXT not available — re-run the pipeline to generate it' });
+      return;
+    }
+    const filename = `AI Value Blueprint - ${sanitizeFilename(job.clientName)}.txt`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(job.outputTxtData);
+  } catch {
     res.status(404).json({ error: 'Job not found' });
   }
 });
@@ -100,11 +148,12 @@ router.get('/:jobId/step/:step', (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const stepMap: Record<string, string | undefined> = {
-      B: job.stepB_dossier,
-      C: job.stepC_maturity,
-      D: job.stepD_opportunities,
+      A:  job.stepA_corpus,
+      B:  job.stepB_dossier,
+      C:  job.stepC_maturity,
+      D:  job.stepD_opportunities,
       D2: job.stepD2_roadmap,
-      E: job.stepE_assembly,
+      E:  job.stepE_assembly,
     };
     const content = stepMap[req.params.step.toUpperCase()];
     if (!content) {
@@ -121,6 +170,10 @@ router.get('/:jobId/step/:step', (req: Request, res: Response) => {
 });
 
 export default router;
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().substring(0, 60);
+}
 
 type Corpus = {
   parsedAt?: string;
