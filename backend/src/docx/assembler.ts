@@ -209,7 +209,7 @@ export async function generateBlueprintPdf(
     fonts: Record<string, Record<string, Buffer>>
   ) => { createPdfKitDocument: (def: unknown) => NodeJS.EventEmitter & { end(): void } };
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const vfs = (require('pdfmake/build/vfs_fonts') as { pdfMake: { vfs: Record<string, string> } }).pdfMake.vfs;
+  const vfs = require('pdfmake/build/vfs_fonts') as Record<string, string>;
 
   const fonts = {
     Roboto: {
