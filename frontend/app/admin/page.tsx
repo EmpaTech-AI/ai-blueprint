@@ -13,6 +13,8 @@ import {
   LogOutIcon,
   SpinnerIcon,
   TrashIcon,
+  ChevronDownIcon,
+  SearchIcon,
 } from '@/components/ui/icons';
 
 interface ConfidenceBreakdown {
@@ -70,7 +72,6 @@ const STEP_INFO: Record<string, { stage: string; label: string; description: str
   E:  { stage: 'Stage 5',        label: 'Document Assembly',   description: 'Compiles all outputs into the final 12–18 page client-facing AI Value Blueprint' },
 };
 
-// Maps the confidenceScores key (e.g. "stepB") to the STEP_INFO key (e.g. "B")
 const SCORE_KEY_TO_STEP: Record<string, string> = {
   stepB: 'B', stepC: 'C', stepD: 'D', stepD2: 'D2', stepE: 'E',
 };
@@ -91,8 +92,6 @@ const STATUS_LABELS: Record<string, string> = {
   failed:       'Failed',
 };
 
-// 4-band system per EmpaTech quality gate spec:
-// 🟢 Green 90–100  🟡 Amber 76–89  🔵 Blue 60–75  🔴 Red <60
 function scoreColor(score: number) {
   if (score >= 90) return { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',  text: '#86efac', band: 'Green',  action: 'Quick scan (5 min) — output is solid.' };
   if (score >= 76) return { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Amber',  action: 'Review flagged items (15–30 min). Fix specific issues before proceeding.' };
@@ -108,7 +107,6 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
   const stage    = stepMeta?.stage ?? stepKey;
   const label    = stepMeta?.label ?? stepKey;
 
-  // Support both old format (plain number) and new format (full object)
   const score    = typeof data === 'number' ? data : data.score;
   const colors   = scoreColor(score);
   const full     = typeof data === 'object' ? data : null;
@@ -151,7 +149,7 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         {colors.action}
       </p>
 
-      {/* Detailed breakdown (new format only) */}
+      {/* Detailed breakdown */}
       {full && (
         <div className="space-y-1.5">
           <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -160,38 +158,25 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span style={{ color: 'rgba(255,255,255,0.45)' }}>Document-Backed</span>
-              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>
-                {full.breakdown.documentBacked}
-              </span>
+              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>{full.breakdown.documentBacked}</span>
             </div>
             <div className="flex items-center justify-between">
               <span style={{ color: 'rgba(255,255,255,0.45)' }}>Form-Stated</span>
-              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>
-                {full.breakdown.formStated}
-              </span>
+              <span className="font-semibold tabular-nums" style={{ color: '#86efac' }}>{full.breakdown.formStated}</span>
             </div>
             <div className="flex items-center justify-between">
               <span style={{ color: 'rgba(255,255,255,0.45)' }}>Inferred</span>
-              <span className="font-semibold tabular-nums" style={{ color: '#fcd34d' }}>
-                {full.breakdown.inferred}
-              </span>
+              <span className="font-semibold tabular-nums" style={{ color: '#fcd34d' }}>{full.breakdown.inferred}</span>
             </div>
             <div className="flex items-center justify-between">
               <span style={{ color: 'rgba(255,255,255,0.45)' }}>Assumption</span>
-              <span className="font-semibold tabular-nums" style={{ color: '#fca5a5' }}>
-                {full.breakdown.assumption}
-              </span>
+              <span className="font-semibold tabular-nums" style={{ color: '#fca5a5' }}>{full.breakdown.assumption}</span>
             </div>
           </div>
 
           {full.breakdown.total > 0 && (
-            <p className="text-xs mt-2 pt-2" style={{
-              color: 'rgba(255,255,255,0.35)',
-              borderTop: '1px solid rgba(255,255,255,0.07)',
-            }}>
-              {full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total
-              {' '}= {score}% grounded
-              {full.breakdown.total === 0 && ' (no tags found — defaulting to 50%)'}
+            <p className="text-xs mt-2 pt-2" style={{ color: 'rgba(255,255,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              {full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total = {score}% grounded
             </p>
           )}
 
@@ -203,27 +188,18 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </div>
       )}
 
-      {/* Confidence overview sentence */}
       {full?.confidenceOverview && (
-        <p className="text-xs mt-2 pt-2 leading-relaxed italic" style={{
-          color: 'rgba(255,255,255,0.5)',
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-        }}>
+        <p className="text-xs mt-2 pt-2 leading-relaxed italic" style={{ color: 'rgba(255,255,255,0.5)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           {full.confidenceOverview}
         </p>
       )}
 
-      {/* No-tags explanation */}
       {full?.noTagsReason && (
-        <p className="text-xs mt-2 pt-2 leading-relaxed" style={{
-          color: '#fcd34d',
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-        }}>
+        <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           {full.noTagsReason}
         </p>
       )}
 
-      {/* Score pattern diagnosis */}
       {full?.scoreContext && !full.noTagsReason && (
         <p className="text-xs mt-2 pt-2 leading-relaxed" style={{
           color: score >= 76 ? 'rgba(255,255,255,0.45)' : '#fcd34d',
@@ -233,7 +209,7 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </p>
       )}
 
-      {/* Structured justification entries (new format) */}
+      {/* Structured justification entries */}
       {(full?.justificationEntries?.length ?? 0) > 0 && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
@@ -248,38 +224,24 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
           {showSnippets && (
             <div className="mt-3 space-y-3">
               {full!.justificationEntries!.map((entry) => {
-                const isInferred = entry.tag === 'Inferred';
-                const tagColor   = isInferred ? '#fcd34d' : '#fca5a5';
-                const bgColor    = isInferred ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+                const isInferred  = entry.tag === 'Inferred';
+                const tagColor    = isInferred ? '#fcd34d' : '#fca5a5';
+                const bgColor     = isInferred ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
                 const borderColor = isInferred ? 'rgba(245,158,11,0.22)' : 'rgba(239,68,68,0.22)';
                 return (
-                  <div
-                    key={entry.index}
-                    className="rounded-xl text-xs leading-relaxed"
-                    style={{ background: bgColor, border: `1px solid ${borderColor}`, padding: '10px 12px' }}
-                  >
-                    {/* Header */}
+                  <div key={entry.index} className="rounded-xl text-xs leading-relaxed" style={{ background: bgColor, border: `1px solid ${borderColor}`, padding: '10px 12px' }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className="font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                        style={{ fontSize: '0.58rem', color: tagColor, background: isInferred ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)' }}
-                      >
+                      <span className="font-bold uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ fontSize: '0.58rem', color: tagColor, background: isInferred ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)' }}>
                         {entry.tag}
                       </span>
-                      <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                        {entry.label}
-                      </span>
+                      <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>{entry.label}</span>
                     </div>
-
-                    {/* Claim */}
                     {entry.claim && (
                       <div className="mb-2">
                         <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Claim</span>
                         <p className="mt-0.5 italic" style={{ color: 'rgba(255,255,255,0.65)' }}>&ldquo;{entry.claim}&rdquo;</p>
                       </div>
                     )}
-
-                    {/* Why tagged */}
                     {entry.whyTagged && (
                       <div className="mb-2">
                         <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -288,21 +250,14 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
                         <p className="mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{entry.whyTagged}</p>
                       </div>
                     )}
-
-                    {/* Missing data */}
                     {entry.missingData && (
                       <div className="mb-2">
                         <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing data</span>
                         <p className="mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{entry.missingData}</p>
                       </div>
                     )}
-
-                    {/* Consultant action */}
                     {entry.consultantAction && (
-                      <div
-                        className="mt-2 pt-2 rounded-lg px-2.5 py-2"
-                        style={{ borderTop: `1px solid ${borderColor}`, background: isInferred ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)' }}
-                      >
+                      <div className="mt-2 pt-2 rounded-lg px-2.5 py-2" style={{ borderTop: `1px solid ${borderColor}`, background: isInferred ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)' }}>
                         <span className="font-bold" style={{ color: tagColor, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>→ Consultant action</span>
                         <p className="mt-0.5 font-medium" style={{ color: tagColor }}>{entry.consultantAction}</p>
                       </div>
@@ -315,7 +270,7 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </div>
       )}
 
-      {/* Legacy fallback: raw snippets (pre-structured-justification runs) */}
+      {/* Legacy fallback: raw snippets */}
       {!full?.justificationEntries?.length && snippetCount > 0 && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
@@ -344,7 +299,6 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </div>
       )}
 
-      {/* Fallback: old format with no breakdown */}
       {!full && (
         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
           Run the pipeline again to see the full citation breakdown.
@@ -354,7 +308,6 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
   );
 }
 
-// ── Skeleton card ────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div className="glass-card p-6 space-y-4">
@@ -368,19 +321,24 @@ function SkeletonCard() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function AdminPage() {
-  const [authenticated,  setAuthenticated]  = useState(false);
-  const [password,       setPassword]       = useState('');
-  const [token,          setToken]          = useState('');
-  const [jobs,           setJobs]           = useState<JobSummary[]>([]);
-  const [loading,        setLoading]        = useState(false);
-  const [error,          setError]          = useState('');
-  const [approvingId,    setApprovingId]    = useState<string | null>(null);
-  const [retryingId,     setRetryingId]     = useState<string | null>(null);
-  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+  const [authenticated,   setAuthenticated]   = useState(false);
+  const [password,        setPassword]        = useState('');
+  const [token,           setToken]           = useState('');
+  const [jobs,            setJobs]            = useState<JobSummary[]>([]);
+  const [loading,         setLoading]         = useState(false);
+  const [error,           setError]           = useState('');
+  const [approvingId,     setApprovingId]     = useState<string | null>(null);
+  const [retryingId,      setRetryingId]      = useState<string | null>(null);
+  const [downloadingKey,  setDownloadingKey]  = useState<string | null>(null);
   const [deletingId,      setDeletingId]      = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null);
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [expandedJobIds,  setExpandedJobIds]  = useState<Set<string>>(new Set());
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -458,20 +416,13 @@ export default function AdminPage() {
 
   const previewUrl       = (jobId: string) => `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
   const logsUrl          = (jobId: string) => `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
-  const stepDownloadUrl  = (jobId: string, step: string) =>
-    `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`;
-  const stepPreviewUrl   = (jobId: string, step: string) =>
-    `${apiUrl}/api/download/${jobId}/step/${step}/preview?token=${encodeURIComponent(token)}`;
+  const stepPreviewUrl   = (jobId: string, step: string) => `${apiUrl}/api/download/${jobId}/step/${step}/preview?token=${encodeURIComponent(token)}`;
   const stepFormatUrl    = (jobId: string, step: string, fmt: 'pdf' | 'docx' | 'txt') =>
     fmt === 'txt'
-      ? stepDownloadUrl(jobId, step)
+      ? `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`
       : `${apiUrl}/api/download/${jobId}/step/${step}/${fmt}?token=${encodeURIComponent(token)}`;
 
-  const handleDownload = useCallback(async (
-    jobId: string,
-    format: 'docx' | 'pdf' | 'txt',
-    clientName: string,
-  ) => {
+  const handleDownload = useCallback(async (jobId: string, format: 'docx' | 'pdf' | 'txt', clientName: string) => {
     const key  = `${jobId}-${format}`;
     const path = format === 'docx' ? '' : `/${format}`;
     setDownloadingKey(key);
@@ -518,26 +469,41 @@ export default function AdminPage() {
     }
   }, [apiUrl, token, confirmDeleteId, fetchJobs]);
 
+  const toggleExpanded = (jobId: string) => {
+    setExpandedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId); else next.add(jobId);
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(() => fetchJobs(token), 30000);
     return () => clearInterval(interval);
   }, [authenticated, token, fetchJobs]);
 
-  // Auto-cancel delete confirmation after 4 seconds of no action
   useEffect(() => {
     if (!confirmDeleteId) return;
     const timer = setTimeout(() => setConfirmDeleteId(null), 4000);
     return () => clearTimeout(timer);
   }, [confirmDeleteId]);
 
-  // Close any open download dropdown when clicking elsewhere
   useEffect(() => {
     if (!openDropdownKey) return;
     const close = () => setOpenDropdownKey(null);
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, [openDropdownKey]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+
+  const filteredJobs  = jobs.filter(j =>
+    j.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    j.clientEmail.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const totalPages    = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
+  const paginatedJobs = filteredJobs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authenticated) {
@@ -548,35 +514,18 @@ export default function AdminPage() {
           aria-hidden="true"
           style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)' }}
         />
-
         <div className="relative w-full max-w-sm">
-          <div
-            className="p-px rounded-2xl"
-            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(6,182,212,0.3) 100%)' }}
-          >
-            <div
-              className="rounded-2xl p-8"
-              style={{
-                background: 'rgba(13,13,25,0.95)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-              }}
-            >
+          <div className="p-px rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(6,182,212,0.3) 100%)' }}>
+            <div className="rounded-2xl p-8" style={{ background: 'rgba(13,13,25,0.95)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
               <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
                   <ShieldIcon className="w-5 h-5" />
                 </div>
                 <div>
                   <h1 className="font-bold text-white text-lg leading-none">Blueprint Admin</h1>
-                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                    Internal reviewer access only
-                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>Internal reviewer access only</p>
                 </div>
               </div>
-
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.75)' }}>
@@ -591,12 +540,8 @@ export default function AdminPage() {
                     autoFocus
                   />
                 </div>
-                {error && (
-                  <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>
-                )}
-                <button type="submit" className="btn-primary w-full">
-                  Sign In
-                </button>
+                {error && <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>}
+                <button type="submit" className="btn-primary w-full">Sign In</button>
               </form>
             </div>
           </div>
@@ -617,24 +562,14 @@ export default function AdminPage() {
         >
           <div>
             <p className="font-bold text-white text-[15px]">Blueprint Admin Dashboard</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Auto-refreshes every 30 seconds
-            </p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Auto-refreshes every 30 seconds</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => fetchJobs(token)}
-              className="btn-secondary"
-              style={{ padding: '8px 18px', fontSize: '0.875rem' }}
-            >
+            <button onClick={() => fetchJobs(token)} className="btn-secondary" style={{ padding: '8px 18px', fontSize: '0.875rem' }}>
               <RefreshIcon className="w-3.5 h-3.5" />
               Refresh
             </button>
-            <button
-              onClick={() => setAuthenticated(false)}
-              className="btn-ghost"
-              style={{ padding: '8px 14px', fontSize: '0.875rem' }}
-            >
+            <button onClick={() => setAuthenticated(false)} className="btn-ghost" style={{ padding: '8px 14px', fontSize: '0.875rem' }}>
               <LogOutIcon className="w-3.5 h-3.5" />
               Sign out
             </button>
@@ -646,15 +581,23 @@ export default function AdminPage() {
 
         {/* Error banner */}
         {error && (
-          <div
-            className="mb-6 p-4 rounded-xl text-sm"
-            style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.28)',
-              color: '#fca5a5',
-            }}
-          >
+          <div className="mb-6 p-4 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5' }}>
             {error}
+          </div>
+        )}
+
+        {/* Search bar */}
+        {jobs.length > 0 && (
+          <div className="mb-5 relative max-w-sm">
+            <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(255,255,255,0.3)' }} />
+            <input
+              type="text"
+              className="input-glass w-full"
+              style={{ paddingLeft: '2.25rem' }}
+              placeholder="Search by name or email…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         )}
 
@@ -665,423 +608,325 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — no jobs at all */}
         {!loading && jobs.length === 0 && (
-          <div
-            className="glass-card p-16 text-center"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
-          >
+          <div className="glass-card p-16 text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
             No jobs found yet.
           </div>
         )}
 
-        {/* Job cards */}
-        {jobs.length > 0 && (
-          <div className="space-y-4">
-            {jobs.map((job) => (
-              <div key={job.jobId} className="glass-card p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glass-hover">
-
-                {/* Header row */}
-                <div className="flex items-start justify-between flex-wrap gap-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1 flex-wrap">
-                      <h2 className="font-bold text-white text-lg">{job.clientName}</h2>
-                      <span className={STATUS_BADGE[job.status]}>
-                        {STATUS_LABELS[job.status]}
-                      </span>
-                    </div>
-                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{job.clientEmail}</p>
-                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                      Started: {new Date(job.startedAt).toLocaleString()}
-                      {job.completedAt && ` · Completed: ${new Date(job.completedAt).toLocaleString()}`}
-                    </p>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2.5 flex-wrap items-center">
-                    {(job.status === 'review_ready' || job.status === 'approved') && (
-                      <a
-                        href={previewUrl(job.jobId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
-                        style={{
-                          padding: '8px 18px',
-                          background: 'rgba(255,255,255,0.07)',
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          color: 'rgba(255,255,255,0.85)',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <EyeIcon className="w-3.5 h-3.5" />
-                        Preview
-                      </a>
-                    )}
-
-                    {job.status === 'review_ready' && (
-                      <button
-                        onClick={() => handleApprove(job.jobId)}
-                        disabled={approvingId === job.jobId}
-                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{
-                          padding: '8px 18px',
-                          background: 'rgba(34,197,94,0.18)',
-                          border: '1px solid rgba(34,197,94,0.35)',
-                          color: '#86efac',
-                        }}
-                      >
-                        {approvingId === job.jobId
-                          ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Approving…</>
-                          : <><CheckCircleIcon className="w-3.5 h-3.5" /> Approve for Delivery</>
-                        }
-                      </button>
-                    )}
-
-                    {job.status === 'failed' && (
-                      <button
-                        onClick={() => handleRetry(job.jobId)}
-                        disabled={retryingId === job.jobId}
-                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{
-                          padding: '8px 18px',
-                          background: 'rgba(245,158,11,0.18)',
-                          border: '1px solid rgba(245,158,11,0.35)',
-                          color: '#fcd34d',
-                        }}
-                      >
-                        {retryingId === job.jobId
-                          ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Retrying…</>
-                          : <><RefreshIcon className="w-3.5 h-3.5" /> Retry Pipeline</>
-                        }
-                      </button>
-                    )}
-
-                    {(job.status === 'review_ready' || job.status === 'approved') && (
-                      <button
-                        onClick={() => handleRetry(job.jobId)}
-                        disabled={retryingId === job.jobId}
-                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{
-                          padding: '8px 18px',
-                          background: 'rgba(99,102,241,0.15)',
-                          border: '1px solid rgba(99,102,241,0.32)',
-                          color: '#a5b4fc',
-                        }}
-                      >
-                        {retryingId === job.jobId
-                          ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Re-running…</>
-                          : <><RefreshIcon className="w-3.5 h-3.5" /> Re-run Pipeline</>
-                        }
-                      </button>
-                    )}
-
-                    <a
-                      href={logsUrl(job.jobId)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px"
-                      style={{
-                        padding: '8px 16px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.13)',
-                        color: 'rgba(255,255,255,0.55)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <TerminalIcon className="w-3.5 h-3.5" />
-                      Logs
-                    </a>
-
-                    {/* Delete — two-click confirm */}
-                    <button
-                      onClick={() => handleDelete(job.jobId)}
-                      disabled={deletingId === job.jobId}
-                      className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={confirmDeleteId === job.jobId ? {
-                        padding: '8px 16px',
-                        background: 'rgba(239,68,68,0.22)',
-                        border: '1px solid rgba(239,68,68,0.5)',
-                        color: '#fca5a5',
-                      } : {
-                        padding: '8px 16px',
-                        background: 'rgba(239,68,68,0.07)',
-                        border: '1px solid rgba(239,68,68,0.2)',
-                        color: 'rgba(252,165,165,0.6)',
-                      }}
-                    >
-                      {deletingId === job.jobId
-                        ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Deleting…</>
-                        : confirmDeleteId === job.jobId
-                        ? <><TrashIcon className="w-3.5 h-3.5" /> Confirm Delete</>
-                        : <><TrashIcon className="w-3.5 h-3.5" /> Delete</>
-                      }
-                    </button>
-                  </div>
-                </div>
-
-                {/* Download format buttons */}
-                {(job.status === 'review_ready' || job.status === 'approved') && (
-                  <div className="flex gap-2 mt-3 flex-wrap items-center">
-                    <span className="text-xs mr-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Download as:</span>
-                    {(['pdf', 'docx', 'txt'] as const).map((fmt) => {
-                      const key = `${job.jobId}-${fmt}`;
-                      const colors = {
-                        pdf:  { bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.3)',  color: '#93c5fd' },
-                        docx: { bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)',  color: '#a5b4fc' },
-                        txt:  { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.55)' },
-                      }[fmt];
-                      return (
-                        <button
-                          key={fmt}
-                          onClick={() => handleDownload(job.jobId, fmt, job.clientName)}
-                          disabled={downloadingKey === key}
-                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
-                          style={{ padding: '7px 16px', background: colors.bg, border: `1px solid ${colors.border}`, color: colors.color }}
-                        >
-                          {downloadingKey === key
-                            ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Downloading…</>
-                            : <><DownloadIcon className="w-3.5 h-3.5" /> {fmt.toUpperCase()}</>
-                          }
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Progress bar */}
-                <div className="mt-5">
-                  <div className="flex justify-between text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                    <span>
-                      {STEP_INFO[job.currentStep]
-                        ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
-                        : job.currentStep}
-                    </span>
-                    <span>{job.progress}%</span>
-                  </div>
-                  <div
-                    className="w-full rounded-full overflow-hidden"
-                    style={{ height: '4px', background: 'rgba(255,255,255,0.08)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${job.progress}%`,
-                        background: job.status === 'failed'
-                          ? 'linear-gradient(90deg, #ef4444, #fca5a5)'
-                          : job.status === 'approved'
-                          ? 'linear-gradient(90deg, #22c55e, #86efac)'
-                          : 'linear-gradient(90deg, #6366F1, #818CF8)',
-                        boxShadow: job.status === 'failed'
-                          ? '0 0 8px rgba(239,68,68,0.5)'
-                          : '0 0 8px rgba(99,102,241,0.5)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Confidence scores */}
-                {Object.keys(job.confidenceScores).length > 0 && (
-                  <div className="mt-5">
-                    <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      AI Output Quality — Confidence Scores
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                      {Object.entries(job.confidenceScores).map(([stepKey, data]) => (
-                        <ConfidenceCard key={stepKey} stepKey={stepKey} data={data} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Reviewer flags */}
-                {job.reviewerFlags.length > 0 && (
-                  <div
-                    className="mt-4 p-3.5 rounded-xl"
-                    style={{
-                      background: 'rgba(245,158,11,0.09)',
-                      border: '1px solid rgba(245,158,11,0.22)',
-                    }}
-                  >
-                    <p className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: '#fcd34d' }}>
-                      <AlertTriangleIcon className="w-3.5 h-3.5" />
-                      Reviewer Flags
-                    </p>
-                    <ul className="space-y-1">
-                      {job.reviewerFlags.map((flag, i) => (
-                        <li key={i} className="text-xs" style={{ color: 'rgba(252,211,77,0.8)' }}>
-                          · {flag}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Error log */}
-                {job.status === 'failed' && (
-                  <div
-                    className="mt-4 p-3.5 rounded-xl"
-                    style={{
-                      background: 'rgba(239,68,68,0.09)',
-                      border: '1px solid rgba(239,68,68,0.22)',
-                    }}
-                  >
-                    <p className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: '#fca5a5' }}>
-                      <TerminalIcon className="w-3.5 h-3.5" />
-                      Pipeline Error — Failed at {STEP_INFO[job.currentStep]
-                        ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
-                        : job.currentStep}
-                    </p>
-                    {job.errorLog.length > 0 ? (
-                      <ul className="space-y-1">
-                        {job.errorLog.map((entry, i) => (
-                          <li key={i} className="text-xs font-mono break-all" style={{ color: 'rgba(252,165,165,0.8)' }}>
-                            {entry}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs" style={{ color: 'rgba(252,165,165,0.7)' }}>
-                        No error details stored. Check Railway logs.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Intermediate output downloads */}
-                {(job.status === 'review_ready' || job.status === 'approved') && (
-                  <div
-                    className="mt-5 pt-5"
-                    style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
-                  >
-                    <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                      Raw pipeline outputs — preview or download each stage&apos;s AI output
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {(['A', 'B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
-                        const info = STEP_INFO[step];
-                        const dropKey = `${job.jobId}-${step}`;
-                        const isOpen = openDropdownKey === dropKey;
-                        return (
-                          <div
-                            key={step}
-                            title={info.description}
-                            style={{
-                              background: 'rgba(99,102,241,0.08)',
-                              border: '1px solid rgba(99,102,241,0.2)',
-                              borderRadius: '10px',
-                              padding: '10px 12px',
-                            }}
-                          >
-                            <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>
-                              {info.stage}
-                            </span>
-                            <span style={{ color: '#a5b4fc', fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '8px', lineHeight: 1.3 }}>
-                              {info.label}
-                            </span>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              {/* Preview button — opens inline PDF in new tab */}
-                              <a
-                                href={stepPreviewUrl(job.jobId, step)}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{
-                                  flex: 1,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '3px',
-                                  padding: '4px 6px',
-                                  background: 'rgba(255,255,255,0.07)',
-                                  border: '1px solid rgba(255,255,255,0.15)',
-                                  borderRadius: '6px',
-                                  color: 'rgba(255,255,255,0.7)',
-                                  fontSize: '0.68rem',
-                                  fontWeight: 600,
-                                  textDecoration: 'none',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                <EyeIcon className="w-3 h-3" />
-                                Preview
-                              </a>
-
-                              {/* Download dropdown */}
-                              <div
-                                style={{ position: 'relative' }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() => setOpenDropdownKey(isOpen ? null : dropKey)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '4px 8px',
-                                    background: isOpen ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.18)',
-                                    border: '1px solid rgba(99,102,241,0.35)',
-                                    borderRadius: '6px',
-                                    color: '#a5b4fc',
-                                    fontSize: '0.68rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  <DownloadIcon className="w-3 h-3" />
-                                  {isOpen ? '▴' : '▾'}
-                                </button>
-
-                                {isOpen && (
-                                  <div style={{
-                                    position: 'absolute',
-                                    bottom: 'calc(100% + 4px)',
-                                    right: 0,
-                                    background: '#13131f',
-                                    border: '1px solid rgba(99,102,241,0.4)',
-                                    borderRadius: '8px',
-                                    padding: '4px',
-                                    zIndex: 50,
-                                    minWidth: '80px',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                                  }}>
-                                    {(['pdf', 'docx', 'txt'] as const).map((fmt) => (
-                                      <a
-                                        key={fmt}
-                                        href={stepFormatUrl(job.jobId, step, fmt)}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={() => setOpenDropdownKey(null)}
-                                        style={{
-                                          display: 'block',
-                                          padding: '5px 10px',
-                                          borderRadius: '5px',
-                                          color: 'rgba(255,255,255,0.8)',
-                                          fontSize: '0.72rem',
-                                          fontWeight: 700,
-                                          textDecoration: 'none',
-                                          textTransform: 'uppercase',
-                                          letterSpacing: '0.04em',
-                                        }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(99,102,241,0.25)')}
-                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                                      >
-                                        {fmt}
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+        {/* Empty state — search yields nothing */}
+        {!loading && jobs.length > 0 && filteredJobs.length === 0 && (
+          <div className="glass-card p-8 text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            No clients match &ldquo;{searchQuery}&rdquo;.
           </div>
         )}
+
+        {/* Job cards */}
+        {paginatedJobs.length > 0 && (
+          <div className="space-y-3">
+            {paginatedJobs.map((job) => {
+              const isExpanded = expandedJobIds.has(job.jobId);
+              return (
+                <div
+                  key={job.jobId}
+                  className="glass-card overflow-hidden transition-all duration-200 hover:shadow-glass-hover"
+                >
+                  {/* ── Always-visible header — click to expand/collapse ── */}
+                  <div
+                    className="flex items-start justify-between flex-wrap gap-4 p-5 cursor-pointer select-none"
+                    onClick={() => toggleExpanded(job.jobId)}
+                  >
+                    {/* Left: name + meta */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3 mb-1 flex-wrap">
+                        <h2 className="font-bold text-white text-base">{job.clientName}</h2>
+                        <span className={STATUS_BADGE[job.status]}>{STATUS_LABELS[job.status]}</span>
+                      </div>
+                      <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{job.clientEmail}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {new Date(job.startedAt).toLocaleString()}
+                        {job.completedAt && ` · ${new Date(job.completedAt).toLocaleString()}`}
+                      </p>
+                    </div>
+
+                    {/* Right: action buttons + chevron */}
+                    <div className="flex gap-2 flex-wrap items-center" onClick={(e) => e.stopPropagation()}>
+                      {(job.status === 'review_ready' || job.status === 'approved') && (
+                        <a href={previewUrl(job.jobId)} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px"
+                          style={{ padding: '7px 16px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.85)', textDecoration: 'none' }}>
+                          <EyeIcon className="w-3.5 h-3.5" /> Preview
+                        </a>
+                      )}
+
+                      {job.status === 'review_ready' && (
+                        <button onClick={() => handleApprove(job.jobId)} disabled={approvingId === job.jobId}
+                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ padding: '7px 16px', background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.35)', color: '#86efac' }}>
+                          {approvingId === job.jobId
+                            ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Approving…</>
+                            : <><CheckCircleIcon className="w-3.5 h-3.5" /> Approve</>}
+                        </button>
+                      )}
+
+                      {job.status === 'failed' && (
+                        <button onClick={() => handleRetry(job.jobId)} disabled={retryingId === job.jobId}
+                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ padding: '7px 16px', background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.35)', color: '#fcd34d' }}>
+                          {retryingId === job.jobId
+                            ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Retrying…</>
+                            : <><RefreshIcon className="w-3.5 h-3.5" /> Retry</>}
+                        </button>
+                      )}
+
+                      {(job.status === 'review_ready' || job.status === 'approved') && (
+                        <button onClick={() => handleRetry(job.jobId)} disabled={retryingId === job.jobId}
+                          className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ padding: '7px 16px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.32)', color: '#a5b4fc' }}>
+                          {retryingId === job.jobId
+                            ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Re-running…</>
+                            : <><RefreshIcon className="w-3.5 h-3.5" /> Re-run</>}
+                        </button>
+                      )}
+
+                      <a href={logsUrl(job.jobId)} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px"
+                        style={{ padding: '7px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>
+                        <TerminalIcon className="w-3.5 h-3.5" /> Logs
+                      </a>
+
+                      <button onClick={() => handleDelete(job.jobId)} disabled={deletingId === job.jobId}
+                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={confirmDeleteId === job.jobId ? {
+                          padding: '7px 14px', background: 'rgba(239,68,68,0.22)', border: '1px solid rgba(239,68,68,0.5)', color: '#fca5a5',
+                        } : {
+                          padding: '7px 14px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(252,165,165,0.6)',
+                        }}>
+                        {deletingId === job.jobId
+                          ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Deleting…</>
+                          : confirmDeleteId === job.jobId
+                          ? <><TrashIcon className="w-3.5 h-3.5" /> Confirm</>
+                          : <><TrashIcon className="w-3.5 h-3.5" /> Delete</>}
+                      </button>
+
+                      {/* Chevron toggle — re-attaches to card toggle */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleExpanded(job.jobId); }}
+                        className="inline-flex items-center justify-center rounded-full transition-all duration-200"
+                        style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.4)' }}
+                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                      >
+                        <ChevronDownIcon
+                          className="w-4 h-4 transition-transform duration-200"
+                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── Collapsible content ── */}
+                  {isExpanded && (
+                    <div className="px-5 pb-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+
+                      {/* Download format buttons */}
+                      {(job.status === 'review_ready' || job.status === 'approved') && (
+                        <div className="flex gap-2 mt-4 flex-wrap items-center">
+                          <span className="text-xs mr-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Download as:</span>
+                          {(['pdf', 'docx', 'txt'] as const).map((fmt) => {
+                            const key = `${job.jobId}-${fmt}`;
+                            const fc = {
+                              pdf:  { bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.3)',  color: '#93c5fd' },
+                              docx: { bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)',  color: '#a5b4fc' },
+                              txt:  { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.55)' },
+                            }[fmt];
+                            return (
+                              <button key={fmt} onClick={() => handleDownload(job.jobId, fmt, job.clientName)} disabled={downloadingKey === key}
+                                className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ padding: '6px 14px', background: fc.bg, border: `1px solid ${fc.border}`, color: fc.color }}>
+                                {downloadingKey === key
+                                  ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Downloading…</>
+                                  : <><DownloadIcon className="w-3.5 h-3.5" /> {fmt.toUpperCase()}</>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Progress bar */}
+                      <div className="mt-4">
+                        <div className="flex justify-between text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          <span>
+                            {STEP_INFO[job.currentStep]
+                              ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
+                              : job.currentStep}
+                          </span>
+                          <span>{job.progress}%</span>
+                        </div>
+                        <div className="w-full rounded-full overflow-hidden" style={{ height: '4px', background: 'rgba(255,255,255,0.08)' }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${job.progress}%`,
+                              background: job.status === 'failed'
+                                ? 'linear-gradient(90deg, #ef4444, #fca5a5)'
+                                : job.status === 'approved'
+                                ? 'linear-gradient(90deg, #22c55e, #86efac)'
+                                : 'linear-gradient(90deg, #6366F1, #818CF8)',
+                              boxShadow: job.status === 'failed' ? '0 0 8px rgba(239,68,68,0.5)' : '0 0 8px rgba(99,102,241,0.5)',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Confidence scores */}
+                      {Object.keys(job.confidenceScores).length > 0 && (
+                        <div className="mt-5">
+                          <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            AI Output Quality — Confidence Scores
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                            {Object.entries(job.confidenceScores).map(([stepKey, data]) => (
+                              <ConfidenceCard key={stepKey} stepKey={stepKey} data={data} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reviewer flags */}
+                      {job.reviewerFlags.length > 0 && (
+                        <div className="mt-4 p-3.5 rounded-xl" style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.22)' }}>
+                          <p className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: '#fcd34d' }}>
+                            <AlertTriangleIcon className="w-3.5 h-3.5" /> Reviewer Flags
+                          </p>
+                          <ul className="space-y-1">
+                            {job.reviewerFlags.map((flag, i) => (
+                              <li key={i} className="text-xs" style={{ color: 'rgba(252,211,77,0.8)' }}>· {flag}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Error log */}
+                      {job.status === 'failed' && (
+                        <div className="mt-4 p-3.5 rounded-xl" style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                          <p className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: '#fca5a5' }}>
+                            <TerminalIcon className="w-3.5 h-3.5" />
+                            Pipeline Error — Failed at {STEP_INFO[job.currentStep]
+                              ? `${STEP_INFO[job.currentStep].stage}: ${STEP_INFO[job.currentStep].label}`
+                              : job.currentStep}
+                          </p>
+                          {job.errorLog.length > 0 ? (
+                            <ul className="space-y-1">
+                              {job.errorLog.map((entry, i) => (
+                                <li key={i} className="text-xs font-mono break-all" style={{ color: 'rgba(252,165,165,0.8)' }}>{entry}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs" style={{ color: 'rgba(252,165,165,0.7)' }}>No error details stored. Check Railway logs.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Raw pipeline output downloads */}
+                      {(job.status === 'review_ready' || job.status === 'approved') && (
+                        <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                          <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                            Raw pipeline outputs — preview or download each stage&apos;s AI output
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {(['A', 'B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
+                              const info    = STEP_INFO[step];
+                              const dropKey = `${job.jobId}-${step}`;
+                              const isOpen  = openDropdownKey === dropKey;
+                              return (
+                                <div key={step} title={info.description} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '10px 12px' }}>
+                                  <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>
+                                    {info.stage}
+                                  </span>
+                                  <span style={{ color: '#a5b4fc', fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '8px', lineHeight: 1.3 }}>
+                                    {info.label}
+                                  </span>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <a href={stepPreviewUrl(job.jobId, step)} target="_blank" rel="noreferrer"
+                                      style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: '4px 6px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', fontSize: '0.68rem', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                      <EyeIcon className="w-3 h-3" /> Preview
+                                    </a>
+                                    <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                                      <button onClick={() => setOpenDropdownKey(isOpen ? null : dropKey)}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '4px 8px', background: isOpen ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: '6px', color: '#a5b4fc', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <DownloadIcon className="w-3 h-3" /> {isOpen ? '▴' : '▾'}
+                                      </button>
+                                      {isOpen && (
+                                        <div style={{ position: 'absolute', bottom: 'calc(100% + 4px)', right: 0, background: '#13131f', border: '1px solid rgba(99,102,241,0.4)', borderRadius: '8px', padding: '4px', zIndex: 50, minWidth: '80px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                                          {(['pdf', 'docx', 'txt'] as const).map((fmt) => (
+                                            <a key={fmt} href={stepFormatUrl(job.jobId, step, fmt)} target="_blank" rel="noreferrer"
+                                              onClick={() => setOpenDropdownKey(null)}
+                                              style={{ display: 'block', padding: '5px 10px', borderRadius: '5px', color: 'rgba(255,255,255,0.8)', fontSize: '0.72rem', fontWeight: 700, textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                                              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(99,102,241,0.25)')}
+                                              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                                              {fmt}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="btn-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ padding: '7px 16px', fontSize: '0.8rem' }}
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+              <button
+                key={pg}
+                onClick={() => setCurrentPage(pg)}
+                className={cn('font-semibold rounded-full transition-all duration-150', pg === currentPage ? 'btn-primary' : 'btn-ghost')}
+                style={{ padding: '7px 13px', fontSize: '0.8rem', minWidth: '36px' }}
+              >
+                {pg}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="btn-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ padding: '7px 16px', fontSize: '0.8rem' }}
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
+        {/* Results count */}
+        {filteredJobs.length > 0 && (
+          <p className="text-center text-xs mt-3" style={{ color: 'rgba(255,255,255,0.25)' }}>
+            {filteredJobs.length} client{filteredJobs.length !== 1 ? 's' : ''}
+            {searchQuery && ` matching "${searchQuery}"`}
+            {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
+          </p>
+        )}
+
       </main>
     </div>
   );

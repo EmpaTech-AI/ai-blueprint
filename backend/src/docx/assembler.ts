@@ -10,6 +10,11 @@ import {
   PageNumber,
   BorderStyle,
   PageBreak,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  ShadingType,
 } from 'docx';
 import fs from 'fs';
 import { log } from '../utils/logger';
@@ -33,6 +38,179 @@ interface Section {
   content: string;
 }
 
+// ─── Inline text parser ────────────────────────────────────────────────────────
+// Handles **bold**, *italic*, and plain text within a line.
+
+function parseInlineRuns(text: string, baseSize = BRAND.bodySize): TextRun[] {
+  const runs: TextRun[] = [];
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith('**') && part.endsWith('**')) {
+      runs.push(new TextRun({ text: part.slice(2, -2), bold: true, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray }));
+    } else if (part.startsWith('*') && part.endsWith('*')) {
+      runs.push(new TextRun({ text: part.slice(1, -1), italics: true, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray }));
+    } else {
+      runs.push(new TextRun({ text: part, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray }));
+    }
+  }
+  return runs.length > 0 ? runs : [new TextRun({ text, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray })];
+}
+
+// ─── Markdown table builder ────────────────────────────────────────────────────
+
+function buildDocxTable(tableLines: string[]): Table | null {
+  // Strip separator rows (e.g. |---|---|  |:---|---:|)
+  const dataRows = tableLines.filter(line => !/^\|[\s|:\-]+\|$/.test(line.trim()));
+  if (dataRows.length === 0) return null;
+
+  const rows = dataRows.map((line, rowIdx) => {
+    const cells = line.split('|').slice(1, -1); // trim leading/trailing empty from split
+    return new TableRow({
+      tableHeader: rowIdx === 0,
+      children: cells.map(cell => new TableCell({
+        children: [
+          new Paragraph({
+            children: parseInlineRuns(cell.trim(), BRAND.smallSize),
+            spacing: { before: 60, after: 60 },
+          }),
+        ],
+        shading: rowIdx === 0
+          ? { type: ShadingType.SOLID, color: BRAND.lightBlue, fill: BRAND.lightBlue }
+          : undefined,
+        margins: { top: 60, bottom: 60, left: 80, right: 80 },
+      })),
+    });
+  });
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows,
+  });
+}
+
+// ─── Section builder ───────────────────────────────────────────────────────────
+
+function buildSection(section: Section): (Paragraph | Table)[] {
+  const elements: (Paragraph | Table)[] = [];
+
+  // Section heading
+  elements.push(
+    new Paragraph({
+      children: [new TextRun({ text: section.heading, bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 480, after: 240 },
+      border: {
+        bottom: { color: BRAND.primaryBlue, size: 4, style: BorderStyle.SINGLE, space: 4 },
+      },
+    })
+  );
+
+  const lines = section.content.split('\n');
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw     = lines[i];
+    const trimmed = raw.trim();
+
+    // Empty line
+    if (!trimmed) {
+      elements.push(new Paragraph({ text: '', spacing: { after: 80 } }));
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^[-=_]{3,}$/.test(trimmed)) {
+      elements.push(new Paragraph({
+        border: { bottom: { color: 'CCCCCC', size: 2, style: BorderStyle.SINGLE, space: 2 } },
+        spacing: { before: 120, after: 120 },
+      }));
+      i++;
+      continue;
+    }
+
+    // Markdown table — collect all consecutive table lines
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      const tbl = buildDocxTable(tableLines);
+      if (tbl) {
+        elements.push(tbl);
+        elements.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+      }
+      continue;
+    }
+
+    // H3
+    if (trimmed.startsWith('### ')) {
+      elements.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.slice(4), bold: true, size: BRAND.h3Size, color: BRAND.darkGray, font: BRAND.bodyFont })],
+        spacing: { before: 240, after: 120 },
+      }));
+      i++;
+      continue;
+    }
+
+    // H2
+    if (trimmed.startsWith('## ')) {
+      elements.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.slice(3), bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
+        spacing: { before: 360, after: 180 },
+      }));
+      i++;
+      continue;
+    }
+
+    // Unordered bullet
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      elements.push(new Paragraph({
+        children: parseInlineRuns(trimmed.slice(2)),
+        bullet: { level: 0 },
+        spacing: { after: 80 },
+      }));
+      i++;
+      continue;
+    }
+
+    // Numbered list
+    if (/^\d+\.\s/.test(trimmed)) {
+      const text = trimmed.replace(/^\d+\.\s+/, '');
+      elements.push(new Paragraph({
+        children: parseInlineRuns(text),
+        numbering: { reference: 'default-numbering', level: 0 },
+        spacing: { after: 80 },
+      }));
+      i++;
+      continue;
+    }
+
+    // Bold-only line (e.g. **Section Label**)
+    if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
+      elements.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.slice(2, -2), bold: true, size: BRAND.bodySize, font: BRAND.bodyFont, color: BRAND.darkGray })],
+        spacing: { after: 120 },
+      }));
+      i++;
+      continue;
+    }
+
+    // Normal paragraph (may have inline bold/italic)
+    elements.push(new Paragraph({
+      children: parseInlineRuns(trimmed),
+      spacing: { after: 120 },
+    }));
+    i++;
+  }
+
+  return elements;
+}
+
+// ─── DOCX Generator ────────────────────────────────────────────────────────────
+
 export async function generateBlueprintDocx(
   clientName: string,
   assembledContent: string,
@@ -41,18 +219,28 @@ export async function generateBlueprintDocx(
   log('info', `Generating DOCX for ${clientName}`, { outputPath });
 
   const sections = parseAssembledContent(assembledContent);
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
-  // Title page
   children.push(...buildTitlePage(clientName));
   children.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // Section content
   for (const section of sections) {
     children.push(...buildSection(section));
   }
 
   const doc = new Document({
+    numbering: {
+      config: [{
+        reference: 'default-numbering',
+        levels: [{
+          level: 0,
+          format: 'decimal',
+          text: '%1.',
+          alignment: AlignmentType.START,
+          style: { paragraph: { indent: { left: 360, hanging: 260 } } },
+        }],
+      }],
+    },
     styles: {
       paragraphStyles: [
         {
@@ -74,14 +262,7 @@ export async function generateBlueprintDocx(
           default: new Header({
             children: [
               new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'AI Assist BG  |  AI Value Blueprint',
-                    color: BRAND.primaryBlue,
-                    font: BRAND.bodyFont,
-                    size: BRAND.smallSize,
-                  }),
-                ],
+                children: [new TextRun({ text: 'AI Assist BG  |  AI Value Blueprint', color: BRAND.primaryBlue, font: BRAND.bodyFont, size: BRAND.smallSize })],
                 alignment: AlignmentType.RIGHT,
               }),
             ],
@@ -115,88 +296,15 @@ function buildTitlePage(clientName: string): Paragraph[] {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   return [
     new Paragraph({ text: '', spacing: { before: 1440 } }),
-    new Paragraph({
-      children: [new TextRun({ text: 'AI VALUE BLUEPRINT', bold: true, size: 48, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 240 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: clientName, bold: true, size: 36, color: BRAND.darkGray, font: BRAND.bodyFont })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 480 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: 'Prepared by AI Assist BG', size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: today, size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 120 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: 'CONFIDENTIAL', bold: true, size: BRAND.smallSize, color: BRAND.gray, font: BRAND.bodyFont })],
-      alignment: AlignmentType.CENTER,
-    }),
+    new Paragraph({ children: [new TextRun({ text: 'AI VALUE BLUEPRINT', bold: true, size: 48, color: BRAND.primaryBlue, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
+    new Paragraph({ children: [new TextRun({ text: clientName, bold: true, size: 36, color: BRAND.darkGray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 480 } }),
+    new Paragraph({ children: [new TextRun({ text: 'Prepared by AI Assist BG', size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: today, size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: 'CONFIDENTIAL', bold: true, size: BRAND.smallSize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER }),
   ];
 }
 
-function buildSection(section: Section): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
-
-  paragraphs.push(
-    new Paragraph({
-      children: [new TextRun({ text: section.heading, bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
-      heading: HeadingLevel.HEADING_1,
-      spacing: { before: 480, after: 240 },
-      border: {
-        bottom: { color: BRAND.primaryBlue, size: 4, style: BorderStyle.SINGLE, space: 4 },
-      },
-    })
-  );
-
-  const lines = section.content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      paragraphs.push(new Paragraph({ text: '', spacing: { after: 120 } }));
-      continue;
-    }
-
-    if (trimmed.startsWith('### ')) {
-      paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: trimmed.slice(4), bold: true, size: BRAND.h3Size, color: BRAND.darkGray, font: BRAND.bodyFont })],
-        spacing: { before: 240, after: 120 },
-      }));
-    } else if (trimmed.startsWith('## ')) {
-      paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: trimmed.slice(3), bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
-        spacing: { before: 360, after: 180 },
-      }));
-    } else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
-      paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: trimmed.slice(2, -2), bold: true, size: BRAND.bodySize, font: BRAND.bodyFont })],
-        spacing: { after: 120 },
-      }));
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
-      paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: trimmed.slice(2), size: BRAND.bodySize, font: BRAND.bodyFont })],
-        bullet: { level: 0 },
-        spacing: { after: 80 },
-      }));
-    } else {
-      paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: trimmed, size: BRAND.bodySize, font: BRAND.bodyFont })],
-        spacing: { after: 120 },
-      }));
-    }
-  }
-
-  return paragraphs;
-}
-
-// ─── PDF Generator ───────────────────────────────────────────────────────────
+// ─── PDF Generator ─────────────────────────────────────────────────────────────
 
 export async function generateBlueprintPdf(
   clientName: string,
@@ -213,27 +321,27 @@ export async function generateBlueprintPdf(
 
   const fonts = {
     Roboto: {
-      normal:      Buffer.from(vfs['Roboto-Regular.ttf'],       'base64'),
-      bold:        Buffer.from(vfs['Roboto-Medium.ttf'],         'base64'),
-      italics:     Buffer.from(vfs['Roboto-Italic.ttf'],         'base64'),
-      bolditalics: Buffer.from(vfs['Roboto-MediumItalic.ttf'],   'base64'),
+      normal:      Buffer.from(vfs['Roboto-Regular.ttf'],     'base64'),
+      bold:        Buffer.from(vfs['Roboto-Medium.ttf'],       'base64'),
+      italics:     Buffer.from(vfs['Roboto-Italic.ttf'],       'base64'),
+      bolditalics: Buffer.from(vfs['Roboto-MediumItalic.ttf'], 'base64'),
     },
   };
 
   const printer  = new PdfPrinter(fonts);
   const today    = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const sections = parseAssembledContent(assembledContent);
-  const W        = 451; // printable width at 1-inch margins on A4
+  const W        = 451; // printable width (A4 minus 2×72pt margins)
 
   const content: unknown[] = [
     { text: '\n\n\n', fontSize: 12 },
-    { text: 'AI VALUE BLUEPRINT',   style: 'coverTitle',        alignment: 'center' },
-    { text: clientName,             style: 'coverClient',       alignment: 'center' },
-    { text: ' ',                    fontSize: 14 },
-    { text: 'Prepared by AI Assist BG', style: 'coverMeta',    alignment: 'center' },
-    { text: today,                  style: 'coverMeta',         alignment: 'center' },
-    { text: ' ',                    fontSize: 20 },
-    { text: 'CONFIDENTIAL',         style: 'coverConfidential', alignment: 'center', pageBreak: 'after' },
+    { text: 'AI VALUE BLUEPRINT',    style: 'coverTitle',        alignment: 'center' },
+    { text: clientName,              style: 'coverClient',       alignment: 'center' },
+    { text: ' ',                     fontSize: 14 },
+    { text: 'Prepared by AI Assist BG', style: 'coverMeta',     alignment: 'center' },
+    { text: today,                   style: 'coverMeta',         alignment: 'center' },
+    { text: ' ',                     fontSize: 20 },
+    { text: 'CONFIDENTIAL',          style: 'coverConfidential', alignment: 'center', pageBreak: 'after' },
   ];
 
   sections.forEach((section, idx) => {
@@ -243,18 +351,49 @@ export async function generateBlueprintPdf(
       margin: [0, 2, 0, 10],
     });
 
-    for (const line of section.content.split('\n')) {
-      const t = line.trim();
-      if (!t) { content.push({ text: ' ', fontSize: 5 }); continue; }
+    const lines = section.content.split('\n');
+    let li = 0;
+
+    while (li < lines.length) {
+      const t = lines[li].trim();
+
+      if (!t) {
+        content.push({ text: ' ', fontSize: 5 });
+        li++;
+        continue;
+      }
+
+      // Horizontal rule
+      if (/^[-=_]{3,}$/.test(t)) {
+        content.push({
+          canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 0.5, lineColor: '#CCCCCC' }],
+          margin: [0, 6, 0, 6],
+        });
+        li++;
+        continue;
+      }
+
+      // Markdown table
+      if (t.startsWith('|') && t.endsWith('|')) {
+        const tableLines: string[] = [];
+        while (li < lines.length && lines[li].trim().startsWith('|')) {
+          tableLines.push(lines[li].trim());
+          li++;
+        }
+        const tblNode = buildPdfTable(tableLines);
+        if (tblNode) content.push(tblNode);
+        continue;
+      }
 
       if      (t.startsWith('### ')) content.push({ text: t.slice(4), style: 'h3' });
       else if (t.startsWith('## '))  content.push({ text: t.slice(3), style: 'h2' });
-      else if (t.startsWith('**') && t.endsWith('**'))
-        content.push({ text: t.slice(2, -2), style: 'body', bold: true });
+      else if (/^\d+\.\s/.test(t))   content.push({ text: t, style: 'body', margin: [10, 0, 0, 4] });
       else if (t.startsWith('- ') || t.startsWith('• '))
         content.push({ text: `• ${t.slice(2)}`, style: 'bullet' });
       else
-        content.push({ text: stripInlineMarkdown(t), style: 'body' });
+        content.push({ text: parsePdfInline(t), style: 'body' });
+
+      li++;
     }
   });
 
@@ -276,11 +415,13 @@ export async function generateBlueprintPdf(
       coverClient:       { fontSize: 20, bold: true,  color: '#404040', margin: [0, 0, 0, 24] },
       coverMeta:         { fontSize: 12,               color: '#A6A6A6', margin: [0, 0, 0, 6]  },
       coverConfidential: { fontSize: 10, bold: true,  color: '#A6A6A6'                          },
-      h1:  { fontSize: 18, bold: true, color: '#2E5FA1', margin: [0, 16, 0, 4]  },
-      h2:  { fontSize: 14, bold: true, color: '#404040', margin: [0, 12, 0, 6]  },
-      h3:  { fontSize: 12, bold: true, color: '#404040', margin: [0, 8,  0, 4]  },
-      body:   { fontSize: 11, margin: [0, 0, 0, 6]  },
-      bullet: { fontSize: 11, margin: [14, 0, 0, 4] },
+      h1:     { fontSize: 18, bold: true,  color: '#2E5FA1', margin: [0, 16, 0, 4]  },
+      h2:     { fontSize: 14, bold: true,  color: '#404040', margin: [0, 12, 0, 6]  },
+      h3:     { fontSize: 12, bold: true,  color: '#404040', margin: [0, 8,  0, 4]  },
+      body:   { fontSize: 11, margin: [0, 0, 0, 6]   },
+      bullet: { fontSize: 11, margin: [14, 0, 0, 4]  },
+      tableHeader: { fontSize: 10, bold: true, color: '#2E5FA1', fillColor: '#D6E4F7' },
+      tableCell:   { fontSize: 10, color: '#404040' },
     },
   };
 
@@ -294,11 +435,46 @@ export async function generateBlueprintPdf(
   });
 }
 
-function stripInlineMarkdown(text: string): string {
-  return text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+// pdfmake inline text: returns an array of {text, bold?, italics?} objects or a plain string
+function parsePdfInline(text: string): unknown {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
+  if (parts.length === 1) return parts[0]; // plain string — pdfmake handles it fine
+  return parts.map(part => {
+    if (part.startsWith('**') && part.endsWith('**')) return { text: part.slice(2, -2), bold: true };
+    if (part.startsWith('*')  && part.endsWith('*'))  return { text: part.slice(1, -1), italics: true };
+    return part;
+  });
 }
 
-// ─── TXT Generator ───────────────────────────────────────────────────────────
+function buildPdfTable(tableLines: string[]): unknown | null {
+  const dataRows = tableLines.filter(line => !/^\|[\s|:\-]+\|$/.test(line));
+  if (dataRows.length === 0) return null;
+
+  const body = dataRows.map((line, rowIdx) => {
+    const cells = line.split('|').slice(1, -1);
+    return cells.map(cell => ({
+      text: cell.trim(),
+      style: rowIdx === 0 ? 'tableHeader' : 'tableCell',
+      margin: [4, 4, 4, 4],
+    }));
+  });
+
+  // Infer equal column widths
+  const colCount = body[0]?.length ?? 1;
+  const colWidth = Math.floor(451 / colCount);
+
+  return {
+    table: {
+      headerRows: 1,
+      widths: Array(colCount).fill(colWidth),
+      body,
+    },
+    layout: 'lightHorizontalLines',
+    margin: [0, 8, 0, 12],
+  };
+}
+
+// ─── TXT Generator ─────────────────────────────────────────────────────────────
 
 export function generateBlueprintTxt(clientName: string, assembledContent: string): string {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -325,11 +501,14 @@ export function generateBlueprintTxt(clientName: string, assembledContent: strin
       const t = line.trim();
       if (!t) { out.push(''); continue; }
 
-      if      (t.startsWith('### ')) { out.push('', `   ▸ ${t.slice(4).toUpperCase()}`, ''); }
-      else if (t.startsWith('## '))  { out.push('', `  ${t.slice(3)}`, `  ${'─'.repeat(t.slice(3).length)}`, ''); }
-      else if (t.startsWith('**') && t.endsWith('**')) { out.push(`  ${t.slice(2, -2)}`); }
-      else if (t.startsWith('- ') || t.startsWith('• ')) { out.push(`  • ${t.slice(2)}`); }
-      else { out.push(`  ${stripInlineMarkdown(t)}`); }
+      if (/^[-=_]{3,}$/.test(t))                              { out.push('  ' + '─'.repeat(50)); }
+      else if (t.startsWith('### '))                           { out.push('', `   ▸ ${t.slice(4).toUpperCase()}`, ''); }
+      else if (t.startsWith('## '))                           { out.push('', `  ${t.slice(3)}`, `  ${'─'.repeat(t.slice(3).length)}`, ''); }
+      else if (t.startsWith('**') && t.endsWith('**'))        { out.push(`  ${t.slice(2, -2)}`); }
+      else if (t.startsWith('- ') || t.startsWith('• '))      { out.push(`  • ${t.slice(2)}`); }
+      else if (/^\d+\.\s/.test(t))                            { out.push(`  ${t}`); }
+      else if (t.startsWith('|') && t.endsWith('|'))           { out.push(`  ${t.replace(/\|/g, ' | ').trim()}`); }
+      else                                                     { out.push(`  ${stripInlineMarkdown(t)}`); }
     }
   });
 
@@ -337,7 +516,11 @@ export function generateBlueprintTxt(clientName: string, assembledContent: strin
   return out.join('\n');
 }
 
-// ─── Content parser ───────────────────────────────────────────────────────────
+function stripInlineMarkdown(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+}
+
+// ─── Content parser ────────────────────────────────────────────────────────────
 
 function parseAssembledContent(content: string): Section[] {
   const sections: Section[] = [];
@@ -362,7 +545,7 @@ function parseAssembledContent(content: string): Section[] {
   }
 
   if (sections.length === 0) {
-    sections.push({ heading: 'AI Value Blueprint', content: content });
+    sections.push({ heading: 'AI Value Blueprint', content });
   }
 
   return sections;

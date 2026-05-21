@@ -181,3 +181,20 @@ export function TrashIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
     </Icon>
   );
 }
+
+export function ChevronDownIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M6 9l6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function SearchIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="M21 21l-4.35-4.35" />
+    </Icon>
+  );
+}
