@@ -37,7 +37,8 @@
       "Bash(node -e \"const v = require\\('pdfmake/build/vfs_fonts'\\); console.log\\(Object.keys\\(v\\)\\)\")",
       "Bash(node -e ' *)",
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\pipeline\" -Recurse -Filter \"step*.ts\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(dir \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\routes\" /b)"
     ]
   }
 }

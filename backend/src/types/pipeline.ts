@@ -25,6 +25,7 @@ export interface UploadedFileInfo {
   size: number;
   mimeType: string;
   storagePath: string;
+  fileData?: string; // base64 — persisted in DB so files survive container restarts
 }
 
 export interface IntakeSubmission {

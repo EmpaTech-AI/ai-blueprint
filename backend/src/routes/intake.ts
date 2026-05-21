@@ -71,6 +71,7 @@ router.post('/', (req: Request, res: Response, next) => {
         size: file.size,
         mimeType: file.mimetype,
         storagePath: file.path,
+        fileData: fs.readFileSync(file.path).toString('base64'),
       };
     }
 
