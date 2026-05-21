@@ -18,7 +18,8 @@ const TAG_PATTERNS = {
 // ─── Public strip helpers ─────────────────────────────────────────────────────
 
 export function stripJustification(text: string): string {
-  return text.replace(/\n*## \[JUSTIFICATION\][\s\S]*?\[END JUSTIFICATION\]\n*/g, '').trim();
+  // Case-insensitive: catches [JUSTIFICATION], [justification], [Justification] variants
+  return text.replace(/\n*## \[JUSTIFICATION\][\s\S]*?\[END JUSTIFICATION\]\n*/gi, '').trim();
 }
 
 export function stripConfidenceTags(text: string): string {
@@ -85,20 +86,48 @@ function extractField(body: string, keys: string[]): string {
 }
 
 // ─── Tag snippet extractor (fallback when no structured block present) ────────
+//
+// Returns ONE snippet per tag OCCURRENCE (not per line). This ensures
+// snippets.length === the count produced by TAG_PATTERNS.xxx.match() in
+// calculateConfidence, so the breakdown numbers and the expanded list are
+// always consistent.
+//
+// For each regex match we extract the surrounding sentence (bounded by
+// newlines, full-stops, or list markers) as human-readable context.
 
-function extractTaggedSnippets(text: string, tag: string): string[] {
-  const clean = stripJustification(text);
-  // Strip trailing ] so we match both bare and extended forms; lower-case for case-insensitive search
-  const tagPrefixLower = tag.replace(']', '').toLowerCase();
+function extractTaggedSnippets(text: string, tagPattern: RegExp): string[] {
+  const clean   = stripJustification(text);
   const snippets: string[] = [];
-  for (const line of clean.split('\n')) {
-    if (!line.toLowerCase().includes(tagPrefixLower)) continue;
-    const cleaned = stripConfidenceTags(line)
-      .replace(/^[#\-•*>\s]+/, '')
+
+  // Always create a fresh /gi copy so lastIndex resets and we don't mutate the global pattern
+  const re = new RegExp(tagPattern.source, 'gi');
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(clean)) !== null) {
+    const tagStart = match.index;
+
+    // Walk back to the nearest sentence / list boundary
+    let sentenceStart = tagStart;
+    while (sentenceStart > 0) {
+      const ch = clean[sentenceStart - 1];
+      if (/[\n.!?]/.test(ch)) break;
+      sentenceStart--;
+    }
+
+    // Walk forward to end-of-line
+    let lineEnd = clean.indexOf('\n', tagStart + match[0].length);
+    if (lineEnd === -1) lineEnd = clean.length;
+
+    const fragment = clean.slice(sentenceStart, lineEnd).trim();
+
+    const cleaned = stripConfidenceTags(fragment)
+      .replace(/^[#\-•*>\s|:]+/, '')
       .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
       .trim();
-    if (cleaned.length > 5) snippets.push(cleaned);
+
+    if (cleaned.length > 0) snippets.push(cleaned);
   }
+
   return snippets;
 }
 
@@ -123,8 +152,8 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
 
   // Fall back to raw snippet extraction if no structured block was produced
   const hasStructured = entries.length > 0 || overview.length > 0;
-  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(stepOutput, '[Inferred]')   : undefined;
-  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(stepOutput, '[Assumption]') : undefined;
+  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(stepOutput, TAG_PATTERNS.inferred)   : undefined;
+  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(stepOutput, TAG_PATTERNS.assumption) : undefined;
 
   let noTagsReason: string | undefined;
   if (total === 0) {
@@ -134,7 +163,7 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
       : 'No citation tags found in AI output. The skill prompt for this step may not be applying confidence tags correctly.';
   }
 
-  const scoreContext = deriveScoreContext({ score, total, high, low, documentBacked, formStated, inferred, assumption });
+  const scoreContext = deriveScoreContext({ score, total, high, low, documentBacked, formStated, inferred, assumption, hasStructuredBlock: hasStructured });
 
   return {
     score,
@@ -155,6 +184,7 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
 function deriveScoreContext(p: {
   score: number; total: number; high: number; low: number;
   documentBacked: number; formStated: number; inferred: number; assumption: number;
+  hasStructuredBlock: boolean;
 }): string | undefined {
   if (p.total === 0) return undefined; // noTagsReason already handles this case
 
@@ -168,18 +198,24 @@ function deriveScoreContext(p: {
   }
 
   if (p.assumption > 0 && p.inferred === 0) {
-    return `Score driven down by ${p.assumption} Assumption tag${p.assumption > 1 ? 's' : ''} — claims with no client evidence at all, based on general knowledge or industry norms. `
-      + `Review the low-confidence items below; each has a consultant action that could replace the assumption with a confirmed fact.`;
+    const tail = p.hasStructuredBlock
+      ? `Review the low-confidence items below; each has a consultant action that could replace the assumption with a confirmed fact.`
+      : `Review the low-confidence items below and replace each assumption with a confirmed fact from the client's documents or a direct question to the client.`;
+    return `Score driven down by ${p.assumption} Assumption tag${p.assumption > 1 ? 's' : ''} — claims with no client evidence at all, based on general knowledge or industry norms. ` + tail;
   }
 
   if (p.inferred > 0 && p.assumption === 0) {
-    return `Score driven down by ${p.inferred} Inferred tag${p.inferred > 1 ? 's' : ''} — conclusions drawn from partial evidence rather than explicit statements. `
-      + `Inferences are more defensible than assumptions but should be validated. Each has a missing-data note below.`;
+    const tail = p.hasStructuredBlock
+      ? `Inferences are more defensible than assumptions but should be validated. Each has a missing-data note below.`
+      : `Inferences are more defensible than assumptions but should be validated against source documents or confirmed with the client.`;
+    return `Score driven down by ${p.inferred} Inferred tag${p.inferred > 1 ? 's' : ''} — conclusions drawn from partial evidence rather than explicit statements. ` + tail;
   }
 
   if (p.inferred > 0 && p.assumption > 0) {
-    return `Score driven down by ${p.inferred} Inferred and ${p.assumption} Assumption item${p.low > 1 ? 's' : ''}. `
-      + `Assumptions (no evidence) are the higher priority to address — see consultant actions below.`;
+    const tail = p.hasStructuredBlock
+      ? `Assumptions (no evidence) are the higher priority to address — see consultant actions below.`
+      : `Assumptions (no evidence) are the higher priority to address — validate each against source documents before delivery.`;
+    return `Score driven down by ${p.inferred} Inferred and ${p.assumption} Assumption item${p.low > 1 ? 's' : ''}. ` + tail;
   }
 
   if (p.score === 100) {

@@ -71,6 +71,22 @@ export async function invokeSkill(
   throw new Error(`Skill ${skillName} failed after ${maxAttempts} attempts`);
 }
 
+export async function callClaude(
+  systemPrompt: string,
+  userMessage: string,
+  maxTokens = 1500,
+): Promise<string> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+  const block = response.content.find(b => b.type === 'text');
+  if (!block || block.type !== 'text') throw new Error('No text response from Claude');
+  return block.text;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

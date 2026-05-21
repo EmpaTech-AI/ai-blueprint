@@ -63,8 +63,10 @@ export interface ConfidenceResult {
   breakdown: ConfidenceBreakdown;
   confidenceOverview?: string;
   justificationEntries?: JustificationEntry[];
+  inferredSnippets?: string[];   // legacy fallback — present only when no structured block was found
+  assumptionSnippets?: string[]; // legacy fallback — present only when no structured block was found
   noTagsReason?: string;
-  scoreContext?: string; // plain-English diagnosis of the score pattern
+  scoreContext?: string;
 }
 
 export interface PipelineJob {

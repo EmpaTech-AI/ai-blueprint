@@ -99,8 +99,57 @@ function scoreColor(score: number) {
   return           { badge: 'badge-confidence-red',          bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',  text: '#fca5a5', band: 'Red',    action: 'Critical concern — stop and assess root cause before proceeding.' };
 }
 
-function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfidence | number }) {
+// ── Simple markdown line renderer for AI-generated summaries ──────────────────
+function SummaryLine({ line }: { line: string }) {
+  const t = line.trim();
+  if (!t) return <div style={{ height: '6px' }} />;
+  if (t.startsWith('## ')) return (
+    <p className="text-xs font-bold mt-3 mb-1" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.02em' }}>
+      {t.slice(3)}
+    </p>
+  );
+  if (t.startsWith('### ')) return (
+    <p className="text-xs font-semibold mt-2 mb-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
+      {t.slice(4)}
+    </p>
+  );
+  if (t.startsWith('- ') || t.startsWith('• ')) return (
+    <p className="text-xs leading-relaxed pl-3" style={{ color: 'rgba(255,255,255,0.75)' }}>
+      {'• '}{t.slice(2).replace(/\*\*(.+?)\*\*/g, '$1')}
+    </p>
+  );
+  if (/^\d+\.\s/.test(t)) return (
+    <p className="text-xs leading-relaxed pl-3" style={{ color: 'rgba(255,255,255,0.75)' }}>
+      {t.replace(/\*\*(.+?)\*\*/g, '$1')}
+    </p>
+  );
+  return (
+    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+      {t.replace(/\*\*(.+?)\*\*/g, '$1')}
+    </p>
+  );
+}
+
+function ConfidenceCard({
+  stepKey,
+  data,
+  riskSummary,
+  isSummaryLoading,
+  onRequestSummary,
+}: {
+  stepKey: string;
+  data: StepConfidence | number;
+  riskSummary?: string;
+  isSummaryLoading?: boolean;
+  onRequestSummary?: () => void;
+}) {
   const [showSnippets, setShowSnippets] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+
+  // Auto-open the summary panel when it first arrives
+  useEffect(() => {
+    if (riskSummary) setShowSummary(true);
+  }, [riskSummary]);
 
   const stepId   = SCORE_KEY_TO_STEP[stepKey] ?? stepKey;
   const stepMeta = STEP_INFO[stepId];
@@ -218,8 +267,14 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
             style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
           >
             {showSnippets ? '▾' : '▸'}&nbsp;
-            {showSnippets ? 'Hide' : 'Show'} justification report ({full!.justificationEntries!.length} item{full!.justificationEntries!.length !== 1 ? 's' : ''})
+            {showSnippets ? 'Hide' : 'Show'} justification report ({full!.lowConfidenceCount} low-confidence tag{full!.lowConfidenceCount !== 1 ? 's' : ''})
           </button>
+          {/* Note when the AI's justification block covers fewer entries than actual tag count */}
+          {full!.justificationEntries!.length < full!.lowConfidenceCount && (
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {full!.justificationEntries!.length} of {full!.lowConfidenceCount} items have full justification detail — the rest appear inline in the text above.
+            </p>
+          )}
 
           {showSnippets && (
             <div className="mt-3 space-y-3">
@@ -304,6 +359,69 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
           Run the pipeline again to see the full citation breakdown.
         </p>
       )}
+
+      {/* AI Risk Summary — final stage only */}
+      {onRequestSummary && full && full.lowConfidenceCount > 0 && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+
+          {/* Button row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {!riskSummary && (
+              <button
+                onClick={onRequestSummary}
+                disabled={isSummaryLoading}
+                className="text-xs font-semibold flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: 'rgba(99,102,241,0.15)',
+                  border: '1px solid rgba(99,102,241,0.35)',
+                  color: '#a5b4fc',
+                }}
+              >
+                {isSummaryLoading
+                  ? <><SpinnerIcon className="w-3 h-3 animate-spin" /> Generating AI summary…</>
+                  : <>✦ Generate AI Risk Summary</>}
+              </button>
+            )}
+
+            {riskSummary && (
+              <button
+                onClick={() => setShowSummary(s => !s)}
+                className="text-xs font-semibold flex items-center gap-1 w-full"
+                style={{ color: showSummary ? '#a5b4fc' : 'rgba(165,180,252,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+              >
+                {showSummary ? '▾' : '▸'}&nbsp;
+                {showSummary ? 'Hide' : 'Show'} AI Risk Summary
+                <span
+                  onClick={(e) => { e.stopPropagation(); onRequestSummary(); }}
+                  className="ml-auto text-xs"
+                  style={{ color: 'rgba(165,180,252,0.45)', cursor: 'pointer', fontWeight: 400 }}
+                  title="Regenerate summary"
+                >
+                  {isSummaryLoading ? <SpinnerIcon className="w-3 h-3 animate-spin inline" /> : '↺ regenerate'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Summary content */}
+          {showSummary && riskSummary && (
+            <div
+              className="mt-3 rounded-xl p-4 space-y-0.5"
+              style={{
+                background: 'rgba(99,102,241,0.07)',
+                border: '1px solid rgba(99,102,241,0.2)',
+              }}
+            >
+              <p className="text-xs font-bold mb-2 flex items-center gap-1.5" style={{ color: '#a5b4fc' }}>
+                ✦ AI Risk Summary — {full.lowConfidenceCount} low-confidence items
+              </p>
+              {riskSummary.split('\n').map((line, i) => (
+                <SummaryLine key={i} line={line} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -339,6 +457,8 @@ export default function AdminPage() {
   const [searchQuery,     setSearchQuery]     = useState('');
   const [currentPage,     setCurrentPage]     = useState(1);
   const [expandedJobIds,  setExpandedJobIds]  = useState<Set<string>>(new Set());
+  const [riskSummaries,   setRiskSummaries]   = useState<Record<string, string>>({});
+  const [summaryLoadingId, setSummaryLoadingId] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -476,6 +596,28 @@ export default function AdminPage() {
       return next;
     });
   };
+
+  const handleRequestSummary = useCallback(async (jobId: string) => {
+    if (summaryLoadingId === jobId) return;
+    setSummaryLoadingId(jobId);
+    try {
+      const res = await fetch(`${apiUrl}/api/status/${jobId}/risk-summary`, {
+        method: 'POST',
+        headers: { 'x-reviewer-token': token },
+      });
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        setError(d.error ?? `Risk summary failed (${res.status})`);
+        return;
+      }
+      const d = await res.json() as { summary: string };
+      setRiskSummaries(prev => ({ ...prev, [jobId]: d.summary }));
+    } catch {
+      setError('Failed to generate risk summary — check your connection.');
+    } finally {
+      setSummaryLoadingId(null);
+    }
+  }, [apiUrl, token, summaryLoadingId]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -787,7 +929,14 @@ export default function AdminPage() {
                           </p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                             {Object.entries(job.confidenceScores).map(([stepKey, data]) => (
-                              <ConfidenceCard key={stepKey} stepKey={stepKey} data={data} />
+                              <ConfidenceCard
+                                key={stepKey}
+                                stepKey={stepKey}
+                                data={data}
+                                riskSummary={stepKey === 'stepE' ? riskSummaries[job.jobId] : undefined}
+                                isSummaryLoading={stepKey === 'stepE' && summaryLoadingId === job.jobId}
+                                onRequestSummary={stepKey === 'stepE' ? () => handleRequestSummary(job.jobId) : undefined}
+                              />
                             ))}
                           </div>
                         </div>
