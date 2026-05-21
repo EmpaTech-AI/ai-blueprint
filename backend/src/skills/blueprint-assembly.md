@@ -191,10 +191,31 @@ Before producing the final document, verify:
 For shared methodology standards, read
 `../blueprint-orchestrator/references/methodology-and-contracts.md`.
 
+## Confidence Justification Report (Mandatory)
+
+After the complete Blueprint document (including the Appendix), append the `## [JUSTIFICATION]`
+block defined in the Shared Methodology Reference.
+
+**Important for Stage 5:** The client-facing document itself must NOT contain any confidence tags
+(`[Document-Backed]`, `[Inferred]`, etc.) — those are stripped for the client. However, the
+assembly process itself introduces editorial judgement and synthesis, and those decisions must be
+accounted for in the justification block.
+
+Common sources of low-confidence items in Stage 5:
+- Executive Summary statements that synthesized across multiple low-confidence upstream items without flagging inherited uncertainty
+- Numerical figures in client-facing sections (e.g., "could save X hours per week") that originated as [Assumption] in Stage 3 and are now presented as consultant findings
+- Key Findings narratives that used interpretive language not directly traceable to a specific document or form answer
+- Next Steps recommendations for specific AI Assist BG services that assumed client fit without explicit evidence of budget, readiness, or interest
+- Readiness gap recommendations phrased as facts when they were inferred from limited data in Stage 2
+
+For each [Inferred] or [Assumption] in the assembly output, the consultant action should specify
+which section of the Blueprint it affects and what would need to be re-verified with the client
+before delivering the document.
+
 ## First-Turn Behavior
 
 When the user provides all 4 upstream outputs:
 1. Confirm all inputs are received and complete (one short paragraph — do not reproduce the inputs)
 2. Flag any missing or incomplete sections
 3. Output the complete AI Value Blueprint in clean markdown, following the 8-section structure above
-4. Do not add a summary after the document — the document is the output
+4. Append the mandatory [JUSTIFICATION] block after the Appendix — this is internal only and will be stripped before client delivery

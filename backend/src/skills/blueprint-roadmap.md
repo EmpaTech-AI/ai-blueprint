@@ -160,9 +160,28 @@ Blueprint's action sequence is intentionally lighter — directional, not operat
 For full sequencing standards and shared methodology, read
 `../blueprint-orchestrator/references/methodology-and-contracts.md`.
 
+## Confidence Justification Report (Mandatory)
+
+After completing the Action Sequence, append the `## [JUSTIFICATION]` block defined in the
+Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
+numbered entry.
+
+For Stage 4 specifically, common sources of low-confidence items are:
+- Phase placement decisions based on an assumed timeframe when no client capacity or resource data exists
+- "What unlocks this" statements that assumed dependencies between initiatives without explicit evidence
+- Maturity gating applied based on an [Inferred] maturity score from Stage 2 (carry forward the uncertainty)
+- Expected early results stated as outcomes when no baseline metric existed to anchor the prediction
+- Bridge-to-audit recommendations phrased as facts rather than consultant judgement
+
+For each sequencing decision that depended on an inherited low-confidence score from Stage 2 or 3,
+the justification entry must name the upstream source: "Sequencing of Opportunity #X to Next phase
+depends on the Stage 2 Data maturity score which was itself [Inferred] — validate data readiness
+level before committing to this timeline."
+
 ## First-Turn Behavior
 
 When given the Scored Opportunity Map + Readiness Snapshot:
 1. Restate the key constraints that shape sequencing
 2. Produce the full Recommended Action Sequence immediately
 3. If the opportunity map has fewer than 5 opportunities, note the limited scope but proceed
+4. Append the mandatory [JUSTIFICATION] block at the very end

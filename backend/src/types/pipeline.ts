@@ -45,14 +45,24 @@ export interface ConfidenceBreakdown {
   total: number;
 }
 
+export interface JustificationEntry {
+  index: number;
+  tag: 'Inferred' | 'Assumption';
+  label: string;
+  claim: string;
+  whyTagged: string;
+  missingData: string;
+  consultantAction: string;
+}
+
 export interface ConfidenceResult {
   score: number;
   highConfidenceCount: number;
   lowConfidenceCount: number;
   needsReview: boolean;
   breakdown: ConfidenceBreakdown;
-  inferredSnippets?: string[];
-  assumptionSnippets?: string[];
+  confidenceOverview?: string;
+  justificationEntries?: JustificationEntry[];
   noTagsReason?: string;
 }
 

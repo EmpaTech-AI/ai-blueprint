@@ -17,7 +17,7 @@ import { runStepD } from './stepD-opportunities';
 import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
-import { calculateConfidence } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification } from '../utils/confidenceScorer';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -56,34 +56,38 @@ export async function runPipeline(jobId: string): Promise<void> {
     const bScore = calculateConfidence(dossier);
     confidenceScores.stepB = bScore;
     if (bScore.needsReview) reviewerFlags.push(`Stage 1 (Intake Analysis) confidence: ${bScore.score}% — below Amber threshold (76%)`);
+    const dossierClean = stripJustification(dossier);
 
     // Step C — blueprint-maturity
     await updateJobStatus(jobId, 'running', 'C');
-    const maturity = await runStepC(dossier);
+    const maturity = await runStepC(dossierClean);
     await saveStepOutput(jobId, 'C', maturity);
     const cScore = calculateConfidence(maturity);
     confidenceScores.stepC = cScore;
     if (cScore.needsReview) reviewerFlags.push(`Stage 2 (Maturity Scoring) confidence: ${cScore.score}% — below Amber threshold (76%)`);
+    const maturityClean = stripJustification(maturity);
 
     // Step D — blueprint-opportunities
     await updateJobStatus(jobId, 'running', 'D');
-    const opportunities = await runStepD(dossier, maturity);
+    const opportunities = await runStepD(dossierClean, maturityClean);
     await saveStepOutput(jobId, 'D', opportunities);
     const dScore = calculateConfidence(opportunities);
     confidenceScores.stepD = dScore;
     if (dScore.needsReview) reviewerFlags.push(`Stage 3 (Opportunity Mapping) confidence: ${dScore.score}% — below Amber threshold (76%)`);
+    const opportunitiesClean = stripJustification(opportunities);
 
     // Step D2 — blueprint-roadmap
     await updateJobStatus(jobId, 'running', 'D2');
-    const roadmap = await runStepD2(opportunities, maturity);
+    const roadmap = await runStepD2(opportunitiesClean, maturityClean);
     await saveStepOutput(jobId, 'D2', roadmap);
     const d2Score = calculateConfidence(roadmap);
     confidenceScores.stepD2 = d2Score;
     if (d2Score.needsReview) reviewerFlags.push(`Stage 4 (Action Roadmap) confidence: ${d2Score.score}% — below Amber threshold (76%)`);
+    const roadmapClean = stripJustification(roadmap);
 
     // Step E — blueprint-assembly
     await updateJobStatus(jobId, 'running', 'E');
-    const assembled = await runStepE(dossier, maturity, opportunities, roadmap);
+    const assembled = await runStepE(dossierClean, maturityClean, opportunitiesClean, roadmapClean);
     await saveStepOutput(jobId, 'E', assembled);
     const eScore = calculateConfidence(assembled);
     confidenceScores.stepE = eScore;

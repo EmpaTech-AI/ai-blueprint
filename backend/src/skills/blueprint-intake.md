@@ -167,10 +167,27 @@ After completing the dossier, calculate the overall confidence score:
 
 For the full shared methodology standards, read `../blueprint-orchestrator/references/methodology-and-contracts.md`.
 
+## Confidence Justification Report (Mandatory)
+
+After completing the dossier, you must append the `## [JUSTIFICATION]` block defined in the
+Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used anywhere in this
+output must have a numbered entry explaining:
+- The exact claim (verbatim)
+- Why it could not reach [Document-Backed] or [Form-Stated] status — what partial or absent evidence drove the lower tag
+- What specific document, upload, or form answer would resolve it
+- A concrete action the consultant should take
+
+For Stage 1 specifically, common sources of low-confidence items are:
+- Revenue and financial figures not corroborated by the uploaded financial summary
+- Org structure inferred from headcount numbers rather than an actual org chart
+- Technology stack items mentioned verbally in the form but not verified by a technology inventory document
+- Pain point severity rated [Inferred] when the form mentions an issue but no document quantifies its impact
+- Growth targets or strategic priorities taken from form answers without board deck or strategic plan to confirm
+
 ## First-Turn Behavior
 
 When the user provides intake form responses and/or uploaded documents:
 1. Confirm what you received (list documents and form sections)
 2. Begin analysis immediately — produce the compressed dossier
 3. If materials are incomplete: produce what you can and clearly flag missing sections
-4. Report the overall confidence score at the end
+4. Append the mandatory [JUSTIFICATION] block at the very end

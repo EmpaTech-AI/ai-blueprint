@@ -23,12 +23,24 @@ interface ConfidenceBreakdown {
   total: number;
 }
 
+interface JustificationEntry {
+  index: number;
+  tag: 'Inferred' | 'Assumption';
+  label: string;
+  claim: string;
+  whyTagged: string;
+  missingData: string;
+  consultantAction: string;
+}
+
 interface StepConfidence {
   score: number;
   highConfidenceCount: number;
   lowConfidenceCount: number;
   needsReview: boolean;
   breakdown: ConfidenceBreakdown;
+  confidenceOverview?: string;
+  justificationEntries?: JustificationEntry[];
   inferredSnippets?: string[];
   assumptionSnippets?: string[];
   noTagsReason?: string;
@@ -190,6 +202,16 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </div>
       )}
 
+      {/* Confidence overview sentence */}
+      {full?.confidenceOverview && (
+        <p className="text-xs mt-2 pt-2 leading-relaxed italic" style={{
+          color: 'rgba(255,255,255,0.5)',
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          {full.confidenceOverview}
+        </p>
+      )}
+
       {/* No-tags explanation */}
       {full?.noTagsReason && (
         <p className="text-xs mt-2 pt-2 leading-relaxed" style={{
@@ -200,8 +222,90 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </p>
       )}
 
-      {/* Inferred / Assumption snippet toggle */}
-      {snippetCount > 0 && (
+      {/* Structured justification entries (new format) */}
+      {(full?.justificationEntries?.length ?? 0) > 0 && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <button
+            onClick={() => setShowSnippets(!showSnippets)}
+            className="text-xs font-semibold flex items-center gap-1 w-full"
+            style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+          >
+            {showSnippets ? '▾' : '▸'}&nbsp;
+            {showSnippets ? 'Hide' : 'Show'} justification report ({full!.justificationEntries!.length} item{full!.justificationEntries!.length !== 1 ? 's' : ''})
+          </button>
+
+          {showSnippets && (
+            <div className="mt-3 space-y-3">
+              {full!.justificationEntries!.map((entry) => {
+                const isInferred = entry.tag === 'Inferred';
+                const tagColor   = isInferred ? '#fcd34d' : '#fca5a5';
+                const bgColor    = isInferred ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+                const borderColor = isInferred ? 'rgba(245,158,11,0.22)' : 'rgba(239,68,68,0.22)';
+                return (
+                  <div
+                    key={entry.index}
+                    className="rounded-xl text-xs leading-relaxed"
+                    style={{ background: bgColor, border: `1px solid ${borderColor}`, padding: '10px 12px' }}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                        style={{ fontSize: '0.58rem', color: tagColor, background: isInferred ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)' }}
+                      >
+                        {entry.tag}
+                      </span>
+                      <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                        {entry.label}
+                      </span>
+                    </div>
+
+                    {/* Claim */}
+                    {entry.claim && (
+                      <div className="mb-2">
+                        <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Claim</span>
+                        <p className="mt-0.5 italic" style={{ color: 'rgba(255,255,255,0.65)' }}>&ldquo;{entry.claim}&rdquo;</p>
+                      </div>
+                    )}
+
+                    {/* Why tagged */}
+                    {entry.whyTagged && (
+                      <div className="mb-2">
+                        <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Why {entry.tag === 'Inferred' ? 'inferred' : 'assumed'}
+                        </span>
+                        <p className="mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{entry.whyTagged}</p>
+                      </div>
+                    )}
+
+                    {/* Missing data */}
+                    {entry.missingData && (
+                      <div className="mb-2">
+                        <span className="font-semibold" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing data</span>
+                        <p className="mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{entry.missingData}</p>
+                      </div>
+                    )}
+
+                    {/* Consultant action */}
+                    {entry.consultantAction && (
+                      <div
+                        className="mt-2 pt-2 rounded-lg px-2.5 py-2"
+                        style={{ borderTop: `1px solid ${borderColor}`, background: isInferred ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)' }}
+                      >
+                        <span className="font-bold" style={{ color: tagColor, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>→ Consultant action</span>
+                        <p className="mt-0.5 font-medium" style={{ color: tagColor }}>{entry.consultantAction}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Legacy fallback: raw snippets (pre-structured-justification runs) */}
+      {!full?.justificationEntries?.length && snippetCount > 0 && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
             onClick={() => setShowSnippets(!showSnippets)}
@@ -210,36 +314,17 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
           >
             {showSnippets ? '▾' : '▸'} {showSnippets ? 'Hide' : 'Show'} low-confidence claims ({snippetCount})
           </button>
-
           {showSnippets && (
             <div className="mt-2 space-y-2">
               {full?.inferredSnippets?.map((snippet, i) => (
-                <div
-                  key={`inf-${i}`}
-                  className="rounded-lg p-2.5 text-xs leading-relaxed"
-                  style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.2)' }}
-                >
-                  <span
-                    className="inline-block font-bold uppercase tracking-wide mb-1"
-                    style={{ fontSize: '0.6rem', color: '#fcd34d' }}
-                  >
-                    Inferred
-                  </span>
+                <div key={`inf-${i}`} className="rounded-lg p-2.5 text-xs" style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                  <span className="font-bold uppercase" style={{ fontSize: '0.6rem', color: '#fcd34d', display: 'block', marginBottom: '2px' }}>Inferred</span>
                   <p style={{ color: 'rgba(255,255,255,0.75)' }}>{snippet}</p>
                 </div>
               ))}
               {full?.assumptionSnippets?.map((snippet, i) => (
-                <div
-                  key={`ass-${i}`}
-                  className="rounded-lg p-2.5 text-xs leading-relaxed"
-                  style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.2)' }}
-                >
-                  <span
-                    className="inline-block font-bold uppercase tracking-wide mb-1"
-                    style={{ fontSize: '0.6rem', color: '#fca5a5' }}
-                  >
-                    Assumption
-                  </span>
+                <div key={`ass-${i}`} className="rounded-lg p-2.5 text-xs" style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <span className="font-bold uppercase" style={{ fontSize: '0.6rem', color: '#fca5a5', display: 'block', marginBottom: '2px' }}>Assumption</span>
                   <p style={{ color: 'rgba(255,255,255,0.75)' }}>{snippet}</p>
                 </div>
               ))}

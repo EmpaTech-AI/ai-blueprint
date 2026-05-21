@@ -195,9 +195,27 @@ This replaces the full Parking Lot section — keep it brief.
 For full scoring methodology and shared standards, read
 `../blueprint-orchestrator/references/methodology-and-contracts.md`.
 
+## Confidence Justification Report (Mandatory)
+
+After completing the Opportunity Map, append the `## [JUSTIFICATION]` block defined in the
+Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
+numbered entry.
+
+For Stage 3 specifically, common sources of low-confidence items are:
+- Impact estimates stated as ranges when no client-specific volume or cost data exists (e.g., "could save 10–20 hours/week" without a time-study or process log to confirm)
+- Feasibility scores that assumed data availability without explicit confirmation in the dossier
+- Readiness adjustments applied based on an [Inferred] maturity score from Stage 2
+- Strategic alignment scores where the client's stated goals were vague or lacked documentary support
+- Pilot suggestions that assumed a technology is available or affordable without procurement evidence
+
+The consultant actions for Stage 3 should be specific to what data would validate the opportunity
+(e.g., "Request the client's invoice processing volume from the last 12 months to validate the
+impact estimate" or "Confirm CRM integration capabilities with their IT team before finalising feasibility score").
+
 ## First-Turn Behavior
 
 When given the Compressed Dossier + Readiness Snapshot:
 1. Restate the baseline (industry, pain points, maturity summary)
 2. Produce the full Scored Opportunity Map immediately
 3. If inputs are incomplete, generate what you can and flag assumption-heavy areas
+4. Append the mandatory [JUSTIFICATION] block at the very end

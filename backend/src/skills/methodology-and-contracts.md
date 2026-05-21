@@ -41,6 +41,48 @@ Every data point in the pipeline must carry a confidence tag:
 | [Inferred] | Inferred from patterns across multiple inputs | Medium-Low |
 | [Assumption] | Based on industry norms or general knowledge | Low |
 
+### Mandatory Confidence Justification Report
+
+**Every skill MUST append this block at the very end of its output, after all substantive content, without exception.**
+
+The block is machine-parsed by the pipeline dashboard to show consultants exactly what needs review, why each item is low-confidence, what data is missing, and what action to take. It must follow this exact structure with no deviations:
+
+```
+## [JUSTIFICATION]
+
+### Confidence Overview
+{1–2 sentences: total number of [Inferred] and [Assumption] items used in this output and the primary drivers of low confidence}
+
+### Low-Confidence Items
+
+{One numbered entry for EVERY [Inferred] or [Assumption] tag used anywhere in the output above. If none, write the "No low-confidence items" line below instead.}
+
+#### 1. [Inferred] {5–8 word label identifying the claim}
+- **Claim:** "{The exact sentence or phrase tagged [Inferred], copied verbatim from the output}"
+- **Why inferred:** {What partial evidence existed — signals that were present but not explicit enough to warrant [Document-Backed] or [Form-Stated]}
+- **Missing data:** {The specific document, section, or form field that would upgrade this to a high-confidence tag}
+- **Consultant action:** {One concrete, specific step — e.g. "Ask client to provide their IT systems inventory", "Check page 3 of financial summary for revenue breakdown", "Verify headcount figure in org chart"}
+
+#### 2. [Assumption] {5–8 word label}
+- **Claim:** "{The exact phrase tagged [Assumption], copied verbatim}"
+- **Why assumed:** {No supporting data was present at all — explain what was entirely absent from documents and form}
+- **Missing data:** {What would completely resolve this assumption}
+- **Consultant action:** {Concrete next step to obtain or verify this information}
+
+{If zero [Inferred] or [Assumption] items were used:}
+No low-confidence items. All data points in this output are backed by uploaded documents or explicit form responses.
+
+[END JUSTIFICATION]
+```
+
+**Non-negotiable rules:**
+- EVERY `[Inferred]` or `[Assumption]` tag used in the output above must have a numbered entry here
+- `[Document-Backed]` and `[Form-Stated]` items are NOT listed here — only low-confidence ones
+- Claims must be **quoted verbatim** from the output — do not paraphrase
+- Each "Consultant action" must be specific and actionable — "Review documents" is not acceptable; "Check page 2 of the uploaded sales report for pipeline volume" is
+- This block must be the absolute last thing in the output — nothing after `[END JUSTIFICATION]`
+- If unsure whether to tag something [Inferred] vs [Assumption]: [Inferred] = partial evidence existed, [Assumption] = no evidence at all
+
 ### Quality Rules (Non-Negotiable)
 
 1. **Never invent facts.** If something is not supported by provided materials, mark it with the appropriate confidence tag.

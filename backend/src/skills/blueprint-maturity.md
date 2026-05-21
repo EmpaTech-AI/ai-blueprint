@@ -158,11 +158,27 @@ readiness adjustment and the Roadmap's maturity gating.
 
 For the full shared methodology, read `../blueprint-orchestrator/references/methodology-and-contracts.md`.
 
+## Confidence Justification Report (Mandatory)
+
+After completing the Readiness Snapshot, append the `## [JUSTIFICATION]` block defined in the
+Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
+numbered entry.
+
+For Stage 2 specifically, common sources of low-confidence items are:
+- Maturity scores where only one data point exists (e.g., a single form answer about data governance)
+- Dimensions scored based on absence of evidence rather than explicit evidence of early maturity
+- "Developing" or "Established" scores inferred from positive indicators without documentary proof
+- Technology or governance scores where the dossier had no relevant data and the score was defaulted to Early
+
+For each maturity score that used [Inferred] or [Assumption], the consultant action must specify
+which document upload or interview question would provide the missing evidence (e.g., "Request
+the client's data governance policy document" or "Ask about formal AI training programmes in
+place").
+
 ## First-Turn Behavior
 
 When the user provides the Compressed Client Dossier:
 1. Confirm you received it and summarize key client facts
 2. Produce the full Readiness Snapshot immediately
-3. If the dossier is missing critical sections, produce partial scoring with clear
-   `[Insufficient Evidence]` flags
-4. Report how many dimensions have high-confidence vs. low-confidence scores
+3. If the dossier is missing critical sections, produce partial scoring with clear `[Insufficient Evidence]` flags
+4. Append the mandatory [JUSTIFICATION] block at the very end
