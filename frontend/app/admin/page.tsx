@@ -278,7 +278,7 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
             className="text-xs font-semibold flex items-center gap-1"
             style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
-            {showSnippets ? '▾' : '▸'} {showSnippets ? 'Hide' : 'Show'} low-confidence claims ({snippetCount})
+            {showSnippets ? '▾' : '▸'} {showSnippets ? 'Hide' : 'Show'} low-confidence tags ({full?.lowConfidenceCount ?? snippetCount})
           </button>
           {showSnippets && (
             <div className="mt-2 space-y-2">
@@ -835,7 +835,7 @@ export default function AdminPage() {
                             Raw pipeline outputs — preview or download each stage&apos;s AI output
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {(['A', 'B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
+                            {(['B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
                               const info    = STEP_INFO[step];
                               const dropKey = `${job.jobId}-${step}`;
                               const isOpen  = openDropdownKey === dropKey;
