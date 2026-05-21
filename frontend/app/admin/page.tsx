@@ -44,6 +44,7 @@ interface StepConfidence {
   inferredSnippets?: string[];
   assumptionSnippets?: string[];
   noTagsReason?: string;
+  scoreContext?: string;
 }
 
 interface JobSummary {
@@ -219,6 +220,16 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
           borderTop: '1px solid rgba(255,255,255,0.07)',
         }}>
           {full.noTagsReason}
+        </p>
+      )}
+
+      {/* Score pattern diagnosis */}
+      {full?.scoreContext && !full.noTagsReason && (
+        <p className="text-xs mt-2 pt-2 leading-relaxed" style={{
+          color: score >= 76 ? 'rgba(255,255,255,0.45)' : '#fcd34d',
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          {full.scoreContext}
         </p>
       )}
 

@@ -64,6 +64,7 @@ export interface ConfidenceResult {
   confidenceOverview?: string;
   justificationEntries?: JustificationEntry[];
   noTagsReason?: string;
+  scoreContext?: string; // plain-English diagnosis of the score pattern
 }
 
 export interface PipelineJob {
