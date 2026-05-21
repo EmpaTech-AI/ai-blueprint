@@ -581,6 +581,25 @@ export default function AdminPage() {
                       </button>
                     )}
 
+                    {(job.status === 'review_ready' || job.status === 'approved') && (
+                      <button
+                        onClick={() => handleRetry(job.jobId)}
+                        disabled={retryingId === job.jobId}
+                        className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full cursor-pointer transition-all duration-200 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{
+                          padding: '8px 18px',
+                          background: 'rgba(99,102,241,0.15)',
+                          border: '1px solid rgba(99,102,241,0.32)',
+                          color: '#a5b4fc',
+                        }}
+                      >
+                        {retryingId === job.jobId
+                          ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Re-running…</>
+                          : <><RefreshIcon className="w-3.5 h-3.5" /> Re-run Pipeline</>
+                        }
+                      </button>
+                    )}
+
                     <a
                       href={logsUrl(job.jobId)}
                       target="_blank"

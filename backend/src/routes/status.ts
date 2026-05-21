@@ -66,8 +66,8 @@ router.post('/:jobId/retry', (req: Request, res: Response) => {
   }
   try {
     const job = loadJob(req.params.jobId);
-    if (job.status !== 'failed') {
-      res.status(400).json({ error: 'Only failed jobs can be retried' });
+    if (job.status === 'running' || job.status === 'pending') {
+      res.status(400).json({ error: 'Job is already running or pending' });
       return;
     }
     resetJobForRetry(req.params.jobId);

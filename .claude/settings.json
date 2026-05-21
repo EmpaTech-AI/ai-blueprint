@@ -35,7 +35,9 @@
       "Bash(node -e \"require\\('pdfmake/src/printer'\\); console.log\\('pdfmake OK'\\)\")",
       "Bash(node -e \"const v = require\\('pdfmake/build/vfs_fonts'\\); console.log\\('keys:', Object.keys\\(v\\).slice\\(0,3\\)\\); console.log\\('has pdfMake:', !!v.pdfMake\\); console.log\\('is direct vfs:', typeof v['Roboto-Regular.ttf']\\)\")",
       "Bash(node -e \"const v = require\\('pdfmake/build/vfs_fonts'\\); console.log\\(Object.keys\\(v\\)\\)\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\pipeline\" -Recurse -Filter \"step*.ts\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }
