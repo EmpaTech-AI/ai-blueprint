@@ -1,7 +1,9 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
+import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 const router = express.Router();
 
@@ -137,6 +139,58 @@ router.get('/:jobId/logs', (req: Request, res: Response) => {
   }
 });
 
+// Step preview — inline PDF (opens in browser tab)
+router.get('/:jobId/step/:step/preview', async (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  try {
+    const job = loadJob(req.params.jobId);
+    const raw = getStepRaw(job, req.params.step);
+    if (!raw) { res.status(404).json({ error: 'Step output not available' }); return; }
+    const { markdown } = buildStepContent(req.params.step, raw);
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, markdown);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="preview-step-${req.params.step}.pdf"`);
+    res.send(pdfBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate preview' }); }
+});
+
+// Step PDF download
+router.get('/:jobId/step/:step/pdf', async (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  try {
+    const job = loadJob(req.params.jobId);
+    const raw = getStepRaw(job, req.params.step);
+    if (!raw) { res.status(404).json({ error: 'Step output not available' }); return; }
+    const { title, markdown } = buildStepContent(req.params.step, raw);
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, markdown);
+    const filename = `${sanitizeFilename(job.clientName)} - ${title}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate PDF' }); }
+});
+
+// Step DOCX download
+router.get('/:jobId/step/:step/docx', async (req: Request, res: Response) => {
+  const token = req.query.token || req.headers['x-reviewer-token'];
+  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  try {
+    const job = loadJob(req.params.jobId);
+    const raw = getStepRaw(job, req.params.step);
+    if (!raw) { res.status(404).json({ error: 'Step output not available' }); return; }
+    const { title, markdown } = buildStepContent(req.params.step, raw);
+    const tmpPath = path.join(os.tmpdir(), `step-${req.params.jobId}-${req.params.step}.docx`);
+    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup failure */ }
+    const filename = `${sanitizeFilename(job.clientName)} - ${title}.docx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(docxBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate DOCX' }); }
+});
+
 // Intermediate output download
 router.get('/:jobId/step/:step', (req: Request, res: Response) => {
   const token = req.query.token || req.headers['x-reviewer-token'];
@@ -173,6 +227,61 @@ export default router;
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().substring(0, 60);
+}
+
+function getStepRaw(job: ReturnType<typeof loadJob>, step: string): string | undefined {
+  const map: Record<string, string | undefined> = {
+    A: job.stepA_corpus, B: job.stepB_dossier, C: job.stepC_maturity,
+    D: job.stepD_opportunities, D2: job.stepD2_roadmap, E: job.stepE_assembly,
+  };
+  return map[step.toUpperCase()];
+}
+
+function buildStepContent(step: string, raw: string): { title: string; markdown: string } {
+  const titles: Record<string, string> = {
+    A: 'Pre-Processing: Document Parsing Results',
+    B: 'Stage 1: Intake Analysis',
+    C: 'Stage 2: Maturity Scoring',
+    D: 'Stage 3: Opportunity Mapping',
+    D2: 'Stage 4: Action Roadmap',
+    E: 'Stage 5: Document Assembly',
+  };
+  const title = titles[step.toUpperCase()] ?? `Step ${step}`;
+
+  if (step.toUpperCase() === 'A') {
+    try {
+      const corpus = JSON.parse(raw) as {
+        parsedAt?: string;
+        documents?: Array<{ filename: string; category: string; status: string; wordCount?: number }>;
+        failedDocuments?: Array<{ filename: string; category: string; error?: string }>;
+        missingRequiredCategories?: string[];
+      };
+      const lines = [`# ${title}`, '', `**Parsed at:** ${corpus.parsedAt ?? 'unknown'}`, ''];
+      if (corpus.documents?.length) {
+        lines.push(`## Successfully Parsed (${corpus.documents.length})`, '');
+        for (const d of corpus.documents)
+          lines.push(`- **${d.filename}** — ${d.category} — ${d.wordCount ?? 0} words — status: ${d.status}`);
+        lines.push('');
+      }
+      if (corpus.failedDocuments?.length) {
+        lines.push(`## Failed to Parse (${corpus.failedDocuments.length})`, '');
+        for (const d of corpus.failedDocuments)
+          lines.push(`- **${d.filename}** — ${d.category} — Error: ${d.error ?? 'unknown'}`);
+        lines.push('');
+      }
+      if (corpus.missingRequiredCategories?.length) {
+        lines.push('## Missing Required Categories', '');
+        for (const cat of corpus.missingRequiredCategories) lines.push(`- ${cat}`);
+      }
+      return { title, markdown: lines.join('\n') };
+    } catch {
+      return { title, markdown: `# ${title}\n\nRaw data could not be parsed.` };
+    }
+  }
+
+  // Steps B–E: raw content is already markdown; ensure it begins with a heading
+  const markdown = raw.trimStart().startsWith('#') ? raw : `# ${title}\n\n${raw}`;
+  return { title, markdown };
 }
 
 type Corpus = {

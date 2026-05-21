@@ -38,11 +38,15 @@ export async function runPipeline(jobId: string): Promise<void> {
     const corpus = await runStepA(job.uploadedFiles);
     await saveStepOutput(jobId, 'A', corpus);
 
+    if (corpus.failedDocuments.length > 0) {
+      const names = corpus.failedDocuments.map((d) => d.filename).join(', ');
+      throw new Error(
+        `Document parse failure: ${corpus.failedDocuments.length} file(s) could not be parsed (${names}). ` +
+        `Pipeline halted to preserve output quality — fix or remove the failing file(s) and re-run.`
+      );
+    }
     if (corpus.missingRequiredCategories.length > 0) {
       reviewerFlags.push(`Missing required document categories: ${corpus.missingRequiredCategories.join(', ')}`);
-    }
-    if (corpus.failedDocuments.length > 0) {
-      reviewerFlags.push(`${corpus.failedDocuments.length} document(s) failed to parse — check logs`);
     }
 
     // Step B — blueprint-intake

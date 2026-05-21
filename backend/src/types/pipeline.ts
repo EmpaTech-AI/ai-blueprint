@@ -50,6 +50,9 @@ export interface ConfidenceResult {
   lowConfidenceCount: number;
   needsReview: boolean;
   breakdown: ConfidenceBreakdown;
+  inferredSnippets?: string[];
+  assumptionSnippets?: string[];
+  noTagsReason?: string;
 }
 
 export interface PipelineJob {

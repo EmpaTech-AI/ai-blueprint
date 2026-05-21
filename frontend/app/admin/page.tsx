@@ -29,6 +29,9 @@ interface StepConfidence {
   lowConfidenceCount: number;
   needsReview: boolean;
   breakdown: ConfidenceBreakdown;
+  inferredSnippets?: string[];
+  assumptionSnippets?: string[];
+  noTagsReason?: string;
 }
 
 interface JobSummary {
@@ -85,6 +88,8 @@ function scoreColor(score: number) {
 }
 
 function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfidence | number }) {
+  const [showSnippets, setShowSnippets] = useState(false);
+
   const stepId   = SCORE_KEY_TO_STEP[stepKey] ?? stepKey;
   const stepMeta = STEP_INFO[stepId];
   const stage    = stepMeta?.stage ?? stepKey;
@@ -94,6 +99,7 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
   const score    = typeof data === 'number' ? data : data.score;
   const colors   = scoreColor(score);
   const full     = typeof data === 'object' ? data : null;
+  const snippetCount = (full?.inferredSnippets?.length ?? 0) + (full?.assumptionSnippets?.length ?? 0);
 
   return (
     <div
@@ -184,6 +190,64 @@ function ConfidenceCard({ stepKey, data }: { stepKey: string; data: StepConfiden
         </div>
       )}
 
+      {/* No-tags explanation */}
+      {full?.noTagsReason && (
+        <p className="text-xs mt-2 pt-2 leading-relaxed" style={{
+          color: '#fcd34d',
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          {full.noTagsReason}
+        </p>
+      )}
+
+      {/* Inferred / Assumption snippet toggle */}
+      {snippetCount > 0 && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <button
+            onClick={() => setShowSnippets(!showSnippets)}
+            className="text-xs font-semibold flex items-center gap-1"
+            style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            {showSnippets ? '▾' : '▸'} {showSnippets ? 'Hide' : 'Show'} low-confidence claims ({snippetCount})
+          </button>
+
+          {showSnippets && (
+            <div className="mt-2 space-y-2">
+              {full?.inferredSnippets?.map((snippet, i) => (
+                <div
+                  key={`inf-${i}`}
+                  className="rounded-lg p-2.5 text-xs leading-relaxed"
+                  style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.2)' }}
+                >
+                  <span
+                    className="inline-block font-bold uppercase tracking-wide mb-1"
+                    style={{ fontSize: '0.6rem', color: '#fcd34d' }}
+                  >
+                    Inferred
+                  </span>
+                  <p style={{ color: 'rgba(255,255,255,0.75)' }}>{snippet}</p>
+                </div>
+              ))}
+              {full?.assumptionSnippets?.map((snippet, i) => (
+                <div
+                  key={`ass-${i}`}
+                  className="rounded-lg p-2.5 text-xs leading-relaxed"
+                  style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.2)' }}
+                >
+                  <span
+                    className="inline-block font-bold uppercase tracking-wide mb-1"
+                    style={{ fontSize: '0.6rem', color: '#fca5a5' }}
+                  >
+                    Assumption
+                  </span>
+                  <p style={{ color: 'rgba(255,255,255,0.75)' }}>{snippet}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Fallback: old format with no breakdown */}
       {!full && (
         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
@@ -218,8 +282,9 @@ export default function AdminPage() {
   const [approvingId,    setApprovingId]    = useState<string | null>(null);
   const [retryingId,     setRetryingId]     = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
-  const [deletingId,     setDeletingId]     = useState<string | null>(null);
-  const [confirmDeleteId,setConfirmDeleteId]= useState<string | null>(null);
+  const [deletingId,      setDeletingId]      = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -295,10 +360,16 @@ export default function AdminPage() {
     }
   };
 
-  const previewUrl      = (jobId: string) => `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
-  const logsUrl         = (jobId: string) => `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
-  const stepDownloadUrl = (jobId: string, step: string) =>
+  const previewUrl       = (jobId: string) => `${apiUrl}/api/download/${jobId}/preview?token=${encodeURIComponent(token)}`;
+  const logsUrl          = (jobId: string) => `${apiUrl}/api/download/${jobId}/logs?token=${encodeURIComponent(token)}`;
+  const stepDownloadUrl  = (jobId: string, step: string) =>
     `${apiUrl}/api/download/${jobId}/step/${step}?token=${encodeURIComponent(token)}`;
+  const stepPreviewUrl   = (jobId: string, step: string) =>
+    `${apiUrl}/api/download/${jobId}/step/${step}/preview?token=${encodeURIComponent(token)}`;
+  const stepFormatUrl    = (jobId: string, step: string, fmt: 'pdf' | 'docx' | 'txt') =>
+    fmt === 'txt'
+      ? stepDownloadUrl(jobId, step)
+      : `${apiUrl}/api/download/${jobId}/step/${step}/${fmt}?token=${encodeURIComponent(token)}`;
 
   const handleDownload = useCallback(async (
     jobId: string,
@@ -363,6 +434,14 @@ export default function AdminPage() {
     const timer = setTimeout(() => setConfirmDeleteId(null), 4000);
     return () => clearTimeout(timer);
   }, [confirmDeleteId]);
+
+  // Close any open download dropdown when clicking elsewhere
+  useEffect(() => {
+    if (!openDropdownKey) return;
+    const close = () => setOpenDropdownKey(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openDropdownKey]);
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authenticated) {
@@ -779,41 +858,125 @@ export default function AdminPage() {
                     style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                      Raw pipeline outputs — download each stage&apos;s AI output for detailed review
+                      Raw pipeline outputs — preview or download each stage&apos;s AI output
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {(['A', 'B', 'C', 'D', 'D2', 'E'] as const).map((step) => {
                         const info = STEP_INFO[step];
+                        const dropKey = `${job.jobId}-${step}`;
+                        const isOpen = openDropdownKey === dropKey;
                         return (
-                          <a
+                          <div
                             key={step}
-                            href={stepDownloadUrl(job.jobId, step)}
-                            target="_blank"
-                            rel="noreferrer"
                             title={info.description}
-                            className="inline-flex flex-col transition-all duration-150 hover:-translate-y-px"
                             style={{
-                              padding: '8px 14px',
-                              background: 'rgba(99,102,241,0.10)',
-                              border: '1px solid rgba(99,102,241,0.22)',
+                              background: 'rgba(99,102,241,0.08)',
+                              border: '1px solid rgba(99,102,241,0.2)',
                               borderRadius: '10px',
-                              textDecoration: 'none',
-                              minWidth: '120px',
+                              padding: '10px 12px',
                             }}
                           >
-                            <span
-                              className="text-xs font-semibold uppercase tracking-wide leading-none mb-0.5"
-                              style={{ color: 'rgba(165,180,252,0.7)', fontSize: '0.65rem' }}
-                            >
+                            <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>
                               {info.stage}
                             </span>
-                            <span
-                              className="text-xs font-bold leading-tight"
-                              style={{ color: '#a5b4fc' }}
-                            >
+                            <span style={{ color: '#a5b4fc', fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '8px', lineHeight: 1.3 }}>
                               {info.label}
                             </span>
-                          </a>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {/* Preview button — opens inline PDF in new tab */}
+                              <a
+                                href={stepPreviewUrl(job.jobId, step)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  flex: 1,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px',
+                                  padding: '4px 6px',
+                                  background: 'rgba(255,255,255,0.07)',
+                                  border: '1px solid rgba(255,255,255,0.15)',
+                                  borderRadius: '6px',
+                                  color: 'rgba(255,255,255,0.7)',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 600,
+                                  textDecoration: 'none',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <EyeIcon className="w-3 h-3" />
+                                Preview
+                              </a>
+
+                              {/* Download dropdown */}
+                              <div
+                                style={{ position: 'relative' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() => setOpenDropdownKey(isOpen ? null : dropKey)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    padding: '4px 8px',
+                                    background: isOpen ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.18)',
+                                    border: '1px solid rgba(99,102,241,0.35)',
+                                    borderRadius: '6px',
+                                    color: '#a5b4fc',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  <DownloadIcon className="w-3 h-3" />
+                                  {isOpen ? '▴' : '▾'}
+                                </button>
+
+                                {isOpen && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    bottom: 'calc(100% + 4px)',
+                                    right: 0,
+                                    background: '#13131f',
+                                    border: '1px solid rgba(99,102,241,0.4)',
+                                    borderRadius: '8px',
+                                    padding: '4px',
+                                    zIndex: 50,
+                                    minWidth: '80px',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                  }}>
+                                    {(['pdf', 'docx', 'txt'] as const).map((fmt) => (
+                                      <a
+                                        key={fmt}
+                                        href={stepFormatUrl(job.jobId, step, fmt)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={() => setOpenDropdownKey(null)}
+                                        style={{
+                                          display: 'block',
+                                          padding: '5px 10px',
+                                          borderRadius: '5px',
+                                          color: 'rgba(255,255,255,0.8)',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          textDecoration: 'none',
+                                          textTransform: 'uppercase',
+                                          letterSpacing: '0.04em',
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(99,102,241,0.25)')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                      >
+                                        {fmt}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
