@@ -166,10 +166,11 @@ the content.
 
 **Content quality:**
 - Write every word as if it will be read by the client's CEO directly
-- Remove all internal labels: no `[Document-Backed]`, `[Inferred]`, `[Assumption]` tags
+- **Embed confidence tags throughout** — use `[Document-Backed]`, `[Form-Stated]`, `[Inferred]`, and `[Assumption]` inline on every factual claim you make in the assembled text. **These tags are automatically stripped from the final PDF and DOCX by the pipeline — the client never sees them. They are required here for confidence scoring in the dashboard.**
+- Tag every synthesized statement, every numerical figure, every key finding narrative. Example: "The firm processes 258 mandates annually [Document-Backed] with an average sourcing effort of 6–8 hours per mandate [Form-Stated], representing a total annual sourcing burden estimated at 1,500–2,000 hours [Inferred]."
 - Remove all pipeline references: no "Step 1 output", "from the dossier", "per the snapshot"
 - Remove all methodology codes, scoring formulas, and internal shorthand
-- Resolve all placeholders — if you don't have a value, make a professional inference or omit
+- Resolve all placeholders — if you don't have a value, make a professional inference and tag it `[Assumption]` or `[Inferred]`
 - Spell out the client name consistently throughout; do not use placeholders like `{CLIENT_NAME}`
 
 ## Quality Checks Before Finalizing
@@ -181,7 +182,8 @@ Before producing the final document, verify:
 | Client name consistency | Same name used throughout all sections |
 | Score consistency | Maturity scores in Section 2 match what's referenced in Sections 4–6 |
 | Opportunity consistency | Same 5–7 opportunities appear in Sections 4 and 5 |
-| No internal jargon | Remove confidence tags, methodology codes, and internal references |
+| No pipeline references | Remove "from the dossier", "per Step 2", methodology codes, and internal references |
+| Confidence tags present | Every factual claim carries an inline confidence tag — pipeline strips them automatically |
 | Tone | Client-facing, consultative, constructive throughout |
 | Page count | 12–18 pages total (flag if outside range) |
 | Confidence summary | Note the overall confidence level in the methodology appendix |

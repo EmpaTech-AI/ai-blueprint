@@ -6,6 +6,15 @@ export function stripJustification(text: string): string {
   return text.replace(/\n*## \[JUSTIFICATION\][\s\S]*?\[END JUSTIFICATION\]\n*/g, '').trim();
 }
 
+export function stripConfidenceTags(text: string): string {
+  return text.replace(/\s*\[(Document-Backed|Form-Stated|Inferred|Assumption)\]/g, '');
+}
+
+// Strips both justification block and inline confidence tags — use before generating client documents.
+export function stripForDelivery(text: string): string {
+  return stripConfidenceTags(stripJustification(text));
+}
+
 function parseJustificationBlock(text: string): { overview: string; entries: JustificationEntry[] } {
   const blockMatch = text.match(/## \[JUSTIFICATION\]([\s\S]*?)\[END JUSTIFICATION\]/);
   if (!blockMatch) return { overview: '', entries: [] };

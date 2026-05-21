@@ -90,6 +90,14 @@ Cross-reference form responses with document data:
 
 ### Phase 3: Produce the Compressed Dossier
 
+## Mandatory Inline Tagging
+
+**Every factual claim across ALL sections of this dossier MUST carry an inline confidence tag.** This applies to narrative paragraphs, table cells, bullet points, and every other text element. Tags drive the confidence score in the pipeline dashboard — output without inline tags defaults to 50%.
+
+- Append `[Document-Backed]`, `[Form-Stated]`, `[Inferred]`, or `[Assumption]` immediately after the claim it qualifies
+- Do not rely only on table "Confidence Tag" columns — tag inline in narrative text too
+- Example of correctly tagged narrative: "The firm generated €4.2M in revenue in FY2025 [Document-Backed — financial summary p.1]. The CEO described growth targets of 20% for FY2026 [Form-Stated] though no board-approved plan was uploaded to confirm this target [Inferred]. Operations are centralised in Sofia with a satellite team in Plovdiv [Form-Stated]."
+
 ## Output Format: Compressed Client Dossier
 
 This is an **internal document** (not client-facing). It feeds the downstream Blueprint skills.
@@ -97,7 +105,7 @@ This is an **internal document** (not client-facing). It feeds the downstream Bl
 ### A) Executive Summary of Current State (150–250 words)
 
 What the client does, their strategic goals, top challenges, and what appears most urgent.
-Every paragraph must include at least 2 citations. Keep it factual and evidence-based.
+Every paragraph must include at least 2 citations **and every factual claim must carry an inline confidence tag**. Keep it factual and evidence-based.
 
 ### B) Key Data Points (Reference Table)
 
@@ -125,17 +133,17 @@ List potential AI opportunities grounded in the evidence. These are hypotheses f
 Opportunity Harvester to develop further.
 
 For each:
-- **Hypothesis** (1–2 sentences)
-- **Supporting evidence** (citations)
+- **Hypothesis** (1–2 sentences — **tag the claim inline**: e.g. "Manual invoice matching takes 2–3 days per cycle [Document-Backed — SOP section 4]. AI matching could reduce this to same-day processing [Assumption — no comparable implementation data available].")
+- **Supporting evidence** (citations with inline tags)
 - **What we'd validate next** (1 sentence)
 
-Rules: Must be grounded in evidence. Label as "Hypothesis." No generic AI suggestions.
+Rules: Must be grounded in evidence. Label as "Hypothesis." No generic AI suggestions. **Every hypothesis sentence must carry an inline confidence tag.**
 
 ### E) Org and Process Views (Bullet-Point Depth)
 
-- 3–5 bullets summarizing organizational hierarchy (from org chart or form)
-- 3–5 bullets summarizing key processes and where friction exists
-- If not derivable: "Org/process detail not fully derivable from current materials"
+- 3–5 bullets summarizing organizational hierarchy — **tag each claim**: e.g. "CEO reports to board of 3 [Document-Backed — org chart]" or "Finance team size inferred from headcount mention in form [Inferred]"
+- 3–5 bullets summarizing key processes and where friction exists — **tag each bullet inline**
+- If not derivable: "Org/process detail not fully derivable from current materials [Insufficient Evidence]"
 
 ### F) Document Index (Simple List)
 

@@ -133,8 +133,16 @@ and at least 1 Big Bet — showing the client the range of what's possible.
 
 ### Executive Opportunity Summary (100–150 words)
 
-What categories of opportunities dominate, 2–3 themes connecting to maturity findings,
-and the biggest constraints shaping feasibility.
+What categories of opportunities dominate, 2–3 themes connecting to maturity findings, and the biggest constraints shaping feasibility. **Tag every factual claim inline** — e.g. "The three Quick Wins identified all leverage existing CRM data [Document-Backed]. Feasibility across the portfolio is constrained by Early Data maturity [Inferred from Stage 2 snapshot] and absence of a formal data governance owner [Form-Stated]."
+
+## Mandatory Inline Tagging
+
+**Every factual claim across all opportunity cards and portfolio views MUST carry an inline confidence tag.** Tags drive the confidence score in the pipeline dashboard — output without them defaults to 50%.
+
+- Append `[Document-Backed]`, `[Form-Stated]`, `[Inferred]`, or `[Assumption]` immediately after each claim
+- Tag every bullet in Expected Impact, Feasibility, and Pilot Suggestion
+- Tag the "What it is" description and "Pain point addressed" sentence
+- Example: "The client processes 258 mandates annually [Document-Backed]. Sourcing currently requires 6–8 hours per mandate [Form-Stated], suggesting a total annual sourcing burden of ~1,500–2,000 hours [Inferred]. Automation could reduce this by 40–60% [Assumption] based on industry benchmarks for AI-assisted sourcing tools."
 
 ### Opportunity Cards (5–7)
 
@@ -143,20 +151,29 @@ For each opportunity, produce a half-page card:
 ```
 #### Opportunity #{Rank}: {Title}
 
-**What it is:** (2–3 sentences describing the opportunity)
+**What it is:** (2–3 sentences describing the opportunity — tag every factual claim inline:
+e.g. "The client currently spends X hours on Y [Document-Backed/Form-Stated/Inferred]. This
+opportunity would use AI to automate Z [Inferred/Assumption].")
 
-**Pain point addressed:** {name of pain point from Dossier Section C, with citation}
+**Pain point addressed:** {name of pain point from Dossier Section C, with citation and
+confidence tag — e.g. "Manual sourcing bottleneck (Dossier C.1) [Document-Backed]"}
 
-**Expected impact:** (2–3 bullets; quantify where possible using client data, otherwise
-state ranges with [Assumption] tags)
+**Expected impact:** (2–3 bullets; tag every metric or estimate:
+- Could reduce sourcing time by 40–60% [Assumption] — no time-tracking data to validate
+- Applicable to all 258 mandates confirmed in FY2025 pipeline data [Document-Backed]
+- Cost saving depends on researcher hourly rate not provided in financial documents [Inferred])
 
-**Feasibility:** (2–3 bullets; ground in maturity scores and technology landscape.
-Note any readiness adjustments applied.)
+**Feasibility:** (2–3 bullets; tag each assessment:
+- Vincere CRM integration confirmed possible via API [Form-Stated]
+- Feasibility reduced from 4 to 3 due to Early Data maturity [Inferred] per Stage 2 snapshot
+- No prior AI vendor procurement process exists [Document-Backed])
 
 **Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5
 **Classification:** Quick Win / Foundation Builder / Big Bet
 
-**Pilot suggestion:** (1–2 sentences — what a minimal first step would look like)
+**Pilot suggestion:** (1–2 sentences — tag any assumptions about technology or process:
+e.g. "A pilot using an AI sourcing tool on 10 mandates would validate the time saving
+[Assumption — assumes tool procurement approval within 30 days].")
 ```
 
 ### Portfolio View

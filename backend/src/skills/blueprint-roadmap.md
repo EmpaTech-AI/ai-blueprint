@@ -102,36 +102,44 @@ identified in the maturity snapshot."
 
 This makes the sequencing feel logical and evidence-based, not arbitrary.
 
+## Mandatory Inline Tagging
+
+**Every factual claim, sequencing rationale, and phase placement justification MUST carry an inline confidence tag.** Tags drive the confidence score in the pipeline dashboard — output without them defaults to 50%.
+
+- Append `[Document-Backed]`, `[Form-Stated]`, `[Inferred]`, or `[Assumption]` immediately after each claim
+- Tag the rationale for every phase placement — why this phase, not another
+- When sequencing inherits uncertainty from Stage 2 or 3, explicitly carry the tag forward: "Placed in Now because Data maturity is Early [Inferred — Stage 2 score had no data governance documentation to confirm]"
+- Example of correctly tagged placement: "Opportunity #2 moves to Next rather than Now because the Vincere migration must complete first [Form-Stated] and the estimated completion date of Q2 2026 was provided verbally, not in a project plan [Inferred]."
+
 ## Output Format: Recommended Action Sequence
 
 ### Sequencing Rationale (3–5 sentences)
 
-Why this order. What the overall logic is. Which maturity gaps most influence the sequence.
-Which phase delivers the first visible win and why that matters for building momentum.
+Why this order. What the overall logic is. Which maturity gaps most influence the sequence. Which phase delivers the first visible win and why that matters for building momentum. **Tag every maturity gap reference and sequencing constraint inline.**
 
 ### Phase 1: Now (Months 1–3)
 
 For each opportunity in this phase:
 
 **{Opportunity Title}** (Quick Win / Foundation Builder)
-*Why now:* {1–2 sentences grounded in feasibility, urgency, and/or maturity readiness. Include citation.}
-*Expected early result:* {1 sentence — what the client will see within 3 months}
+*Why now:* {1–2 sentences grounded in feasibility, urgency, and/or maturity readiness — **tag every evidence reference inline**, e.g. "Feasibility score of 4/5 [from Stage 3 scoring] reflects existing CRM data [Document-Backed] and available API access [Form-Stated]."}
+*Expected early result:* {1 sentence — what the client will see within 3 months, tagged if it's a prediction: "Initial time saving of 30–40% on sourcing tasks expected [Assumption — no baseline time-tracking to anchor the figure]"}
 
 ### Phase 2: Next (Months 3–6)
 
 For each opportunity:
 
 **{Opportunity Title}** (Foundation Builder / Big Bet)
-*Why next, not now:* {1–2 sentences explaining what needs to happen first. Reference maturity gaps or dependencies from "Now" phase.}
-*What unlocks this:* {1 sentence — which "Now" phase progress makes this feasible}
+*Why next, not now:* {1–2 sentences explaining what needs to happen first — **tag every maturity gap and dependency claim inline**, e.g. "Requires data quality foundations not yet in place [Inferred — no data governance policy was provided [Document-Backed absence]]"}
+*What unlocks this:* {1 sentence — which "Now" phase progress makes this feasible, tagged}
 
 ### Phase 3: Later (Months 6–12)
 
 For each opportunity:
 
 **{Opportunity Title}** (Big Bet)
-*Why later:* {1–2 sentences explaining the maturity or investment requirements.}
-*What this builds on:* {1 sentence — which earlier phases lay the groundwork}
+*Why later:* {1–2 sentences explaining the maturity or investment requirements — **tag every constraint claim inline**}
+*What this builds on:* {1 sentence — which earlier phases lay the groundwork, tagged}
 
 ### Bridge to Deeper Engagement (2–3 sentences)
 

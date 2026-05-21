@@ -17,7 +17,7 @@ import { runStepD } from './stepD-opportunities';
 import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
-import { calculateConfidence, stripJustification } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification, stripForDelivery } from '../utils/confidenceScorer';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -93,20 +93,25 @@ export async function runPipeline(jobId: string): Promise<void> {
     confidenceScores.stepE = eScore;
     if (eScore.needsReview) reviewerFlags.push(`Stage 5 (Document Assembly) confidence: ${eScore.score}% — below Amber threshold (76%)`);
 
+    // Strip confidence tags and justification block before generating client documents.
+    // The raw assembled output (with tags) stays in the DB for confidence scoring;
+    // the clean version is what goes into the delivered PDF, DOCX, and TXT.
+    const assembledForDelivery = stripForDelivery(assembled);
+
     // Generate DOCX
     fs.mkdirSync(JOBS_DIR, { recursive: true });
     const docxFilename = `AI Value Blueprint - ${sanitizeName(job.clientName)}.docx`;
     const docxPath = path.join(JOBS_DIR, jobId, docxFilename);
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
-    const docxBuffer = await generateBlueprintDocx(job.clientName, assembled, docxPath);
+    const docxBuffer = await generateBlueprintDocx(job.clientName, assembledForDelivery, docxPath);
 
     // Persist all download formats in the database so they survive container restarts
     await saveDocxData(jobId, docxBuffer.toString('base64'));
 
-    const pdfBuffer = await generateBlueprintPdf(job.clientName, assembled);
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, assembledForDelivery);
     await savePdfData(jobId, pdfBuffer.toString('base64'));
 
-    const txtContent = generateBlueprintTxt(job.clientName, assembled);
+    const txtContent = generateBlueprintTxt(job.clientName, assembledForDelivery);
     await saveTxtData(jobId, txtContent);
 
     await updateConfidenceScores(jobId, confidenceScores);

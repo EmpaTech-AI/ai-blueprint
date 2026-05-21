@@ -118,18 +118,29 @@ Review all 6 scores together:
 - Check that the narrative is consistent across dimensions
 - If inconsistencies exist, note them but do not force alignment
 
+## Mandatory Inline Tagging
+
+**Every factual claim, score rationale, and evidence reference throughout this output MUST carry an inline confidence tag.** Tags are what drive the confidence score shown in the pipeline dashboard — output without inline tags defaults to 50% regardless of quality.
+
+- Append `[Document-Backed]`, `[Form-Stated]`, `[Inferred]`, or `[Assumption]` immediately after the claim it qualifies
+- Tag every sentence in every rationale paragraph — not just table cells
+- If a single sentence draws on mixed evidence, tag the weakest source used
+- Example of correctly tagged text: "The client has named AI adoption as a top priority in their FY2026 strategic plan [Document-Backed]. No dedicated AI budget or implementation timeline has been documented [Inferred], suggesting intent without structured commitment. The Operations Director acts as de facto AI lead [Form-Stated] but no formal role definition or governance structure exists [Assumption]."
+
 ## Output Format: AI Readiness Snapshot
 
 ### Readiness Scorecard
 
-| Dimension | Level | Key Evidence | Confidence |
-|-----------|-------|-------------|-----------|
-| Strategy | Early / Developing / Established | 1–2 sentence summary with citation | High / Medium / Low |
+| Dimension | Level | Key Evidence | Confidence Tag |
+|-----------|-------|-------------|---------------|
+| Strategy | Early / Developing / Established | 1–2 sentence summary — embed inline tag on the claim | [Document-Backed] / [Form-Stated] / [Inferred] / [Assumption] |
 | Data | ... | ... | ... |
 | Technology | ... | ... | ... |
 | People | ... | ... | ... |
 | Processes | ... | ... | ... |
 | Governance | ... | ... | ... |
+
+Use the single most conservative tag that applies to the primary evidence for that score. If the score rests on absence of evidence (defaulted to Early), use `[Inferred]` and note it.
 
 ### Dimension Rationales
 
@@ -137,22 +148,18 @@ For each dimension, provide:
 
 **{Dimension Name}: {Level}**
 
-{2–4 sentence rationale with citations. Explain why this level and not the adjacent one.
-Reference specific evidence from the dossier.}
+{2–4 sentence rationale. **Every sentence must carry an inline confidence tag.** Explain why this level and not the adjacent one, citing specific evidence from the dossier with appropriate tags. Example structure: "The org chart shows a defined IT function of 3 people [Document-Backed]. No cloud infrastructure or AI/ML tooling is listed in the technology inventory [Document-Backed]. The form states that Salesforce and Xero are the core systems [Form-Stated], and their API capabilities were not confirmed [Inferred]."}
 
 *What would change this score:* {1 sentence — what evidence or action would move them up}
 
 ### Overall Pattern (3–5 sentences)
 
-A brief narrative synthesizing the 6 scores: what the overall readiness picture looks like,
-which dimensions are the biggest enablers, which are the biggest constraints, and any
-notable patterns or contradictions.
+A brief narrative synthesizing the 6 scores. **Tag every claim with its evidence source inline.** Cover: what the overall readiness picture looks like, which dimensions are the biggest enablers, which are the biggest constraints, and any notable patterns or contradictions.
 
 ### Key Constraints for AI Adoption (3–5 bullets)
 
 The most important maturity gaps that will shape which AI opportunities are feasible and
-in what order they should be pursued. These directly feed the Opportunity Harvester's
-readiness adjustment and the Roadmap's maturity gating.
+in what order they should be pursued. **Each bullet must carry an inline confidence tag on the constraint claim.** These directly feed the Opportunity Harvester's readiness adjustment and the Roadmap's maturity gating.
 
 ## Methodology Reference
 
