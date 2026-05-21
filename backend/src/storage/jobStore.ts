@@ -11,6 +11,11 @@ fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
 
+// WAL mode: allows concurrent readers + one writer without "database is locked" errors.
+// busy_timeout: if a write collides, retry for up to 10 s before throwing.
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 10000');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS jobs (
     jobId TEXT PRIMARY KEY,
