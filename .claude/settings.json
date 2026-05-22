@@ -38,7 +38,8 @@
       "Bash(node -e ' *)",
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\pipeline\" -Recurse -Filter \"step*.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(dir \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\routes\" /b)"
+      "Bash(dir \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\routes\" /b)",
+      "Bash(xargs grep -l \"client\\\\|Client\")"
     ]
   }
 }
