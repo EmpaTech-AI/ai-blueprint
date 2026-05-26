@@ -10,8 +10,8 @@ description: >
   delivery sequencing. If the user uploads client documents and mentions "Blueprint" or "diagnostic",
   use this skill to determine the right starting point and coordinate the flow.
 schema_version: intake_v1.0
-skill_version: 2.0.0
-last_updated: 2026-05-25
+skill_version: 2.1.0
+last_updated: 2026-05-26
 ---
 
 # AI Value Blueprint — Pipeline Orchestrator
@@ -62,14 +62,34 @@ Client Intake (form + documents)
 **Step 1 — Intake:** Invoke `blueprint-intake` with the client's form responses and uploaded
 documents. The skill produces a Compressed Client Dossier conforming to schema `intake_v1.0`.
 
-**GATE 1:** Before proceeding to Step 2, instruct the operator to run:
+**GATE 1 (MANDATORY — NON-SKIPPABLE):** Before proceeding to Step 2, the operator MUST run the
+validation harness and confirm a PASS result. The orchestrator MUST refuse to invoke
+`blueprint-maturity` without this confirmation. Treat the harness output as authoritative —
+not the AI Output Quality dashboard, which measures citation grounding only and does not
+detect structural truncation or missing sections.
 
 ```bash
-python3 backend/src/skills/blueprint-intake/harness/validate_intake.py <dossier_path>
+# The one-line gate check — run this after every Step 1 invocation:
+bash /mnt/skills/user/blueprint-intake/harness/gate.sh <dossier_path>
 ```
 
-A PASS is required. If FAIL: review the report, correct issues or regenerate, re-validate.
-Do not proceed to Step 2 with a failing dossier.
+Expected output for a passing dossier:
+```
+GATE 1: PASS — dossier conforms to intake_v1.0. Safe to invoke blueprint-maturity.
+```
+
+Expected output for a failing dossier:
+```
+GATE 1: FAIL — N failures detected. See report above. DO NOT invoke blueprint-maturity.
+```
+
+If FAIL: review the harness report, decide whether to regenerate (preferred) or hand-correct,
+then re-run gate.sh. Only proceed when PASS is confirmed.
+
+**Why this gate exists:** The Ivan_Montin test runs (May 2026) produced dossiers that scored
+99% GREEN on the AI Output Quality dashboard but were missing 5 of 9 mandatory sections due
+to generation truncation. The dashboard measured what existed; the harness measures what
+should exist. Both are needed; the harness gate is the authoritative one for pipeline progression.
 
 **Step 2 — Maturity:** Invoke `blueprint-maturity` with the validated dossier from Step 1.
 Review the 6-dimension snapshot. Verify scores have rationale and conservative bias is applied.
@@ -96,21 +116,113 @@ After each skill completes, verify before proceeding:
 | Confidence coverage | Claims tagged with confidence levels per `intake_v1.0` taxonomy | Step 1: harness; downstream: traceable to dossier |
 | Consistency | Client name, industry, key facts, hypothesis count consistent across stages | Manual review |
 | Tone | Client-facing language where applicable | Manual review |
-| Downstream readiness | Output contains everything the next skill needs as specified in the data contracts below |
+| Downstream readiness | Output contains everything the next skill needs | Manual review |
 
-## Inter-Skill Data Contracts
+## Methodology Reference
 
-See `methodology-and-contracts.md` in this same folder for the full shared methodology reference,
-confidence tagging rules, and handoff contracts between each pipeline stage.
+For the full methodology standards, scoring frameworks, data contracts, and scope boundaries,
+read the PIO Framework files in `../blueprint-intake/references/`:
 
-## Validation Harness
+- `intake_v1.0.md` — the master schema for Step 1 output (the foundation of all downstream stages)
+- `citation_rules.md` — citation format used across the pipeline
+- `source_registry.md` — canonical source names
+- `confidence_thresholds.md` — confidence tag definitions
+- `algorithms/pain_point_selection.md` — how Step 1 picks pain points (drives Step 3 opportunities)
+- `algorithms/hypothesis_selection.md` — how Step 1 picks hypotheses (drives Step 3 and Step 4)
+- `algorithms/ordering.md` — within-section ordering
+- `preflight.md` — forbidden patterns across all stages
 
-The harness lives at `backend/src/skills/blueprint-intake/harness/validate_intake.py`.
+The schema spec `intake_v1.0.md` is the canonical reference document for cross-stage contracts.
+Until this file exists at the path above, the pipeline operates on prose guidance only and outputs
+will vary between runs (see TEST 1 vs TEST 2 audit findings).
 
-Run it after Step 1 to enforce schema conformance before proceeding:
+## Handling Incomplete Inputs
 
-```bash
-python3 backend/src/skills/blueprint-intake/harness/validate_intake.py <path_to_dossier.md>
-```
+If the user wants to start partway through the pipeline:
 
-Exit code 0 = PASS. Any non-zero exit = FAIL with a structured report identifying specific violations.
+1. Ask what deliverables already exist
+2. Check if the required upstream outputs are available
+3. **If starting from Step 2 or later: confirm the existing dossier passes harness validation.**
+   If not, instruct the operator to either:
+   - Re-run `blueprint-intake` on the original inputs (preferred), OR
+   - Manually remediate the dossier to schema conformance before proceeding
+4. If upstream materials are missing, recommend starting from the earliest incomplete step
+5. The compressed dossier (Step 1) is always required — never skip it
+
+## Engagement Reference Numbering
+
+Each Blueprint engagement should have a reference number (e.g. `BP-2026-001`) that:
+
+- Appears in the Step 1 dossier header
+- Carries through every downstream deliverable
+- Is logged in the engagement tracker (location TBD by Practice Lead)
+
+This enables post-hoc audit of any deliverable back to its source materials and schema version.
+
+## First-Turn Behavior
+
+When the user invokes this skill:
+
+1. Ask what stage they're at — new client or continuing an existing Blueprint?
+2. If new client: confirm they have the intake form responses and uploaded documents, then
+   recommend starting with `blueprint-intake`. Also confirm the engagement reference number.
+3. If continuing: identify which steps are complete and recommend the next step. If they're
+   continuing from Step 2 or later, ask whether the Step 1 dossier passed harness validation —
+   if not, route them back to Step 1 first.
+4. If the user wants to run the full pipeline end-to-end: coordinate the sequence, invoking
+   each skill in order and enforcing the harness gate after Step 1.
+5. If the user asks about pipeline quality, methodology, or "why does the output vary": point
+   them at the PIO Framework files (especially `intake_v1.0.md` and the audit document).
+
+## Cross-Stage Consistency Checks
+
+Once Steps 1–4 are complete and before invoking Step 5 (Assembly), verify:
+
+- The 8 pain points named in Step 1 Section C are referenced by the Step 3 opportunities
+- The 7 hypotheses named in Step 1 Section D map 1:1 to Step 3 scored opportunities (allowing
+  for hypothesis-to-opportunity renaming, but not addition/removal)
+- The Step 4 Now/Next/Later sequence respects the Step 3 classifications (Quick Wins in Now,
+  Foundation Builders in Next, Big Bets in Later — with documented exceptions only)
+- The Step 2 maturity scores are reflected in the Step 3 readiness adjustments
+- Currency convention consistent (EUR, not €, per AI Assist BG style)
+
+Any inconsistency must be resolved before assembly, not after.
+
+## Skill Versioning Policy
+
+Each Blueprint skill carries a `skill_version` in its frontmatter. The orchestrator is
+compatible with skill versions in the same major version. When invoking a skill, verify
+the version. If a skill has been upgraded mid-engagement, do not mix versions — finish the
+engagement with the started version, or restart from Step 1 with the upgraded versions.
+
+Current versions (as of this SKILL.md update):
+
+| Skill | Version | Schema |
+|-------|---------|--------|
+| blueprint-orchestrator | 2.0.0 | intake_v1.0 |
+| blueprint-intake | 2.0.0 | intake_v1.0 |
+| blueprint-maturity | TBD | reads intake_v1.0 |
+| blueprint-opportunities | TBD | reads intake_v1.0 |
+| blueprint-roadmap | TBD | reads intake_v1.0 |
+| blueprint-assembly | TBD | reads intake_v1.0 |
+
+When downstream skills are next updated, their version frontmatter should declare which schema
+version of the dossier they consume.
+
+## What Changed in Skill Version 2.0.0
+
+This SKILL.md was updated in May 2026 to integrate the PIO Framework. The previous version
+referenced a `references/methodology-and-contracts.md` file that did not exist (the dead
+pointer that contributed to TEST 1 / TEST 2 output variance).
+
+Substantive changes from v1.x:
+
+- The methodology reference now points at the actual file at
+  `../blueprint-intake/references/intake_v1.0.md` rather than a non-existent file
+- A new validation gate is enforced between Step 1 and Step 2 (`harness/validate_intake.py`)
+- Cross-stage consistency checks are now explicit before invoking Step 5
+- Skill versioning policy is documented
+- Engagement reference numbering is now recommended
+
+Existing engagements in flight under v1.x may continue under v1.x rules. New engagements
+should start under v2.0.0.
