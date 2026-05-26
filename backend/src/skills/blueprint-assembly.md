@@ -191,7 +191,7 @@ Before producing the final document, verify:
 ## Methodology Reference
 
 For shared methodology standards, read
-`../blueprint-orchestrator/references/methodology-and-contracts.md`.
+`../methodology-and-contracts.md`.
 
 ## Confidence Justification Report (Mandatory)
 

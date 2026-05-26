@@ -7,22 +7,49 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SKILLS_DIR = path.join(__dirname, '../skills');
 
+// Subdirectories loaded for folder-based skills (in order), relative to the skill folder.
+// Excludes: docs/ (developer notes), harness/ (Python scripts), golden/ (duplicate of examples/).
+const FOLDER_SKILL_SUBDIRS = ['references', 'references/algorithms', 'archetypes', 'examples'];
+
+function loadFolderSkill(skillDir: string): string {
+  const parts: string[] = [fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf-8')];
+  for (const subdir of FOLDER_SKILL_SUBDIRS) {
+    const subdirPath = path.join(skillDir, subdir);
+    if (!fs.existsSync(subdirPath)) continue;
+    const files = fs.readdirSync(subdirPath)
+      .filter(f => f.endsWith('.md') && fs.statSync(path.join(subdirPath, f)).isFile())
+      .sort();
+    for (const file of files) {
+      const relativePath = `${subdir}/${file}`;
+      const content = fs.readFileSync(path.join(subdirPath, file), 'utf-8');
+      parts.push(`\n\n---\n\n## [SKILL RESOURCE: ${relativePath}]\n\n${content}`);
+    }
+  }
+  return parts.join('');
+}
+
 export async function invokeSkill(
   skillName: string,
   userMessage: string,
   maxTokens: number = 8000
 ): Promise<string> {
-  const skillPath = path.join(SKILLS_DIR, `${skillName}.md`);
+  const flatSkillPath = path.join(SKILLS_DIR, `${skillName}.md`);
+  const folderSkillPath = path.join(SKILLS_DIR, skillName);
   const methodologyPath = path.join(SKILLS_DIR, 'methodology-and-contracts.md');
 
-  if (!fs.existsSync(skillPath)) {
-    throw new Error(`Skill file not found: ${skillPath}`);
+  const hasFlatSkill = fs.existsSync(flatSkillPath);
+  const hasFolderSkill = fs.existsSync(path.join(folderSkillPath, 'SKILL.md'));
+
+  if (!hasFlatSkill && !hasFolderSkill) {
+    throw new Error(`Skill file not found: ${skillName}`);
   }
   if (!fs.existsSync(methodologyPath)) {
     throw new Error(`Methodology file not found: ${methodologyPath}`);
   }
 
-  const skillContent = fs.readFileSync(skillPath, 'utf-8');
+  const skillContent = hasFolderSkill
+    ? loadFolderSkill(folderSkillPath)
+    : fs.readFileSync(flatSkillPath, 'utf-8');
   const methodologyContent = fs.readFileSync(methodologyPath, 'utf-8');
 
   const systemPrompt = `${skillContent}\n\n---\n\n# SHARED METHODOLOGY REFERENCE\n\n${methodologyContent}`;

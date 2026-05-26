@@ -39,7 +39,14 @@
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\pipeline\" -Recurse -Filter \"step*.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(dir \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\routes\" /b)",
-      "Bash(xargs grep -l \"client\\\\|Client\")"
+      "Bash(xargs grep -l \"client\\\\|Client\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\\" -Recurse -Force | Select-Object FullName, PSIsContainer | Sort-Object FullName)",
+      "Bash(grep -E \"\\\\.md$|blueprint-\")",
+      "Bash(Get-ChildItem \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\" -Recurse)",
+      "Bash(Sort-Object PSIsContainer, FullName)",
+      "Bash(dir \"D:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\" -Recurse -Filter \"*.ts\" -Name)",
+      "Bash(Select-String -Pattern \"\\(skill|read|load\\)\")",
+      "Bash(git mv *)"
     ]
   }
 }
