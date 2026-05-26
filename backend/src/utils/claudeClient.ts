@@ -105,16 +105,22 @@ export async function invokeSkill(
 // around the ~4,100-word mid-Section-D truncation observed in single-pass runs.
 // Each chunk ends with a CHECKPOINT block; the next chunk is triggered by sending
 // "continue to chunk N" as the next user turn with the full prior context included.
+//
+// A secondary truncation problem exists at the chunk level: chunk 2 (Sections C+D)
+// regularly hits max_tokens (~31K chars) before emitting CHECKPOINT 2. The
+// buildChunkUntilMarker function handles this by detecting stop_reason === "max_tokens"
+// and automatically issuing "continue" turns until the required marker appears.
 
 type MessageParam = { role: 'user' | 'assistant'; content: string };
 
+// Raw single API call — returns text and stop_reason so the caller can detect truncation.
 async function invokeChunk(
   systemPrompt: string,
   messages: MessageParam[],
   maxTokens: number,
   skillName: string,
   chunkNum: number,
-): Promise<string> {
+): Promise<{ text: string; stopReason: string }> {
   let attempt = 0;
   const maxAttempts = 2;
 
@@ -134,19 +140,21 @@ async function invokeChunk(
         throw new Error(`No text response from Claude for ${skillName} chunk ${chunkNum}`);
       }
 
-      const result = textContent.text;
+      const text = textContent.text;
+      const stopReason = response.stop_reason ?? 'end_turn';
+
       log('info', `${skillName} chunk ${chunkNum} API call complete`, {
-        outputLength: result.length,
-        stopReason: response.stop_reason,
+        outputLength: text.length,
+        stopReason,
       });
 
-      if (result.length < 200 && attempt < maxAttempts) {
+      if (text.length < 200 && attempt < maxAttempts) {
         log('warn', `Suspiciously short chunk ${chunkNum} from ${skillName}, retrying`);
         await sleep(5000);
         continue;
       }
 
-      return result;
+      return { text, stopReason };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (attempt < maxAttempts) {
@@ -161,23 +169,69 @@ async function invokeChunk(
   throw new Error(`${skillName} chunk ${chunkNum} failed after ${maxAttempts} attempts`);
 }
 
-function validateCheckpoint(chunk: string, chunkNum: number, skillName: string): void {
-  const marker = `## CHECKPOINT ${chunkNum} —`;
-  if (!chunk.includes(marker)) {
-    throw new Error(
-      `${skillName} chunk ${chunkNum} is missing checkpoint marker "${marker}". ` +
-      `The model may have truncated mid-generation. Output length: ${chunk.length} chars.`,
-    );
-  }
-}
+// Builds a single chunk by looping on max_tokens truncation until requiredMarker appears.
+//
+// When the model hits max_tokens before emitting the checkpoint block, its partial output
+// is appended as an assistant turn and "continue" is sent as the next user turn. This
+// replicates the manual "continue to chunk N" pattern but handles mid-chunk overflow.
+// Up to MAX_CONTINUATIONS additional passes are allowed before giving up.
+async function buildChunkUntilMarker(
+  systemPrompt: string,
+  initialMessages: MessageParam[],
+  maxTokens: number,
+  skillName: string,
+  chunkNum: number,
+  requiredMarker: string,
+): Promise<string> {
+  const MAX_CONTINUATIONS = 3;
+  let accumulated = '';
+  let messages = initialMessages;
 
-function validateFinalMarker(chunk: string, skillName: string): void {
-  if (!chunk.includes('End of Compressed Client Dossier')) {
-    throw new Error(
-      `${skillName} chunk 3 is missing the final marker "End of Compressed Client Dossier". ` +
-      `The model may have truncated mid-Section H or mid-[JUSTIFICATION].`,
+  for (let pass = 0; pass <= MAX_CONTINUATIONS; pass++) {
+    const { text, stopReason } = await invokeChunk(systemPrompt, messages, maxTokens, skillName, chunkNum);
+    accumulated += text;
+
+    if (accumulated.includes(requiredMarker)) {
+      if (pass > 0) {
+        log('info', `${skillName} chunk ${chunkNum} completed marker after ${pass} continuation(s)`, {
+          totalLength: accumulated.length,
+        });
+      }
+      return accumulated;
+    }
+
+    // Model finished cleanly but skipped the marker — genuine content failure, not truncation.
+    if (stopReason !== 'max_tokens') {
+      throw new Error(
+        `${skillName} chunk ${chunkNum} finished (stop_reason: ${stopReason}) without required marker ` +
+        `"${requiredMarker}". The model may have skipped or merged sections. ` +
+        `Total output: ${accumulated.length} chars.`,
+      );
+    }
+
+    if (pass === MAX_CONTINUATIONS) {
+      throw new Error(
+        `${skillName} chunk ${chunkNum} still missing marker "${requiredMarker}" after ` +
+        `${MAX_CONTINUATIONS} max_tokens continuation(s). Total output: ${accumulated.length} chars. ` +
+        `Consider splitting this chunk further in the SKILL.md.`,
+      );
+    }
+
+    log('warn',
+      `${skillName} chunk ${chunkNum} hit max_tokens before "${requiredMarker}" — ` +
+      `auto-continuing (pass ${pass + 1}/${MAX_CONTINUATIONS})`,
     );
+
+    // Append partial output as assistant turn and request continuation.
+    messages = [
+      ...messages,
+      { role: 'assistant', content: text },
+      { role: 'user',      content: 'continue' },
+    ];
   }
+
+  // Unreachable — loop always returns or throws above.
+  throw new Error(`${skillName} chunk ${chunkNum}: unexpected loop exit`);
 }
 
 // Strips the CHECKPOINT block from the end of a chunk (the --- separator + ## CHECKPOINT N ... to EOF).
@@ -197,17 +251,18 @@ export async function invokeSkillChunked(
     userMessageLength: userMessage.length,
   });
 
-  // Chunk 1 — initial invocation produces Header + Document Receipt + Sections A & B + CHECKPOINT 1
-  const chunk1 = await invokeChunk(
+  // Chunk 1 — Header + Document Receipt + Sections A & B + CHECKPOINT 1
+  const chunk1 = await buildChunkUntilMarker(
     systemPrompt,
     [{ role: 'user', content: userMessage }],
     maxTokensPerChunk, skillName, 1,
+    '## CHECKPOINT 1 —',
   );
-  validateCheckpoint(chunk1, 1, skillName);
-  log('info', `${skillName} chunk 1 validated`, { length: chunk1.length });
+  log('info', `${skillName} chunk 1 complete`, { length: chunk1.length });
 
-  // Chunk 2 — continuation produces Sections C & D + CHECKPOINT 2
-  const chunk2 = await invokeChunk(
+  // Chunk 2 — Sections C & D + CHECKPOINT 2
+  // Uses full chunk 1 output as prior assistant context so Section C can reference Section B.
+  const chunk2 = await buildChunkUntilMarker(
     systemPrompt,
     [
       { role: 'user',      content: userMessage },
@@ -215,12 +270,12 @@ export async function invokeSkillChunked(
       { role: 'user',      content: 'continue to chunk 2' },
     ],
     maxTokensPerChunk, skillName, 2,
+    '## CHECKPOINT 2 —',
   );
-  validateCheckpoint(chunk2, 2, skillName);
-  log('info', `${skillName} chunk 2 validated`, { length: chunk2.length });
+  log('info', `${skillName} chunk 2 complete`, { length: chunk2.length });
 
-  // Chunk 3 — continuation produces Sections E–H + [JUSTIFICATION] + final marker
-  const chunk3 = await invokeChunk(
+  // Chunk 3 — Sections E–H + [JUSTIFICATION] + final marker
+  const chunk3 = await buildChunkUntilMarker(
     systemPrompt,
     [
       { role: 'user',      content: userMessage },
@@ -230,11 +285,11 @@ export async function invokeSkillChunked(
       { role: 'user',      content: 'continue to chunk 3' },
     ],
     maxTokensPerChunk, skillName, 3,
+    'End of Compressed Client Dossier',
   );
-  validateFinalMarker(chunk3, skillName);
-  log('info', `${skillName} chunk 3 validated`, { length: chunk3.length });
+  log('info', `${skillName} chunk 3 complete`, { length: chunk3.length });
 
-  // Strip checkpoint blocks from chunks 1 and 2, then concatenate
+  // Strip checkpoint blocks from chunks 1 and 2, then concatenate into the full dossier.
   const assembled = [
     stripCheckpointBlock(chunk1, 1),
     stripCheckpointBlock(chunk2, 2),
