@@ -1,5 +1,5 @@
 import { FormAnswers, DocumentCorpus } from '../types/pipeline';
-import { invokeSkill } from '../utils/claudeClient';
+import { invokeSkillChunked } from '../utils/claudeClient';
 import { log } from '../utils/logger';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -22,10 +22,16 @@ const SECTION_QUESTIONS: Record<string, string[]> = {
   budget_and_timeline: ['budget_allocated', 'budget_range', 'ideal_timeline', 'additional_context'],
 };
 
-export async function runStepB(formAnswers: FormAnswers, corpus: DocumentCorpus): Promise<string> {
+export async function runStepB(
+  formAnswers: FormAnswers,
+  corpus: DocumentCorpus,
+  correctiveNote?: string,
+): Promise<string> {
   log('info', 'Step B: Building intake message for blueprint-intake skill');
-  const userMessage = buildIntakeMessage(formAnswers, corpus);
-  const result = await invokeSkill('blueprint-intake', userMessage, 8000);
+  let userMessage = buildIntakeMessage(formAnswers, corpus);
+  if (correctiveNote) userMessage += correctiveNote;
+
+  const result = await invokeSkillChunked('blueprint-intake', userMessage);
 
   if (result.split(/\s+/).length < 100) {
     throw new Error('Step B output is suspiciously short (< 100 words). Pipeline halted for human review.');

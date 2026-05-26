@@ -46,7 +46,8 @@
       "Bash(Sort-Object PSIsContainer, FullName)",
       "Bash(dir \"D:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\" -Recurse -Filter \"*.ts\" -Name)",
       "Bash(Select-String -Pattern \"\\(skill|read|load\\)\")",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }

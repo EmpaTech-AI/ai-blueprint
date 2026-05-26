@@ -1,4 +1,4 @@
-import { PipelineJob } from '../types/pipeline';
+import { PipelineJob, ConfidenceResult } from '../types/pipeline';
 import {
   loadJob,
   updateJobStatus,
@@ -25,6 +25,87 @@ import fs from 'fs';
 const JOBS_DIR = process.env.JOBS_DIR ||
   (process.env.NODE_ENV === 'production' ? '/app/data/jobs' : path.join(__dirname, '../../jobs'));
 
+// ─── Quality gate helpers ──────────────────────────────────────────────────────
+
+type ScoreBand = 'green' | 'amber' | 'blue' | 'red';
+
+function scoreBand(score: number): ScoreBand {
+  if (score >= 90) return 'green';
+  if (score >= 76) return 'amber';
+  if (score >= 60) return 'blue';
+  return 'red';
+}
+
+function buildCorrectiveNote(result: ConfidenceResult, stepLabel: string): string {
+  const band = scoreBand(result.score).toUpperCase();
+  return (
+    `\n\n---\n[AUTOMATED QUALITY GATE FEEDBACK — RETRY REQUEST]\n` +
+    `Your previous output for ${stepLabel} scored ${result.score}% (${band} band).\n` +
+    (result.scoreContext ? `Diagnosis: ${result.scoreContext}\n` : '') +
+    `Please regenerate the complete output. Priority actions:\n` +
+    `- Replace [Inferred] and [Assumption] tags with [Document-Backed] or [Form-Stated] ` +
+    `citations wherever the underlying evidence exists in the provided materials\n` +
+    `- Ensure all required sections are complete and meet minimum depth requirements\n` +
+    `- Where evidence is genuinely absent, keep [Assumption] or [Inferred] but ensure ` +
+    `every such tag has a corresponding [JUSTIFICATION] appendix entry\n` +
+    `[END FEEDBACK]`
+  );
+}
+
+// Runs a pipeline step, enforces the quality gate, and retries once if Red or Blue.
+//
+// Decision logic (mirrors quality-gate-algorithm.md):
+//   Green (≥90%)  → proceed, no flag
+//   Amber (76–89%) → proceed, add reviewer flag
+//   Blue  (60–75%) → retry once with corrective note; if retry ≥60% proceed with flag; if retry Red → fail
+//   Red   (<60%)   → retry once with corrective note; if retry ≥60% proceed with flag; if retry Red → fail
+async function runStepWithGate(
+  stepLabel: string,
+  scoreKey: string,
+  runner: (corrective?: string) => Promise<string>,
+  confidenceScores: Record<string, ConfidenceResult>,
+  reviewerFlags: string[],
+): Promise<string> {
+  let output = await runner();
+  let score = calculateConfidence(output);
+  const initialBand = scoreBand(score.score);
+  let initialScore = score.score;
+  let retried = false;
+
+  if (initialBand === 'red' || initialBand === 'blue') {
+    retried = true;
+    const corrective = buildCorrectiveNote(score, stepLabel);
+    log('warn', `Quality gate ${initialBand.toUpperCase()} for ${stepLabel}: ${score.score}% — running automated retry`);
+
+    const retriedOutput = await runner(corrective);
+    const retriedScore = calculateConfidence(retriedOutput);
+
+    if (scoreBand(retriedScore.score) === 'red') {
+      throw new Error(
+        `Quality gate FAIL: ${stepLabel} scored ${retriedScore.score}% (Red) after automated retry. ` +
+        `Pipeline halted for manual review. Initial score: ${initialScore}%.`,
+      );
+    }
+
+    output = retriedOutput;
+    score = retriedScore;
+    log('info', `${stepLabel} retry improved score: ${initialScore}% → ${score.score}% (${scoreBand(score.score).toUpperCase()})`);
+  }
+
+  confidenceScores[scoreKey] = score;
+
+  if (score.score < 76) {
+    const retryNote = retried ? ` (automated retry performed; initial score: ${initialScore}%)` : '';
+    reviewerFlags.push(`${stepLabel} confidence: ${score.score}% — below Amber threshold (76%)${retryNote}`);
+  } else if (retried) {
+    log('info', `${stepLabel} gate resolved to ${scoreBand(score.score).toUpperCase()} after retry — no reviewer flag needed`);
+  }
+
+  return output;
+}
+
+// ─── Main pipeline ─────────────────────────────────────────────────────────────
+
 export async function runPipeline(jobId: string): Promise<void> {
   const job = loadJob(jobId);
   const reviewerFlags: string[] = [];
@@ -42,60 +123,63 @@ export async function runPipeline(jobId: string): Promise<void> {
       const names = corpus.failedDocuments.map((d) => d.filename).join(', ');
       throw new Error(
         `Document parse failure: ${corpus.failedDocuments.length} file(s) could not be parsed (${names}). ` +
-        `Pipeline halted to preserve output quality — fix or remove the failing file(s) and re-run.`
+        `Pipeline halted to preserve output quality — fix or remove the failing file(s) and re-run.`,
       );
     }
     if (corpus.missingRequiredCategories.length > 0) {
       reviewerFlags.push(`Missing required document categories: ${corpus.missingRequiredCategories.join(', ')}`);
     }
 
-    // Step B — blueprint-intake
+    // Step B — blueprint-intake (chunked 3-pass invocation)
     await updateJobStatus(jobId, 'running', 'B');
-    const dossier = await runStepB(job.formAnswers, corpus);
+    const dossier = await runStepWithGate(
+      'Stage 1 (Intake Analysis)', 'stepB',
+      (corrective?) => runStepB(job.formAnswers, corpus, corrective),
+      confidenceScores, reviewerFlags,
+    );
     await saveStepOutput(jobId, 'B', dossier);
-    const bScore = calculateConfidence(dossier);
-    confidenceScores.stepB = bScore;
-    if (bScore.needsReview) reviewerFlags.push(`Stage 1 (Intake Analysis) confidence: ${bScore.score}% — below Amber threshold (76%)`);
     const dossierClean = stripJustification(dossier);
 
     // Step C — blueprint-maturity
     await updateJobStatus(jobId, 'running', 'C');
-    const maturity = await runStepC(dossierClean);
+    const maturity = await runStepWithGate(
+      'Stage 2 (Maturity Scoring)', 'stepC',
+      (corrective?) => runStepC(dossierClean, corrective),
+      confidenceScores, reviewerFlags,
+    );
     await saveStepOutput(jobId, 'C', maturity);
-    const cScore = calculateConfidence(maturity);
-    confidenceScores.stepC = cScore;
-    if (cScore.needsReview) reviewerFlags.push(`Stage 2 (Maturity Scoring) confidence: ${cScore.score}% — below Amber threshold (76%)`);
     const maturityClean = stripJustification(maturity);
 
     // Step D — blueprint-opportunities
     await updateJobStatus(jobId, 'running', 'D');
-    const opportunities = await runStepD(dossierClean, maturityClean);
+    const opportunities = await runStepWithGate(
+      'Stage 3 (Opportunity Mapping)', 'stepD',
+      (corrective?) => runStepD(dossierClean, maturityClean, corrective),
+      confidenceScores, reviewerFlags,
+    );
     await saveStepOutput(jobId, 'D', opportunities);
-    const dScore = calculateConfidence(opportunities);
-    confidenceScores.stepD = dScore;
-    if (dScore.needsReview) reviewerFlags.push(`Stage 3 (Opportunity Mapping) confidence: ${dScore.score}% — below Amber threshold (76%)`);
     const opportunitiesClean = stripJustification(opportunities);
 
     // Step D2 — blueprint-roadmap
     await updateJobStatus(jobId, 'running', 'D2');
-    const roadmap = await runStepD2(opportunitiesClean, maturityClean);
+    const roadmap = await runStepWithGate(
+      'Stage 4 (Action Roadmap)', 'stepD2',
+      (corrective?) => runStepD2(opportunitiesClean, maturityClean, corrective),
+      confidenceScores, reviewerFlags,
+    );
     await saveStepOutput(jobId, 'D2', roadmap);
-    const d2Score = calculateConfidence(roadmap);
-    confidenceScores.stepD2 = d2Score;
-    if (d2Score.needsReview) reviewerFlags.push(`Stage 4 (Action Roadmap) confidence: ${d2Score.score}% — below Amber threshold (76%)`);
     const roadmapClean = stripJustification(roadmap);
 
     // Step E — blueprint-assembly
     await updateJobStatus(jobId, 'running', 'E');
-    const assembled = await runStepE(dossierClean, maturityClean, opportunitiesClean, roadmapClean);
+    const assembled = await runStepWithGate(
+      'Stage 5 (Document Assembly)', 'stepE',
+      (corrective?) => runStepE(dossierClean, maturityClean, opportunitiesClean, roadmapClean, corrective),
+      confidenceScores, reviewerFlags,
+    );
     await saveStepOutput(jobId, 'E', assembled);
-    const eScore = calculateConfidence(assembled);
-    confidenceScores.stepE = eScore;
-    if (eScore.needsReview) reviewerFlags.push(`Stage 5 (Document Assembly) confidence: ${eScore.score}% — below Amber threshold (76%)`);
 
     // Strip confidence tags and justification block before generating client documents.
-    // The raw assembled output (with tags) stays in the DB for confidence scoring;
-    // the clean version is what goes into the delivered PDF, DOCX, and TXT.
     const assembledForDelivery = stripForDelivery(assembled);
 
     // Generate DOCX
@@ -105,7 +189,6 @@ export async function runPipeline(jobId: string): Promise<void> {
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
     const docxBuffer = await generateBlueprintDocx(job.clientName, assembledForDelivery, docxPath);
 
-    // Persist all download formats in the database so they survive container restarts
     await saveDocxData(jobId, docxBuffer.toString('base64'));
 
     const pdfBuffer = await generateBlueprintPdf(job.clientName, assembledForDelivery);
