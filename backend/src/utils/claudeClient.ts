@@ -86,10 +86,12 @@ export async function invokeSkill(
 
       return result;
     } catch (err: unknown) {
+      const isRateLimit = err instanceof Anthropic.RateLimitError;
       const msg = err instanceof Error ? err.message : String(err);
       if (attempt < maxAttempts) {
-        log('warn', `Skill ${skillName} attempt ${attempt} failed, retrying in 30s: ${msg}`);
-        await sleep(30000);
+        const retryDelay = isRateLimit ? 65000 : 30000;
+        log('warn', `Skill ${skillName} attempt ${attempt} failed (${isRateLimit ? 'rate limit' : 'error'}), retrying in ${retryDelay / 1000}s: ${msg}`);
+        await sleep(retryDelay);
       } else {
         throw err;
       }
@@ -156,10 +158,12 @@ async function invokeChunk(
 
       return { text, stopReason };
     } catch (err: unknown) {
+      const isRateLimit = err instanceof Anthropic.RateLimitError;
       const msg = err instanceof Error ? err.message : String(err);
       if (attempt < maxAttempts) {
-        log('warn', `${skillName} chunk ${chunkNum} attempt ${attempt} failed, retrying in 30s: ${msg}`);
-        await sleep(30000);
+        const retryDelay = isRateLimit ? 65000 : 30000;
+        log('warn', `${skillName} chunk ${chunkNum} attempt ${attempt} failed (${isRateLimit ? 'rate limit' : 'error'}), retrying in ${retryDelay / 1000}s: ${msg}`);
+        await sleep(retryDelay);
       } else {
         throw err;
       }
@@ -234,9 +238,14 @@ async function buildChunkUntilMarker(
   throw new Error(`${skillName} chunk ${chunkNum}: unexpected loop exit`);
 }
 
-// Strips the CHECKPOINT block from the end of a chunk (the --- separator + ## CHECKPOINT N ... to EOF).
+// Strips the CHECKPOINT block from the end of a chunk (## CHECKPOINT N ... to EOF).
+// The SKILL.md format includes a preceding --- separator, but the model sometimes omits it.
+// Primary pattern handles the canonical "---\n\n## CHECKPOINT N" format.
+// Fallback handles the heading-only case where the model skipped the --- separator.
 function stripCheckpointBlock(chunk: string, chunkNum: number): string {
-  return chunk.replace(new RegExp(`\\n---\\n+## CHECKPOINT ${chunkNum}[\\s\\S]*$`), '').trim();
+  const withSeparator = chunk.replace(new RegExp(`\\n---\\n+## CHECKPOINT ${chunkNum}[\\s\\S]*$`), '');
+  if (withSeparator.length < chunk.length) return withSeparator.trim();
+  return chunk.replace(new RegExp(`\\n+## CHECKPOINT ${chunkNum}[\\s\\S]*$`), '').trim();
 }
 
 export async function invokeSkillChunked(
@@ -260,6 +269,12 @@ export async function invokeSkillChunked(
   );
   log('info', `${skillName} chunk 1 complete`, { length: chunk1.length });
 
+  // Each subsequent chunk sends the full prior conversation as input, which grows the input
+  // token count significantly. A 65 s pause ensures we enter a fresh per-minute token window
+  // before firing the next call (rate limit: 30 k input tokens/minute).
+  log('info', `${skillName} pausing 65s before chunk 2 (input token rate-limit buffer)`);
+  await sleep(65000);
+
   // Chunk 2 — Sections C & D + CHECKPOINT 2
   // Uses full chunk 1 output as prior assistant context so Section C can reference Section B.
   const chunk2 = await buildChunkUntilMarker(
@@ -273,6 +288,9 @@ export async function invokeSkillChunked(
     '## CHECKPOINT 2 —',
   );
   log('info', `${skillName} chunk 2 complete`, { length: chunk2.length });
+
+  log('info', `${skillName} pausing 65s before chunk 3 (input token rate-limit buffer)`);
+  await sleep(65000);
 
   // Chunk 3 — Sections E–H + [JUSTIFICATION] + final marker
   const chunk3 = await buildChunkUntilMarker(
