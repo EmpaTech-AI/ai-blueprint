@@ -13,13 +13,13 @@ The intake skill detects industry from intake form Section 1 ("What industry are
 |---|---|---|
 | recruitment, talent, staffing, executive search, RPO, HR consulting | `recruitment.md` | ACTIVE |
 | manufacturing, industrial, factory, production, plant, fabrication | `manufacturing.md` (Golden Output pending) | PENDING VALIDATION |
-| professional services, consulting, advisory, audit, accountancy, law | `_template_skeleton.md` (planned: `professional_services.md`) | SKELETON ONLY |
-| financial services, fintech, banking, asset management, insurance | `_template_skeleton.md` (planned: `financial_services.md`) | SKELETON ONLY |
-| software, SaaS, technology, IT services | `_template_skeleton.md` (planned: `technology.md`) | SKELETON ONLY |
-| retail, e-commerce, consumer goods | `_template_skeleton.md` (planned: `retail.md`) | SKELETON ONLY |
-| healthcare, medical, pharmaceutical, biotech | `_template_skeleton.md` (planned: `healthcare.md`) | SKELETON ONLY |
-| logistics, transportation, supply chain, 3PL | `_template_skeleton.md` (planned: `logistics.md`) | SKELETON ONLY |
-| construction, engineering, real estate, property | `_template_skeleton.md` (planned: `construction.md`) | SKELETON ONLY |
+| professional services, consulting, advisory, audit, accountancy, law | `_template_skeleton.md` (planned: professional_services) | SKELETON ONLY |
+| financial services, fintech, banking, asset management, insurance | `_template_skeleton.md` (planned: financial_services) | SKELETON ONLY |
+| software, SaaS, technology, IT services | `_template_skeleton.md` (planned: technology) | SKELETON ONLY |
+| retail, e-commerce, consumer goods | `_template_skeleton.md` (planned: retail) | SKELETON ONLY |
+| healthcare, medical, pharmaceutical, biotech | `_template_skeleton.md` (planned: healthcare) | SKELETON ONLY |
+| logistics, transportation, supply chain, 3PL | `_template_skeleton.md` (planned: logistics) | SKELETON ONLY |
+| construction, engineering, real estate, property | `_template_skeleton.md` (planned: construction) | SKELETON ONLY |
 | (no match) | `_template_skeleton.md` | FALLBACK |
 
 ## Detection Algorithm
@@ -48,13 +48,13 @@ Each archetype file contains:
 3. Build a Golden Output dossier using a realistic test case in that industry
 4. Validate the Golden Output against the schema
 5. Update this INDEX with the new mapping and status `ACTIVE`
-6. Bump the framework version (PATCH increment) and update `CHANGELOG.md`
+6. Bump the framework version (PATCH increment) and update the CHANGELOG
 
 ## Currently Active Archetypes
 
 | Archetype | Validated Golden Output | Industries Covered |
 |---|---|---|
-| Recruitment & Talent Solutions | `golden/recruitment_meridian_v1.md` | Permanent placement, executive search, RPO, contract staffing, HR consulting |
+| Recruitment & Talent Solutions | golden/recruitment_meridian_v1 | Permanent placement, executive search, RPO, contract staffing, HR consulting |
 | Manufacturing | *pending — build from Baros Vision data* | Discrete manufacturing, process manufacturing, industrial production, OEM, job shop |
 
 ## Backlog (in priority order)
