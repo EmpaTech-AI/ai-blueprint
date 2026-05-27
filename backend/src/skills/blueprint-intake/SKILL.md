@@ -203,9 +203,33 @@ The 3-chunk workflow is the default and only supported mode:
 **Chunk 2 production — triggered when operator says "continue to chunk 2" (or equivalent):**
 
 1. Re-read the relevant framework files for Sections C and D (algorithms and archetype)
-2. Produce: Section C with exactly 8 pain points, Section D with exactly 7 hypotheses
+2. Produce: Section C with exactly 8 pain points, Section D with exactly 7 hypotheses — using the exact heading and citation formats shown below
 3. End with the Checkpoint 2 block (format below)
 4. Stop. Do not begin Section E.
+
+**Chunk 2 mandatory formats — copy these exactly:**
+
+Pain Point heading (H3 + em-dash — do NOT use bold or triple-hyphens):
+```markdown
+### Pain Point 1 — Manual Candidate Sourcing Bottleneck
+```
+
+Hypothesis heading (H3 + em-dash — do NOT use bold or triple-hyphens):
+```markdown
+### Hypothesis 1 — AI-Powered CV Formatting
+```
+
+Citation tag inside body text (one tag per claim, bracket format):
+```markdown
+Meridian processed 258 mandates in FY2025 [Document-Backed — sales pipeline p.1].
+Sourcing consumes approximately 6 hours per mandate [Form-Stated — pain points].
+Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3].
+```
+
+Selection score line (mandatory at the end of each hypothesis):
+```markdown
+**Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
+```
 
 **Chunk 2 checkpoint block format (mandatory at end of second response):**
 
@@ -244,6 +268,23 @@ The 3-chunk workflow is the default and only supported mode:
 2. Produce: Section E (5 org bullets + 5 process bullets), Section F (Document Index table),
    Section G (3–6 Open Questions), Section H (Reviewer Checklist with 4 categories), and the
    complete [JUSTIFICATION] block with one entry per Inferred and Assumption tag used in the body
+
+**Chunk 3 mandatory formats:**
+
+JUSTIFICATION block heading (H2 — do NOT use bold or triple-hyphens):
+```markdown
+## [JUSTIFICATION]
+```
+
+JUSTIFICATION entry format:
+```markdown
+Item 1 — Revenue per delivery FTE estimate
+Claim: "Revenue per delivery FTE is estimated at £103,000"
+Class: Inferred
+Why not higher: No single document states this figure; derived by calculation
+What resolves: Confirm total revenue and FTE count are both from the same reporting period
+Confidence: High
+```
 3. End with the Final marker:
 
 ```markdown
@@ -273,6 +314,33 @@ contract that single-pass generation relies on.
 This is an **internal document** (not client-facing). It feeds the downstream Blueprint skills.
 The complete structure is specified in `references/intake_v1.0.md`. Summary follows.
 
+### Critical: Mandatory Heading Formats
+
+Production runs failed gate validation because they used bold text (`**Pain Point N ---**`) instead
+of the required markdown headings. The harness regex is strict. Use EXACTLY these formats:
+
+```markdown
+## A) Executive Summary          ← H2 for section headings
+## B) Key Data Points
+## C) Detected Pain Points
+## D) Opportunities and Hypotheses
+## E) Org and Process Views
+## F) Document Index
+## G) Open Questions
+## H) Reviewer Checklist
+
+### Pain Point 1 — Manual Candidate Sourcing Bottleneck   ← H3 + em-dash (—)
+### Pain Point 2 — Unusable Historical Candidate Database
+
+### Hypothesis 1 — AI-Powered CV Formatting               ← H3 + em-dash (—)
+### Hypothesis 2 — ATS-Driven Client Status Updates
+
+## [JUSTIFICATION]               ← H2 for the appendix block
+```
+
+The em-dash is the Unicode character — (U+2014). Do NOT use `---` (triple hyphens), `--` (double
+hyphens), or `–` (en-dash). Do NOT use bold formatting for pain point or hypothesis headings.
+
 ### Header Block
 
 Schema version (`intake_v1.0`), industry archetype, classification, date, pipeline position,
@@ -283,12 +351,16 @@ engagement reference if available. No test metadata, no draft markers — see `r
 Table with one row per uploaded document. Parse Status: High confidence / Medium confidence /
 Low confidence / Failed. Any Failed or Low confidence row triggers a Section H entry.
 
-### A) Executive Summary (4 paragraphs — target 300 words, band 250–350)
+### A) Executive Summary (4 paragraphs — target 300 words, hard ceiling 350)
 
-**Target word count: 300 words across all 4 paragraphs combined.** The validator accepts
-200–420 words (±20% tolerance), but aim for the 280–320 window. Two prior runs (Ivan_Montin
-test, May 2026) overshot the band at 478 and 434 words; the cure is treating 300 as the goal
-rather than the ceiling. Tighten language; do not pad with restated facts that appear in Section B.
+**Target word count: 300 words. Hard ceiling: 350 words. Do not exceed 350.** There is no
+±20% expansion for Section A — the ceiling is strict and the validator will reject dossiers
+above 350 words. Aim for the 280–320 window. Production runs (May 2026) consistently overshot
+at 395–478 words; the cause was treating 420 as an acceptable ceiling. 350 is the ceiling.
+
+Write tight. Do not restate facts that appear in Section B. Do not list the documents from the
+Document Receipt. Do not pad with transition phrases ("As noted above", "In summary"). Every
+sentence in Section A must carry unique information not found elsewhere in the dossier.
 
 Each paragraph requires minimum 2 citations. Paragraph 1: company identification, geography,
 revenue, headcount. Paragraph 2: strategic context with at least one document citation. Paragraph 3:
@@ -313,6 +385,13 @@ Each pain point: Statement / Evidence (3–5 bullets with citations) / Impact ar
 Selection per `references/algorithms/hypothesis_selection.md`. Ordering: Quick Wins first,
 then Foundation Builders, then Big Bets. Each hypothesis: description with citations and
 numerical anchor / Supporting evidence / What we'd validate next / Classification / Linked Pain Point(s).
+
+**Each hypothesis must end with a `Selection score` line** showing the Impact, Feasibility,
+and Alignment values and their product. This makes the algorithm math visible for auditability:
+
+```markdown
+**Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
+```
 
 Every hypothesis must link to at least one pain point in Section C. Hypotheses with no linked
 pain point fail validation.

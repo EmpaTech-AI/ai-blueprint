@@ -40,6 +40,29 @@ Every dossier contains the following sections in this exact order. Any deviation
 11. [JUSTIFICATION] Block   (mandatory appendix)
 ```
 
+## 3a. Heading Format Requirements
+
+The following markdown heading formats are MANDATORY. Using bold text (`**...**`) or any other formatting in place of the specified heading level will cause the harness regex to fail the dossier — even when the underlying content is correct. This was the root cause of all gate failures in the V3 analysis runs.
+
+| Element | Required Markdown Format | Example |
+|---|---|---|
+| Section headings (A–H) | H2 | `## A) Executive Summary` |
+| Pain Point headings | H3 + em-dash (U+2014) | `### Pain Point 1 — Manual Candidate Sourcing Bottleneck` |
+| Hypothesis headings | H3 + em-dash (U+2014) | `### Hypothesis 1 — AI-Powered CV Formatting` |
+| JUSTIFICATION block heading | H2 | `## [JUSTIFICATION]` |
+
+**Em-dash character:** Always use the Unicode em-dash U+2014 (—). Do NOT use:
+- Triple hyphens `---`
+- Double hyphens `--`
+- En-dash `–` (U+2013)
+
+**Forbidden alternates that WILL fail validation:**
+- `**Pain Point 1 --- Title**` — bold text with triple hyphens
+- `**Pain Point 1 — Title**` — bold text (even with correct em-dash)
+- `#### Pain Point 1 — Title` — H4 instead of H3
+- `## Pain Point 1 — Title` — H2 instead of H3
+- `### Pain Point 1 - Title` — hyphen instead of em-dash
+
 ## 4. Field Specifications
 
 ### 4.1 Header Block (mandatory)
@@ -67,7 +90,7 @@ Required: a table with columns `# | Filename | Category | Parse Status` containi
 ### 4.3 Section A — Executive Summary
 
 - **Policy:** FIXED at 4 paragraphs
-- **Word count:** BOUNDED 250–350 words total (±20% = 200–420 acceptable)
+- **Word count:** Target 300 words. Hard ceiling: **350 words**. The standard ±20% BOUNDED tolerance does NOT apply to Section A — the ceiling is strict. Dossiers exceeding 350 words in Section A fail validation. Aim for the 280–320 window.
 - **Citations per paragraph:** Minimum 2
 - **Mandatory content per paragraph:**
 
@@ -101,8 +124,8 @@ Required: a table with columns `# | Filename | Category | Parse Status` containi
 - **Ordering:** See `algorithms/ordering.md`
 - **Per-pain-point fields** (all mandatory):
 
-```
-Pain Point N — [Title with descriptive subtitle]
+```markdown
+### Pain Point N — Title with Descriptive Subtitle
 
 Statement: [Single paragraph plain-language description]
 
@@ -117,6 +140,8 @@ Severity: [High / Medium-High / Medium / Low]
 Confidence: [Confidence tag with brief justification]
 ```
 
+The `### Pain Point N — Title` line is a markdown H3 heading with a Unicode em-dash (—). See §3a for the full heading format requirements and forbidden alternates.
+
 Minimum 3 evidence bullets per pain point. Maximum 5.
 
 ### 4.6 Section D — Opportunities and Hypotheses
@@ -126,18 +151,27 @@ Minimum 3 evidence bullets per pain point. Maximum 5.
 - **Ordering:** See `algorithms/ordering.md`
 - **Per-hypothesis fields** (all mandatory):
 
-```
-Hypothesis N — [Title]
+```markdown
+### Hypothesis N — Title
 
 [1-2 paragraph description with embedded citations and at least one numerical anchor]
 
-Supporting evidence: [List of 3-5 citations, each on its own bullet]
+Supporting evidence:
+- [Citation bullet 1]
+- [Citation bullet 2]
+- [Citation bullet 3]
+- [Optional: bullets 4-5]
 
 What we'd validate next: [Single sentence, specific and actionable]
 
-Classification hypothesis: [Quick Win / Foundation Builder / Big Bet]
+Classification: [Quick Win / Foundation Builder / Big Bet]
 Linked Pain Point(s): [Reference to Section C item numbers, e.g. "PP1, PP3"]
+**Selection score:** Impact [N] × Feasibility [N] × Alignment [N] = **[product]**
 ```
+
+The `### Hypothesis N — Title` line is a markdown H3 heading with a Unicode em-dash (—). See §3a for the full heading format requirements and forbidden alternates.
+
+The `Selection score` line is **mandatory** in every hypothesis. It makes the algorithm's scoring visible for auditability — when two runs select different hypotheses, the score line explains why. Downstream reviewers and the harness use this line to verify that scores match the classification and that the tie-breaking hierarchy was applied correctly.
 
 Each hypothesis must link to ≥1 pain point. Hypotheses without a linked pain point fail validation.
 
@@ -170,15 +204,22 @@ Each hypothesis must link to ≥1 pain point. Hypotheses without a linked pain p
 
 ### 4.11 [JUSTIFICATION] Block
 
-- **Policy:** Mandatory; one numbered entry per `[Inferred]` and `[Assumption]` tag used anywhere in the dossier
+- **Policy:** Mandatory. One numbered entry per **distinct** `[Inferred]` or `[Assumption]` claim used anywhere in the dossier body.
+
+**Distinct claim rule:** Two tags represent the same claim if and only if (a) the verbatim claim text is identical AND (b) the derivation chain or evidence gap is identical. When this is true, one appendix entry covers both tags; each body occurrence must reference the shared entry as `[Inferred — appendix item N]` or `[Assumption — appendix item N]`.
+
+**Practical guidance:** If three sentences in a hypothesis body each contain a separate `[Inferred]` tag derived from different evidence chains, those are three distinct claims requiring three appendix entries. If the same derived figure appears in two different sections (e.g., "revenue per FTE of £103k" in Section A and in Section D), that is one claim requiring one appendix entry — reference it in both body locations as `[Inferred — appendix item N]`.
+
+**When in doubt, create separate entries.** The harness validates that every `[Inferred]` and `[Assumption]` tag in the body has at least one matching appendix entry by claim text. It does not penalise for having more entries than the strict minimum.
+
 - **Per-entry fields:**
 
 ```
 Item N — [Short claim title]
-Claim: [Verbatim from main body]
+Claim: [Verbatim from main body — exact quote]
 Class: [Inferred or Assumption]
-Why not higher: [Specific evidence gap]
-What resolves: [Specific source/action]
+Why not higher: [Specific evidence gap — name the missing source]
+What resolves: [Specific source or action that would upgrade this tag]
 Confidence: [High / Medium / Low]
 ```
 

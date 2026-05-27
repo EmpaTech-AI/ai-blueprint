@@ -12,7 +12,7 @@ The intake skill detects industry from intake form Section 1 ("What industry are
 | Detected Industry Keywords | Archetype File | Status |
 |---|---|---|
 | recruitment, talent, staffing, executive search, RPO, HR consulting | `recruitment.md` | ACTIVE |
-| manufacturing, industrial, factory, production, plant, fabrication | `_template_skeleton.md` (planned: `manufacturing.md`) | SKELETON ONLY |
+| manufacturing, industrial, factory, production, plant, fabrication | `manufacturing.md` (Golden Output pending) | PENDING VALIDATION |
 | professional services, consulting, advisory, audit, accountancy, law | `_template_skeleton.md` (planned: `professional_services.md`) | SKELETON ONLY |
 | financial services, fintech, banking, asset management, insurance | `_template_skeleton.md` (planned: `financial_services.md`) | SKELETON ONLY |
 | software, SaaS, technology, IT services | `_template_skeleton.md` (planned: `technology.md`) | SKELETON ONLY |
@@ -55,6 +55,7 @@ Each archetype file contains:
 | Archetype | Validated Golden Output | Industries Covered |
 |---|---|---|
 | Recruitment & Talent Solutions | `golden/recruitment_meridian_v1.md` | Permanent placement, executive search, RPO, contract staffing, HR consulting |
+| Manufacturing | *pending — build from Baros Vision data* | Discrete manufacturing, process manufacturing, industrial production, OEM, job shop |
 
 ## Backlog (in priority order)
 

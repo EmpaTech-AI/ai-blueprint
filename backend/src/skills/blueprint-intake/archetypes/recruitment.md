@@ -105,7 +105,7 @@ The selection algorithm picks 7. Coverage rules ensure all 4 strategic prioritie
 
 | Field | Recruitment Default | Acceptable Range |
 |---|---|---|
-| Section A word count | 300 words | 240–360 |
+| Section A word count | 300 words | 250–350 (hard ceiling — no ±20% expansion) |
 | Section B row count | 40 rows | 35–50 |
 | Section E org bullets | 5 (FIXED) | 5 |
 | Section E process bullets | 5 (FIXED) | 5 |

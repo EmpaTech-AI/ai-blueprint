@@ -108,6 +108,104 @@ If 60% of a claim is documented and 40% is the analyst's framing:
 - If the analyst's framing doesn't change the substantive claim: tag the documented part with `[Document-Backed]` and leave the framing as connective tissue (no separate tag needed).
 - If the framing makes a new claim: that new claim is `[Inferred]` and requires either inline derivation or an appendix entry.
 
+## Classification Edge Cases
+
+The following examples resolve common borderline classifications. Apply these BEFORE falling back to the general decision tree. Each example names the correct tag and explains why.
+
+### Edge Case 1 — Current-state claim: intake form + document corroboration
+
+> "The firm employs 51 delivery FTEs across three offices."
+
+**Scenario:** The intake form says "around 50 delivery people." The org chart lists exactly 51 delivery FTEs.
+
+**Correct tag:** `[Document-Backed + Form-Stated — org chart p.1; form: company fundamentals]`
+
+**Rule:** If a claim appears in the form (even approximately) AND is corroborated by a document (even with a slightly different figure), use `[Document-Backed + Form-Stated]`. Use the document's precise figure in the body; the form corroboration upgrades the tag.
+
+---
+
+### Edge Case 2 — Forward-looking outcome claim with strong document support
+
+> "The firm targets 25% revenue growth in FY2026."
+
+**Scenario:** This target appears verbatim on page 2 of the strategic plan PDF. The form also mentions it.
+
+**Correct tag:** `[Document-Backed — strategic plan p.2]` (or `[Document-Backed + Form-Stated]` if form also states it)
+
+**Rule:** Forward-looking claims that appear verbatim in a PDF are `[Document-Backed]`, not `[Inferred]`. The claim IS the target itself — it's a documented fact that the target exists. Only use `[Inferred]` when you are CALCULATING a forward-looking outcome from current data (e.g., "if TTF improves by 20%, the firm could add 18 placements per year" — that projection requires `[Inferred]`).
+
+---
+
+### Edge Case 3 — Named individual as resistance point (the "Georgieva rule")
+
+> "Senior Partner Georgieva is identified as the highest-resistance stakeholder for the proposed CRM cutover."
+
+**Scenario:** No document names Georgieva as resistant. The characterisation is derived by the analyst from: her role (Senior Partner), her department (most affected by CRM cutover), and the absence of any AI tools in her documented workflows.
+
+**Correct tag:** `[Inferred — appendix item N]`
+
+**Rule:** Current-state characterisations of a named individual derived from indirect signals (role + department + absence of adoption evidence) are `[Inferred]`, NOT `[Assumption]`. The distinction:
+- `[Inferred]` = derived via an explicit logical chain from evidence in documents/form
+- `[Assumption]` = estimate or benchmark with no direct source connection
+
+A named individual's attitude inferred from their documented role and behaviour IS an explicit derivation — it is not a benchmark. Use `[Inferred]` with the derivation chain in the appendix entry.
+
+---
+
+### Edge Case 4 — Aggregate calculation with mixed-confidence inputs
+
+> "Revenue per delivery FTE: £103,000."
+
+**Scenario:** Total revenue (£5.25M) is `[Document-Backed]` from the financial summary. Delivery FTE count (51) is `[Document-Backed]` from the org chart. The ratio is the analyst's calculation.
+
+**Correct tag:** `[Inferred — appendix item N]`
+
+**Rule:** Any arithmetic calculation combining source values is ALWAYS `[Inferred]`, even when all inputs are `[Document-Backed]`. The calculation itself is a claim that goes beyond what either source states directly. Show the arithmetic in the appendix entry:
+
+> £5,250,000 ÷ 51 delivery FTEs = £102,941 ≈ £103,000
+
+If one input is `[Form-Stated]` and another is `[Document-Backed]`, the result is still `[Inferred]` — not downgraded to `[Form-Stated]`. The derivation chain, once explicit, is `[Inferred]` regardless of input quality.
+
+---
+
+### Edge Case 5 — Named individual corroborated by multiple cross-referenced documents
+
+> "Managing Director Ivanova leads the company with a stated growth mandate, supported by a dedicated BD team."
+
+**Scenario:** Ivanova's name and role appear in the strategic plan (p.1), the org chart (p.1), and the intake form (Section 1). The BD team structure is confirmed in the org chart (p.2).
+
+**Correct tag:** `[Document-Backed + Form-Stated — strategic plan p.1; org chart p.1; form: company fundamentals]`
+
+**Rule:** When a named individual is mentioned in multiple documents AND the form, use `[Document-Backed + Form-Stated]`. Multiple document sources do not create a new tag type — list all relevant sources in the citation. Multi-document corroboration increases certainty but does not change the tag.
+
+---
+
+### Edge Case 6 — Partially documented claim with analyst framing
+
+> "The manual sourcing process consumes an estimated 60% of each consultant's working week, driven primarily by the absence of a structured database query workflow."
+
+**Scenario:** The 60% figure comes from SOP p.2 and sales pipeline p.3 (both `[Document-Backed]`). The phrase "absence of a structured database query workflow" is the analyst's interpretation of what causes the 60%.
+
+**Correct approach:** Tag the factual component (`[Document-Backed — SOP p.2; sales pipeline p.3]`). The framing ("driven primarily by...") is connective tissue — it does not require a separate tag if it does not make a new standalone claim.
+
+**BUT:** If the framing makes a new causal claim — e.g., "This bottleneck is the primary reason for the 28-day TTF gap" — that causal assertion requires its own `[Inferred]` tag with an appendix entry explaining the derivation chain.
+
+**Rule:** Analyst framing that paraphrases the evidence = no separate tag. Analyst framing that asserts causation or a new fact = `[Inferred]` with appendix entry.
+
+---
+
+### Edge Case 7 — Same figure stated in both form and document but figures differ slightly
+
+> "The firm processed approximately 340 placements in FY2025."
+
+**Scenario:** The intake form says "around 350 placements last year." The financial summary PDF states "338 confirmed placements FY2025."
+
+**Correct tag:** `[Document-Backed — financial summary p.3]` using the document figure (338, rounded to ~340 for readability).
+
+**Rule:** When the form and document disagree numerically, use the document figure and tag as `[Document-Backed]`. Do NOT use `[Document-Backed + Form-Stated]` when the figures conflict — that tag implies agreement. Flag the discrepancy in Section H: "Form states ~350 placements; financial summary records 338 — minor discrepancy, use 338 as authoritative."
+
+---
+
 ## Confidence Score for Section Auditing
 
 After tag assignment, the harness computes per-section confidence:

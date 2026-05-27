@@ -10,6 +10,9 @@ description: >
   or has completed all prior Blueprint steps and wants the final output. Also trigger on "run
   Blueprint step 5", "finalize the Blueprint", or "package the Blueprint for the client". This
   skill should NOT be run until Steps 1–4 are complete.
+schema_version: intake_v1.0
+skill_version: 1.0.0
+last_updated: 2026-05-27
 ---
 
 # Blueprint Assembly

@@ -41,65 +41,137 @@ Each component scored 1–5. Multiplicative (not additive) because a hypothesis 
 
 ### Impact (1–5)
 
-| Score | Definition |
+Scores are INTEGER ONLY (1, 2, 3, 4, or 5). No fractional scores. Apply the first matching rule.
+
+| Score | Anchored Definition |
 |---|---|
-| 5 | Resolves the top-ranked pain point AND directly supports a board-approved strategic priority |
-| 4 | Resolves a top-3 pain point OR directly supports a strategic priority |
-| 3 | Resolves a top-5 pain point |
-| 2 | Resolves a bottom-3 pain point or enables future opportunities |
-| 1 | Marginal operational benefit |
+| 5 | Hypothesis directly resolves PP#1 (the top-ranked pain point by severity score) AND its title or mechanism is named as an objective in PDF 7 (strategic plan) |
+| 4 | Hypothesis resolves PP#2 or PP#3 by title/mechanism, OR it is the sole mechanism that addresses a named PDF 7 priority (i.e., removing this hypothesis would leave that priority uncovered) |
+| 3 | Hypothesis resolves PP#4 or PP#5 |
+| 2 | Hypothesis resolves PP#6, PP#7, or PP#8, OR it enables a future opportunity without directly resolving a current pain point |
+| 1 | Hypothesis has no direct pain point linkage; benefit is marginal or entirely internal to another hypothesis |
+
+**Borderline test — Impact 4 vs 5:** Does removing this hypothesis leave PP#1 unaddressed? If yes AND it also targets a PDF 7 priority → 5. Otherwise → 4.
+
+**Borderline test — Impact 3 vs 4:** Is this hypothesis the ONLY candidate covering a named PDF 7 priority? If yes → 4, because removing it creates a coverage gap.
 
 ### Feasibility (1–5)
 
-| Score | Definition |
+Scores are INTEGER ONLY. Apply the first matching rule using evidence from the uploaded documents.
+
+| Score | Anchored Definition |
 |---|---|
-| 5 | Existing tool already licensed; minimal integration; low organisational change |
-| 4 | Tool category proven by industry library; integration documented; moderate change |
-| 3 | Tool category exists but no Meridian-equivalent precedent; requires evaluation |
-| 2 | Previous attempt failed (per PDF 8) but root cause was process not technology |
-| 1 | Previous attempt failed for technology reasons OR no documented industry precedent |
+| 5 | Client already licenses the specific tool named in the hypothesis (confirmed in tech inventory PDF) AND the use case is a standard feature of that tool |
+| 4 | Tool category has ≥3 named vendor implementations in the archetype hypothesis library AND PDF 8 (previous AI initiatives) contains no record of a failed attempt in this category |
+| 3 | Tool category exists in the market but client holds no current license AND PDF 8 contains no precedent (neither success nor failure) for this category |
+| 2 | PDF 8 documents a previous attempt in this category where the root cause of failure was identified as process or change management (not technology itself) |
+| 1 | PDF 8 documents a previous technology failure in this category, OR no documented industry precedent exists in the archetype library |
+
+**Borderline test — Feasibility 4 vs 5:** Is the specific tool (not just category) already licensed by the client? If yes → 5. If the client has a tool in the category but not this specific one → 4.
+
+**Borderline test — Feasibility 2 vs 3:** Does PDF 8 exist and describe any prior attempt in this category? If yes and the failure was process-based → 2. If PDF 8 is absent or silent on this category → 3.
 
 ### Alignment (1–5)
 
-| Score | Definition |
+Scores are INTEGER ONLY. Alignment measures fit with the client's stated strategic priorities (PDF 7 or intake form Section 2 if PDF 7 is absent).
+
+| Score | Anchored Definition |
 |---|---|
-| 5 | Directly addresses a named PDF 7 priority owner's stated objective |
-| 4 | Addresses a stated priority but not the primary owner's focus |
-| 3 | Indirectly supports a stated priority |
-| 2 | Supports an unstated but rational operational priority |
-| 1 | Neither stated nor obviously needed |
+| 5 | The hypothesis title or its named mechanism appears verbatim (or near-verbatim) as a named objective in PDF 7; the primary owner of that objective is identifiable |
+| 4 | Hypothesis directly enables a named PDF 7 priority, but the connection requires one inference step (e.g., "AI-assisted sourcing" enables the "speed to placement" priority without being named identically) |
+| 3 | Hypothesis resolves a dependency that indirectly supports a stated priority (two or more inference steps between the hypothesis outcome and the stated priority) |
+| 2 | Hypothesis addresses an operational priority not stated in PDF 7 or the form, but rational given the business model and documented KPIs |
+| 1 | No connection to any stated priority or evident operational need |
 
-## Stage 3 — Required Coverage
+**Borderline test — Alignment 4 vs 5:** Can you quote a sentence from PDF 7 that names this hypothesis's mechanism? If yes → 5. If the link requires you to paraphrase → 4.
 
-Before final ranking, validate coverage. Adjust if any of the following are not met:
+## Stage 3 — Required Coverage Enforcement (Deterministic)
 
-1. **All 4 PDF 7 strategic priorities must have ≥1 candidate hypothesis addressing them.** If a priority is uncovered, lower the score of the lowest-ranked candidate and elevate one that covers the gap.
+Apply these checks IN ORDER before Stage 4 ranking. Do NOT adjust existing candidate scores.
 
-2. **At least 2 hypotheses must be "Quick Win" classification.** If fewer than 2 candidates qualify, the framework flags the engagement as "Foundation-Heavy" in Section H.
+### Check 3.1 — Strategic Priority Coverage
 
-3. **At least 1 hypothesis must be tagged as a prerequisite enabler** (typically governance/compliance). If none qualify, the engagement is flagged as ungoverned-risk in Section H.
+List the 4 priorities from PDF 7 (or intake form Section 2 if PDF 7 is absent or incomplete).
 
-## Stage 4 — Rank and Select Top 7
+For each priority, scan the candidate pool and identify which candidates address it.
 
-Sort candidates by Strategic Value Score DESC. Take the top 7.
+**If a priority has zero candidates:** Add a new candidate to the pool specifically targeting that priority. Score it per Stage 2 rules. It will compete on score in Stage 4 like any other candidate.
 
-### Tie-Breaking (in order)
+**If a priority is covered by at least one candidate:** No action needed at this stage. Stage 4 handles displacement if that candidate falls outside the top 7.
 
+### Check 3.2 — Quick Win Minimum
+
+Count candidates with Quick Win classification across the full pool. If fewer than 2 qualify:
+- Flag the engagement as **"Foundation-Heavy"** in Section H Reviewer Checklist.
+- Do NOT alter classifications or scores to manufacture Quick Wins.
+
+### Check 3.3 — Prerequisite Enabler
+
+Check if any candidate is a prerequisite enabler (governance or compliance). If none:
+- Flag the engagement as **"Ungoverned Risk"** in Section H Reviewer Checklist.
+- Do NOT alter classifications or scores.
+
+## Stage 4 — Rank and Select Top 7 (Deterministic)
+
+Sort all candidates by Strategic Value Score DESC. Take the **preliminary top 7**.
+
+### Strategic Priority Displacement (apply after preliminary ranking)
+
+For each of the 4 strategic priorities: check if it is represented by at least one hypothesis in the preliminary top 7.
+
+**If a priority is NOT represented:**
+
+1. **Identify the coverage candidate:** The highest-scoring excluded candidate (outside the top 7) that addresses the missing priority.
+2. **Identify the displacement target:** In the current top 7, find the candidate with the LOWEST score that does NOT uniquely cover any strategic priority. A candidate "uniquely covers" a priority if removing it would leave that priority unrepresented among the remaining 6.
+3. **Apply the swap:** Replace the displacement target with the coverage candidate.
+4. **If multiple candidates tie as displacement target:** Apply the tie-breaking hierarchy below to select which one to displace.
+5. **Repeat** for each uncovered priority (one swap per uncovered priority).
+
+### Tie-Breaking Hierarchy (apply in order, at every decision point)
+
+When two candidates produce an identical Strategic Value Score:
+
+1. Higher **Impact** component wins
+2. Higher **Alignment** component wins
+3. Higher **Feasibility** component wins
+4. Linked to the **higher-severity pain point** wins (use PP severity rank from Section C; PP#1 > PP#2, etc.)
+5. **Alphabetical** by hypothesis title (A before B)
+
+This hierarchy applies identically at: preliminary ranking, displacement target selection, and Stage 5 presentation ordering. It guarantees a unique ordering for any set of candidates.
+
+## Stage 5 — Final Ordering for Presentation (Deterministic)
+
+Hypotheses are presented in this order in the dossier (NOT selection-score order, which is internal only):
+
+1. **Quick Wins** — sorted by Strategic Value Score DESC within this group
+2. **Foundation Builders** — sorted by Strategic Value Score DESC within this group
+3. **Big Bets** — sorted by Strategic Value Score DESC within this group
+
+**Within-group tie-breaking (apply in order when two hypotheses in the same class have equal scores):**
 1. Higher Impact component wins
-2. Higher Alignment component wins (strategic priority alignment beats feasibility on ties — Blueprint targets strategic outcomes, not just easy wins)
+2. Higher Alignment component wins
 3. Higher Feasibility component wins
-4. Hypothesis linked to higher-severity pain point wins
-5. Alphabetical by hypothesis title
+4. Linked to higher-severity pain point wins (PP#1 > PP#2, etc.)
+5. Alphabetical by hypothesis title (A before B)
 
-## Stage 5 — Final Ordering for Presentation
-
-Hypotheses are presented in this order in the dossier (NOT score order, which is internal only):
-
-1. Quick Wins first (in score order)
-2. Foundation Builders next (in score order)
-3. Big Bets last (in score order)
+Position labels **H1 through H7** are assigned AFTER this ordering is complete. H1 is the first Quick Win (or first Foundation Builder if no Quick Wins), etc. Downstream skills reference hypotheses by position label; the ordering must therefore be identical across all runs on identical inputs.
 
 This ordering matches downstream skill expectations (`blueprint-roadmap` assumes Quick Wins come first).
+
+## Stage 6 — Score Visibility in Output (Mandatory)
+
+Every hypothesis in Section D of the dossier MUST include a `Selection score` line as the final field:
+
+```
+**Selection score:** Impact [N] × Feasibility [N] × Alignment [N] = **[product]** | [Classification]
+```
+
+Example:
+```
+**Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
+```
+
+**Why this is required:** When two runs on identical inputs select different hypotheses, the visible score line allows immediate diagnosis of where the scoring diverged. Without it, variance is detected but not explainable. The score line is an audit trail, not a decoration. The harness will validate that every Section D hypothesis contains a correctly formatted score line.
 
 ## Classification Rules
 

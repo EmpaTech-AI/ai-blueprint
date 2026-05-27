@@ -178,13 +178,24 @@ When the user invokes this skill:
 
 Once Steps 1–4 are complete and before invoking Step 5 (Assembly), verify:
 
+**Hypothesis identity check (match by title, not position):**
+- Extract the 7 hypothesis titles from Step 1 Section D (e.g., "AI-Powered CV Formatting", "ATS-Driven Client Status Updates", etc.)
+- Extract the opportunity titles from Step 3
+- Verify that each Step 1 hypothesis title maps to exactly one Step 3 opportunity title (allowing minor rephrasing for client-facing language, but NOT addition or removal)
+- **Do NOT match by position number (H1, H2, etc.).** Position numbers in Step 1 reflect the presentation ordering algorithm (Quick Wins → Foundation Builders → Big Bets) and may change between runs if FW-02 ordering resolves differently. Matching by title is robust to any ordering variance.
+- Flag any Step 3 opportunity that has no corresponding Step 1 hypothesis by title (addition)
+- Flag any Step 1 hypothesis that has no corresponding Step 3 opportunity (removal)
+
+**Pain point reference check:**
 - The 8 pain points named in Step 1 Section C are referenced by the Step 3 opportunities
-- The 7 hypotheses named in Step 1 Section D map 1:1 to Step 3 scored opportunities (allowing
-  for hypothesis-to-opportunity renaming, but not addition/removal)
-- The Step 4 Now/Next/Later sequence respects the Step 3 classifications (Quick Wins in Now,
-  Foundation Builders in Next, Big Bets in Later — with documented exceptions only)
+
+**Sequencing integrity check:**
+- The Step 4 Now/Next/Later sequence respects the Step 3 classifications (Quick Wins in Now, Foundation Builders in Next, Big Bets in Later — with documented exceptions only)
 - The Step 2 maturity scores are reflected in the Step 3 readiness adjustments
+
+**Style check:**
 - Currency convention consistent (EUR, not €, per AI Assist BG style)
+- Client name consistent across all four upstream outputs
 
 Any inconsistency must be resolved before assembly, not after.
 
@@ -199,15 +210,17 @@ Current versions (as of this SKILL.md update):
 
 | Skill | Version | Schema |
 |-------|---------|--------|
-| blueprint-orchestrator | 2.0.0 | intake_v1.0 |
-| blueprint-intake | 2.0.0 | intake_v1.0 |
-| blueprint-maturity | TBD | reads intake_v1.0 |
-| blueprint-opportunities | TBD | reads intake_v1.0 |
-| blueprint-roadmap | TBD | reads intake_v1.0 |
-| blueprint-assembly | TBD | reads intake_v1.0 |
+| blueprint-orchestrator | 2.1.0 | intake_v1.0 |
+| blueprint-intake | 2.1.0 | intake_v1.0 |
+| blueprint-maturity | 1.0.0 | intake_v1.0 |
+| blueprint-opportunities | 1.0.0 | intake_v1.0 |
+| blueprint-roadmap | 1.0.0 | intake_v1.0 |
+| blueprint-assembly | 1.0.0 | intake_v1.0 |
 
-When downstream skills are next updated, their version frontmatter should declare which schema
-version of the dossier they consume.
+All skills now carry `schema_version: intake_v1.0` in their frontmatter. If the schema bumps to
+`intake_v2.0`, each downstream skill must be updated before it is used with dossiers produced under
+the new schema. The orchestrator must refuse to invoke a downstream skill whose declared schema_version
+does not match the dossier's schema version header.
 
 ## What Changed in Skill Version 2.0.0
 

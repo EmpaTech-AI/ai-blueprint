@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiassist.bg/schemas/blueprint-intake/materials_v1.0.json",
+  "title": "Blueprint Intake Materials",
+  "description": "Input schema for run_intake_automated.py. See docs/MATERIALS_JSON_CONTRACT.md for full field-level documentation.",
+  "type": "object",
+  "required": ["engagement_ref", "client_name", "industry", "intake_form"],
+  "additionalProperties": false,
+  "properties": {
+    "engagement_ref": {
+      "type": "string",
+      "description": "Unique engagement identifier used as output directory name. Format: BP-YYYY-NNN.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9\\-_]*$",
+      "minLength": 3,
+      "maxLength": 64,
+      "examples": ["BP-2026-001", "BP-2026-001-R1"]
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Full client company name as it should appear in the dossier header. Do not abbreviate.",
+      "minLength": 2,
+      "maxLength": 200,
+      "examples": ["Meridian Talent Partners OOD"]
+    },
+    "industry": {
+      "type": "string",
+      "description": "Industry archetype key. Must match a routing keyword in archetypes/INDEX.md.",
+      "minLength": 2,
+      "maxLength": 100,
+      "examples": ["Recruitment", "Manufacturing", "Professional Services"]
+    },
+    "engagement_notes": {
+      "type": "string",
+      "description": "Optional free-text notes for the analyst. Not sent to the model — human reference only.",
+      "maxLength": 2000
+    },
+    "intake_form": {
+      "type": "object",
+      "description": "Structured intake form responses. All 7 sections required as objects (may be empty if client declined to answer).",
+      "required": [
+        "company_fundamentals",
+        "strategic_context",
+        "pain_points",
+        "technology",
+        "people_culture",
+        "data_readiness",
+        "budget_timeline"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "company_fundamentals": {
+          "type": "object",
+          "description": "Section 1 of the intake form: basic company information.",
+          "properties": {
+            "legal_name": {"type": "string", "maxLength": 200},
+            "founded": {"type": "string", "maxLength": 50},
+            "headquarters": {"type": "string", "maxLength": 200},
+            "employee_count": {"type": ["string", "integer"]},
+            "annual_revenue_eur": {"type": ["string", "number"], "description": "EUR amount — integer or string, no currency symbol"},
+            "business_model": {"type": "string", "maxLength": 1000},
+            "key_geographies": {
+              "type": "array",
+              "items": {"type": "string"},
+              "maxItems": 20
+            }
+          }
+        },
+        "strategic_context": {
+          "type": "object",
+          "description": "Section 2: strategic goals, risks, and planned investments.",
+          "properties": {
+            "primary_growth_goal": {"type": "string", "maxLength": 500},
+            "key_risks": {
+              "type": ["array", "string"],
+              "items": {"type": "string"}
+            },
+            "planned_investments": {"type": "string", "maxLength": 1000},
+            "prior_strategic_review": {"type": "string", "maxLength": 500}
+          }
+        },
+        "pain_points": {
+          "type": "object",
+          "description": "Section 3: client-stated pain points. Up to 5 are taken as form-stated; additional ones can be discovered from documents.",
+          "properties": {
+            "top_pain_point": {"type": "string", "maxLength": 1000},
+            "second_pain_point": {"type": "string", "maxLength": 1000},
+            "third_pain_point": {"type": "string", "maxLength": 1000},
+            "fourth_pain_point": {"type": "string", "maxLength": 1000},
+            "fifth_pain_point": {"type": "string", "maxLength": 1000},
+            "other_pain_points": {"type": "string", "maxLength": 2000},
+            "impact_estimate": {"type": "string", "maxLength": 500}
+          }
+        },
+        "technology": {
+          "type": "object",
+          "description": "Section 4: technology stack and AI maturity.",
+          "properties": {
+            "ats": {"type": "string", "maxLength": 200},
+            "crm": {"type": "string", "maxLength": 200},
+            "erp": {"type": "string", "maxLength": 200},
+            "mes": {"type": "string", "maxLength": 200},
+            "communication": {"type": "string", "maxLength": 200},
+            "other_tools": {"type": "string", "maxLength": 1000},
+            "monthly_tech_spend_eur": {"type": ["string", "number"]},
+            "ai_tools_currently_used": {"type": "string", "maxLength": 1000}
+          }
+        },
+        "people_culture": {
+          "type": "object",
+          "description": "Section 5: team structure, AI readiness, and training budget.",
+          "properties": {
+            "delivery_team_size": {"type": ["string", "integer"]},
+            "support_team_size": {"type": ["string", "integer"]},
+            "total_fte": {"type": ["string", "integer"]},
+            "ai_readiness_self_assessment": {"type": "string", "maxLength": 500},
+            "training_budget_available": {"type": "string", "maxLength": 200},
+            "change_sponsor": {"type": "string", "maxLength": 200}
+          }
+        },
+        "data_readiness": {
+          "type": "object",
+          "description": "Section 6: data quality, governance, and GDPR posture.",
+          "properties": {
+            "crm_data_quality": {"type": "string", "maxLength": 500},
+            "candidate_data_structured": {"type": "string", "maxLength": 500},
+            "production_data_structured": {"type": "string", "maxLength": 500},
+            "historical_data_available": {"type": "string", "maxLength": 500},
+            "gdpr_compliance": {"type": "string", "maxLength": 500},
+            "data_governance_owner": {"type": "string", "maxLength": 200}
+          }
+        },
+        "budget_timeline": {
+          "type": "object",
+          "description": "Section 7: AI investment budget and decision-making authority.",
+          "properties": {
+            "ai_budget_eur": {"type": ["string", "number"], "description": "EUR amount — no currency symbol"},
+            "timeline_preference": {"type": "string", "maxLength": 500},
+            "decision_maker": {"type": "string", "maxLength": 300},
+            "preferred_engagement_model": {"type": "string", "maxLength": 500}
+          }
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "description": "Uploaded client documents. Optional — if omitted, dossier is produced from form responses only (lower confidence).",
+      "items": {
+        "type": "object",
+        "required": ["type", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Document category. Must match a canonical name or alias in references/source_registry.md.",
+            "enum": [
+              "financial_summary",
+              "org_chart",
+              "sales_pipeline",
+              "SOP",
+              "marketing_customer_data",
+              "tech_inventory",
+              "strategic_plan",
+              "previous_ai_initiatives"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Path to the file relative to the directory containing materials.json.",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable document name used in dossier citations. Defaults to filename if omitted.",
+            "maxLength": 200
+          },
+          "notes": {
+            "type": "string",
+            "description": "Analyst notes about the document (draft, partial data, etc.). Passed to the skill as context.",
+            "maxLength": 500
+          }
+        }
+      },
+      "maxItems": 20
+    }
+  }
+}

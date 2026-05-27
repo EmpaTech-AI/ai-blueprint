@@ -1,0 +1,85 @@
+{
+  "engagement_ref": "BP-EXAMPLE-001",
+  "client_name": "Meridian Talent Partners OOD",
+  "industry": "Recruitment",
+  "engagement_notes": "Example materials file — used for CI validation and dry-run testing. See docs/MATERIALS_JSON_CONTRACT.md for schema reference.",
+  "intake_form": {
+    "company_fundamentals": {
+      "legal_name": "Meridian Talent Partners OOD",
+      "founded": "2014",
+      "headquarters": "Sofia, Bulgaria",
+      "employee_count": "45",
+      "annual_revenue_eur": "3200000",
+      "business_model": "Contingency and retained recruitment for financial services and fintech sectors",
+      "key_geographies": ["Bulgaria", "Romania", "Germany", "UK"]
+    },
+    "strategic_context": {
+      "primary_growth_goal": "Grow revenue 25% in FY2026 without adding headcount",
+      "key_risks": ["Consultant burnout from manual work", "Fee compression from larger competitors", "CRM data quality blocking AI adoption"],
+      "planned_investments": "ATS upgrade from Bullhorn to Vincere scheduled Q2 2026",
+      "prior_strategic_review": "Board planning session conducted January 2026"
+    },
+    "pain_points": {
+      "top_pain_point": "Manual candidate sourcing takes 6–8 hours per mandate",
+      "second_pain_point": "Client status reporting is manual and inconsistent — consultants spend 3–4 hours per week on it",
+      "other_pain_points": "CV formatting takes 45 minutes per candidate; candidate follow-up falls through cracks; no structured debriefs after placements",
+      "impact_estimate": "Estimated 30% of consultant time is non-billable admin"
+    },
+    "technology": {
+      "ats": "Vincere (migrating from Bullhorn — migration due Q2 2026)",
+      "crm": "Salesforce (basic configuration, low consultant adoption)",
+      "communication": "Microsoft Teams and Outlook",
+      "other_tools": "LinkedIn Recruiter, CV-Library, JobAdder (being deprecated)",
+      "monthly_tech_spend_eur": "8500",
+      "ai_tools_currently_used": "None formally; some consultants use ChatGPT ad hoc without company policy"
+    },
+    "people_culture": {
+      "delivery_team_size": "28 consultants",
+      "support_team_size": "7 (operations, finance, marketing)",
+      "ai_readiness_self_assessment": "3/5 — team is open but cautious; some resistance from senior consultants concerned about job security",
+      "training_budget_available": "Yes, approximately EUR 15,000 for FY2026",
+      "change_sponsor": "CEO (Sara Georgieva) is the AI champion with board backing"
+    },
+    "data_readiness": {
+      "crm_data_quality": "Poor — many duplicate records, inconsistent tagging, gaps in contact history",
+      "candidate_data_structured": "Partially — CVs stored as PDFs, not parsed into structured fields",
+      "historical_data_available": "5 years of placement data in Bullhorn; quality varies by year",
+      "gdpr_compliance": "Basic — GDPR policy exists but not fully enforced across all consultants",
+      "data_governance_owner": "No dedicated owner; responsibility shared informally between operations manager and IT"
+    },
+    "budget_timeline": {
+      "ai_budget_eur": "30000",
+      "timeline_preference": "First visible results within 6 months; phased investment preferred",
+      "decision_maker": "CEO and CFO joint sign-off required for expenditure above EUR 10,000",
+      "preferred_engagement_model": "Prove value in a small pilot before scaling across the team"
+    }
+  },
+  "documents": [
+    {
+      "type": "financial_summary",
+      "path": "documents/meridian_financial_summary_fy2025.pdf",
+      "name": "FY2025 Financial Summary",
+      "notes": "Management accounts — audited accounts not yet available for FY2025"
+    },
+    {
+      "type": "org_chart",
+      "path": "documents/meridian_org_chart_jan2026.pdf",
+      "name": "Organisational Chart — January 2026"
+    },
+    {
+      "type": "sales_pipeline",
+      "path": "documents/meridian_active_mandates_q1_2026.pdf",
+      "name": "Active Mandate Pipeline Q1 2026"
+    },
+    {
+      "type": "SOP",
+      "path": "documents/meridian_recruitment_process_v2.pdf",
+      "name": "Recruitment Process Documentation v2"
+    },
+    {
+      "type": "strategic_plan",
+      "path": "documents/meridian_board_deck_fy2026.pdf",
+      "name": "FY2026 Board Presentation"
+    }
+  ]
+}

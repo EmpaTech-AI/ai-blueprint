@@ -1,0 +1,2 @@
+{"ts": "2026-05-27T13:43:47.763651+00:00", "level": "INFO", "engagement_ref": "BP-EXAMPLE-001", "event": "wrapper_start", "model": "claude-opus-4-7", "dry_run": true}
+{"ts": "2026-05-27T13:43:47.765382+00:00", "level": "INFO", "engagement_ref": "BP-EXAMPLE-001", "event": "prompt_built", "system_chars": 135548, "initial_message_chars": 4722}

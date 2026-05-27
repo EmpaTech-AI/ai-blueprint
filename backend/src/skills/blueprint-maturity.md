@@ -9,6 +9,9 @@ description: >
   Also trigger on "run Blueprint step 2", "how ready are they for the Blueprint", or "light maturity
   score". This is NOT the full 5-level maturity assessment — it produces a 1-page snapshot with 3
   levels, not the full 10–15 page report.
+schema_version: intake_v1.0
+skill_version: 1.0.0
+last_updated: 2026-05-27
 ---
 
 # Blueprint Maturity Scorer

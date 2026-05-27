@@ -51,11 +51,20 @@ When a pain point has multiple impact areas, use the leftmost area in this list 
 
 ## Section D Hypothesis Ordering
 
-Per `hypothesis_selection.md` Stage 5. Summary:
+Per `hypothesis_selection.md` Stage 5. Full ordering:
 
-1. Quick Wins (in Strategic Value Score order DESC)
-2. Foundation Builders (in Strategic Value Score order DESC)
-3. Big Bets (in Strategic Value Score order DESC)
+1. Quick Wins — sorted by Strategic Value Score DESC within this group
+2. Foundation Builders — sorted by Strategic Value Score DESC within this group
+3. Big Bets — sorted by Strategic Value Score DESC within this group
+
+**Within-group tie-breaking (apply in order when two hypotheses in the same class have equal scores):**
+1. Higher Impact component wins
+2. Higher Alignment component wins
+3. Higher Feasibility component wins
+4. Linked to higher-severity pain point wins (PP#1 > PP#2, etc.)
+5. Alphabetical by hypothesis title (A before B)
+
+**Position labels H1–H7** are assigned after this ordering is complete. H1 = first Quick Win (or first Foundation Builder if no Quick Wins exist). Downstream skills reference hypotheses by H-number; positions must be identical across all runs on identical inputs.
 
 ## Section E Bullet Ordering
 

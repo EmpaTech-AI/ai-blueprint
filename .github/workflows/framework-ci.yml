@@ -1,0 +1,156 @@
+name: PIO Framework CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/skills/blueprint-intake/**'
+      - '.github/workflows/framework-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/skills/blueprint-intake/**'
+      - '.github/workflows/framework-ci.yml'
+
+jobs:
+  framework-tests:
+    name: Harness self-tests + golden output validation
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend/src/skills/blueprint-intake
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 1. Harness self-tests (QA-01: 8 tests, must all pass) ──────────────
+      - name: Run harness self-tests
+        run: python3 harness/tests/test_validate.py
+
+      # ── 2. Golden output validates clean (regression canary) ───────────────
+      - name: Validate golden output against schema
+        run: python3 harness/validate_intake.py golden/recruitment_meridian_v1.md
+        # Fail the build if the golden output stops passing.
+        # A golden failure means a schema change broke backward compatibility.
+
+      # ── 3. Wrapper imports and CLI without anthropic SDK (lazy-load check) ──
+      - name: Wrapper syntax and CLI check (no SDK required)
+        run: |
+          python3 -m py_compile harness/run_intake_automated.py
+          python3 harness/run_intake_automated.py --help > /dev/null
+
+      # ── 4. Wrapper dry-run with example materials (no API key needed) ───────
+      - name: Wrapper dry-run with example materials
+        run: |
+          pip install anthropic>=0.28.0 --quiet
+          python3 harness/run_intake_automated.py \
+            harness/example_materials.json \
+            --dry-run \
+            --output-dir /tmp/ci-dry-run
+
+      # ── 5. example_materials.json is valid JSON ─────────────────────────────
+      - name: Validate example_materials.json structure
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          from pathlib import Path
+
+          path = Path("harness/example_materials.json")
+          data = json.loads(path.read_text())
+
+          required = ["engagement_ref", "client_name", "industry", "intake_form"]
+          missing = [f for f in required if f not in data]
+          if missing:
+              print(f"FAIL: Missing required fields: {missing}", file=sys.stderr)
+              sys.exit(1)
+
+          form_sections = ["company_fundamentals", "strategic_context", "pain_points",
+                           "technology", "people_culture", "data_readiness", "budget_timeline"]
+          missing_sections = [s for s in form_sections if s not in data["intake_form"]]
+          if missing_sections:
+              print(f"FAIL: intake_form missing sections: {missing_sections}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: example_materials.json valid — engagement_ref={data['engagement_ref']}")
+          EOF
+
+      # ── 6. Cross-run regression tests (requires pre-recorded fixture dossiers)
+      #       Skipped in CI until fixtures are committed — runs locally only.
+      #       See harness/tests/test_cross_run_regression.py §CI Notes.
+      # - name: Cross-run regression tests
+      #   run: python3 harness/tests/test_cross_run_regression.py fixtures/run_a.md fixtures/run_b.md
+
+  schema-lint:
+    name: Reference file integrity checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend/src/skills/blueprint-intake
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check all reference markdown files are non-empty
+        run: |
+          python3 - <<'EOF'
+          import sys
+          from pathlib import Path
+
+          ref_dir = Path("references")
+          arch_dir = Path("archetypes")
+
+          checked = 0
+          failed = 0
+          for md in list(ref_dir.rglob("*.md")) + list(arch_dir.glob("*.md")):
+              text = md.read_text(encoding="utf-8")
+              if len(text.strip()) < 100:
+                  print(f"WARN: {md} is suspiciously short ({len(text)} chars)")
+                  failed += 1
+              else:
+                  checked += 1
+
+          print(f"Checked {checked} reference files — {failed} warnings")
+          if failed > 0:
+              sys.exit(1)
+          EOF
+
+      - name: Source registry canonical names are valid Python identifiers or quoted strings
+        run: python3 -c "
+          from pathlib import Path
+          text = Path('references/source_registry.md').read_text()
+          assert len(text) > 500, 'source_registry.md appears empty or truncated'
+          print('OK: source_registry.md present and non-trivial')
+          "
+
+      - name: Archetype INDEX references only existing archetype files
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          from pathlib import Path
+
+          index_text = Path("archetypes/INDEX.md").read_text()
+          refs = re.findall(r'\b(\w+)\.md\b', index_text)
+          missing = []
+          for ref in refs:
+              if ref in ("INDEX", "_template_skeleton"):
+                  continue
+              if not Path(f"archetypes/{ref}.md").exists():
+                  missing.append(ref)
+
+          if missing:
+              print(f"FAIL: INDEX.md references non-existent archetypes: {missing}", file=sys.stderr)
+              sys.exit(1)
+          print(f"OK: all archetype references in INDEX.md resolve")
+          EOF

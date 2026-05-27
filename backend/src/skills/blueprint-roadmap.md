@@ -10,6 +10,9 @@ description: >
   the Blueprint opportunities". This is NOT the full implementation roadmap — it produces a directional
   sequence without milestones, dependencies, or capacity planning. Those are reserved for the full
   AI Company Audit.
+schema_version: intake_v1.0
+skill_version: 1.0.0
+last_updated: 2026-05-27
 ---
 
 # Blueprint Roadmap Composer
