@@ -127,12 +127,13 @@ jobs:
           EOF
 
       - name: Source registry canonical names are valid Python identifiers or quoted strings
-        run: python3 -c "
+        run: |
+          python3 - <<'EOF'
           from pathlib import Path
-          text = Path('references/source_registry.md').read_text()
-          assert len(text) > 500, 'source_registry.md appears empty or truncated'
-          print('OK: source_registry.md present and non-trivial')
-          "
+          text = Path("references/source_registry.md").read_text()
+          assert len(text) > 500, "source_registry.md appears empty or truncated"
+          print("OK: source_registry.md present and non-trivial")
+          EOF
 
       - name: Archetype INDEX references only existing archetype files
         run: |
