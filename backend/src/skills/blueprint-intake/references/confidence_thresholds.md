@@ -72,6 +72,20 @@ These are analytical judgements made by the intake skill. Tag them based on the 
 - Severity rated based only on form: `[Form-Stated]`
 - Severity rated based on analyst judgement without explicit source: `[Inferred]` with brief rationale
 
+## Inline Tagging Density Rule (FW-08)
+
+**Tag every claim whose derivation would appear in the [JUSTIFICATION] appendix. Do not tag connective tissue.**
+
+Apply this rule to decide whether a specific sentence needs a tag:
+
+1. **Tag it** if the sentence makes a quantitative, forward-looking, or characterisation claim that a reviewer could reasonably challenge — i.e., a claim that you would need to defend with a source or a logical chain.
+2. **Do not tag** if the sentence is connective tissue (transition, restatement, explanation of what the next claim shows) that does not add a new verifiable assertion.
+3. **One tag per claim.** If the same derived figure appears in two different sections (e.g., "revenue per FTE of £103k" in Section A and again in Section D), it requires one [JUSTIFICATION] appendix entry and both body occurrences carry `[Inferred — appendix item N]`. The body tag count will be 2, but the appendix item count is 1.
+
+**Practical ceiling:** For a standard 7-hypothesis dossier with 8 pain points, expect roughly 12–18 total Inferred/Assumption body tags (combined). If you are below 10 or above 22, re-check your tagging — either claims are going untagged or connective tissue is being over-tagged.
+
+**What this resolves:** Without this rule, identical reasoning produces different tag counts across runs (V4 evidence: 10 tags in T1 vs 15 in T2 on identical content). The appendix item count is the stable signal; body tag count is bounded but not fixed.
+
 ## Forbidden Patterns
 
 The following are NOT acceptable tag uses:

@@ -256,22 +256,7 @@ Interview coordination currently adds 3–5 days to TTF on senior mandates [Docu
 **Classification hypothesis:** Quick Win
 **Linked Pain Point(s):** PP8
 
-### Hypothesis 4 — AI-Assisted Specialist Candidate Sourcing
-
-The sourcing phase accounts for 22 of 38 average days-to-fill [Document-Backed — sales pipeline p.3] and consumes 6–8 researcher hours per mandate [Document-Backed — SOP p.2]. A specialist AI sourcing tool (Loxo, Gem, Fetcher, or Vincere's native AI features) trained on Meridian's historical placement data could reduce initial longlist generation from 3–4 hours to under 1 hour, the highest-leverage single intervention available [Assumption — appendix item 5]. This is gated on resolving the GDPR foundation and database governance reset (see Hypotheses 5–6).
-
-**Supporting evidence:**
-- Sourcing phase = 58% of total TTF [Document-Backed — sales pipeline p.3]
-- LinkedIn AI found unreliable for specialist roles; Lusha abandoned for CEE data quality [Document-Backed — previous AI initiatives p.1-2]
-- Strategic plan explicitly targets AI-assisted sourcing tool by Q3 2026 [Document-Backed — strategic plan p.1]
-- LinkedIn Recruiter EUR 38,400/year is the largest single tool cost — material substitution opportunity if matching improves [Document-Backed — tech inventory p.1]
-
-**What we'd validate next:** Identify AI sourcing tools with documented CEE market performance (given Lusha pattern) and assess whether Vincere's native AI features are sufficient before evaluating third-party tools.
-
-**Classification hypothesis:** Foundation Builder
-**Linked Pain Point(s):** PP1, PP2
-
-### Hypothesis 5 — GDPR Compliance Foundation (Sprint 0 Enabler)
+### Hypothesis 4 — GDPR Compliance Foundation (Sprint 0 Enabler)
 
 Before any AI tool that touches candidate data can be deployed at scale, a GDPR compliance foundation must be established [Document-Backed — previous AI initiatives p.4; tech inventory p.2]. This is not an opportunity in itself but a prerequisite gate. Without it, every other hypothesis carries regulatory risk. The consent audit, data retention policy, and Right to Erasure process should be treated as Sprint 0 of the AI programme [Inferred — derivation per appendix item 6].
 
@@ -285,6 +270,21 @@ Before any AI tool that touches candidate data can be deployed at scale, a GDPR 
 
 **Classification hypothesis:** Foundation Builder (enabler)
 **Linked Pain Point(s):** PP5
+
+### Hypothesis 5 — AI-Assisted Specialist Candidate Sourcing
+
+The sourcing phase accounts for 22 of 38 average days-to-fill [Document-Backed — sales pipeline p.3] and consumes 6–8 researcher hours per mandate [Document-Backed — SOP p.2]. A specialist AI sourcing tool (Loxo, Gem, Fetcher, or Vincere's native AI features) trained on Meridian's historical placement data could reduce initial longlist generation from 3–4 hours to under 1 hour, the highest-leverage single intervention available [Assumption — appendix item 5]. This is gated on resolving the GDPR foundation and database governance reset (see Hypotheses 4 and 6).
+
+**Supporting evidence:**
+- Sourcing phase = 58% of total TTF [Document-Backed — sales pipeline p.3]
+- LinkedIn AI found unreliable for specialist roles; Lusha abandoned for CEE data quality [Document-Backed — previous AI initiatives p.1-2]
+- Strategic plan explicitly targets AI-assisted sourcing tool by Q3 2026 [Document-Backed — strategic plan p.1]
+- LinkedIn Recruiter EUR 38,400/year is the largest single tool cost — material substitution opportunity if matching improves [Document-Backed — tech inventory p.1]
+
+**What we'd validate next:** Identify AI sourcing tools with documented CEE market performance (given Lusha pattern) and assess whether Vincere's native AI features are sufficient before evaluating third-party tools.
+
+**Classification hypothesis:** Foundation Builder
+**Linked Pain Point(s):** PP1, PP2
 
 ### Hypothesis 6 — Candidate Database Revival via AI Matching and Governance Reset
 
@@ -375,6 +375,16 @@ The RPO service line has no product definition, SLA framework, or pricing model 
 - Marketing/customer data survey is small sample (n=12); non-responder bias plausible
 - SOP compliance rates are Ops Director estimates, not measured — flag for measurement instrumentation as a Phase 2 governance item
 
+**Strategic Priority Coverage**
+- Priority 1 (Speed to Placement — strategic plan p.1) → Hypothesis 5 — AI-Assisted Specialist Candidate Sourcing (sourcing = 58% of TTF; named mechanism in strategic plan); Hypothesis 3 — Interview Scheduling Standardisation (Quick Win; scheduling = 3–5 additional TTF days); Hypothesis 1 — AI-Powered CV Formatting (Quick Win; 95–125 min per candidate)
+- Priority 2 (RPO Scale — target EUR 600,000+ FY2026, strategic plan p.2) → Hypothesis 7 — RPO Service Design Supported by AI Delivery Infrastructure (Big Bet; sole candidate covering this priority)
+- Priority 3 (Client Satisfaction ≥4.0 — strategic plan p.1) → Hypothesis 2 — ATS-Driven Automated Client Status Updates (Quick Win; automated ATS updates named as the mechanism in the strategic plan)
+- Priority 4 (Executive Search Growth — 30% of FY2026 revenue, strategic plan p.1) → **Not represented in top 7.**
+  - **Candidate evaluated:** Executive Search Workflow Intelligence — Impact 4 × Feasibility 2 × Alignment 4 = 32 (Big Bet)
+  - **Why it did not qualify:** Feasibility scored 2 due to Senior Partner Georgieva's documented resistance to AI tools within the executive practice [Document-Backed + Form-Stated — previous AI initiatives p.4; form: people & culture]. Score 32 fell 16 points below Candidate Database Revival (Score 48), which was retained as the only candidate uniquely addressing the structural data and governance blockers that underpin the entire AI programme.
+  - **What would change the outcome:** Feasibility reaching 3 (product score 48) would bring this hypothesis to parity for selection. This requires documented senior-partner commitment or a structured change management programme for the executive practice. A successful AI CV formatting rollout with the general delivery team is the most credible precursor — concrete AI results in adjacent teams reduce adoption risk more effectively than a top-down mandate.
+  - **Algorithm note:** Our scoring algorithm evaluated Executive Search Growth as a named strategic priority and surfaced a dedicated hypothesis. The score gap reflects documented execution conditions — specifically, Georgieva resistance and the absence of any prior AI adoption in the executive practice — not a failure to recognise the priority's strategic importance. The Blueprint's 12-month horizon favours candidates where near-term execution is demonstrably achievable. This trade-off is made transparent here for the reviewer's consideration before the deliverable is finalised.
+
 ---
 
 ## [JUSTIFICATION]
@@ -407,14 +417,14 @@ Why not higher: No prior Meridian evaluation of AI scheduling tools; no industry
 What resolves: 30-day pilot with one named tool (Reclaim.ai, x.ai, or Vincere's native scheduling if any) using a single sector team (Tech & Engineering as the largest team for sample size).
 Confidence: Medium (tool category is real; specific impact for Meridian is unmeasured).
 
-**Item 5 — Hypothesis 4 AI sourcing tool impact estimate**
+**Item 5 — Hypothesis 5 AI sourcing tool impact estimate**
 Claim: "A specialist AI sourcing tool... could reduce initial longlist generation from 3–4 hours to under 1 hour"
 Class: Assumption
 Why not higher: Based on vendor-reported benchmarks for comparable firm sizes; no Meridian-specific implementation data, and LinkedIn AI and Lusha both failed for specialist/CEE roles per PDF 8.
 What resolves: 60-day pilot of one named tool (Loxo or Gem) on a single sector (Tech & Engineering), with researcher time-tracking instrumented for the duration.
 Confidence: Low (the underlying problem is exactly the CEE specialist-role weakness that has defeated previous AI sourcing tools).
 
-**Item 6 — Hypothesis 5 GDPR foundation as Sprint 0**
+**Item 6 — Hypothesis 4 GDPR foundation as Sprint 0**
 Claim: "The consent audit, data retention policy, and Right to Erasure process should be treated as Sprint 0"
 Class: Inferred
 Why not higher: GDPR compliance work is a standard prerequisite for AI deployment in EU recruitment contexts; specific timeline and cost are not quantified in available documents.

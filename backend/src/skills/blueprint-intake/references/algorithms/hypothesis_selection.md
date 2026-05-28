@@ -144,10 +144,12 @@ This hierarchy applies identically at: preliminary ranking, displacement target 
 Hypotheses are presented in this order in the dossier (NOT selection-score order, which is internal only):
 
 1. **Quick Wins** — sorted by Strategic Value Score DESC within this group
-2. **Foundation Builders** — sorted by Strategic Value Score DESC within this group
+2. **Foundation Builders** — **two-tier ordering** within this group (FW-02):
+   - **Tier 1:** `Foundation Builder (enabler)` entries first — sorted by Strategic Value Score DESC among themselves
+   - **Tier 2:** Plain `Foundation Builder` entries next — sorted by Strategic Value Score DESC among themselves
 3. **Big Bets** — sorted by Strategic Value Score DESC within this group
 
-**Within-group tie-breaking (apply in order when two hypotheses in the same class have equal scores):**
+**Within-tier tie-breaking (apply in order when two hypotheses in the same tier have equal scores):**
 1. Higher Impact component wins
 2. Higher Alignment component wins
 3. Higher Feasibility component wins
@@ -181,9 +183,12 @@ Each hypothesis is classified by Feasibility × Phase Dependency:
 |---|---|
 | **Quick Win** | Feasibility ≥ 4 AND no dependency on incomplete foundational work AND addresses a top-4 pain point |
 | **Foundation Builder** | Feasibility ≥ 3 AND is itself a prerequisite for one or more other hypotheses, OR addresses a structural gap |
+| **Foundation Builder (enabler)** | Same as Foundation Builder, AND is a hard prerequisite for ≥1 other selected hypothesis (e.g., GDPR sprint before any model trained on personal data). Enabler status is declared explicitly so presentation ordering places it before non-enabler Foundation Builders. |
 | **Big Bet** | Impact ≥ 4 AND requires both Foundation Builders AND multiple Quick Wins to be live before execution |
 
 A hypothesis cannot be both Quick Win and Big Bet. If criteria conflict, the more conservative classification wins (Foundation Builder > Quick Win, Big Bet > Foundation Builder).
+
+**When to use `Foundation Builder (enabler)` vs. plain `Foundation Builder`:** Only use the enabler sub-class when there is a directional dependency — another hypothesis in the selected top 7 CANNOT start until this one delivers its output. A hypothesis that is merely "nice to do first" or "reduces risk" is a plain Foundation Builder.
 
 ## Worked Example — Meridian Test Case
 

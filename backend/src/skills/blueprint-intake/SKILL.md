@@ -226,10 +226,15 @@ Sourcing consumes approximately 6 hours per mandate [Form-Stated — pain points
 Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3].
 ```
 
-Selection score line (mandatory at the end of each hypothesis):
+Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
+<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
 ```
+
+The HTML comment is invisible in rendered output but allows downstream skills to parse scores
+without regex-matching the human-readable prose line. `class` values: `QuickWin`,
+`FoundationBuilder`, `BigBet` (no spaces).
 
 **Chunk 2 checkpoint block format (mandatory at end of second response):**
 
@@ -353,19 +358,28 @@ Low confidence / Failed. Any Failed or Low confidence row triggers a Section H e
 
 ### A) Executive Summary (4 paragraphs — target 300 words, hard ceiling 350)
 
-**Target word count: 300 words. Hard ceiling: 350 words. Do not exceed 350.** There is no
-±20% expansion for Section A — the ceiling is strict and the validator will reject dossiers
-above 350 words. Aim for the 280–320 window. Production runs (May 2026) consistently overshot
-at 395–478 words; the cause was treating 420 as an acceptable ceiling. 350 is the ceiling.
+**Target word count: 300 words. Hard ceiling: 350 words. Do not exceed 350.** The validator
+hard-fails dossiers above 350 words. Aim for the 280–320 window.
 
 Write tight. Do not restate facts that appear in Section B. Do not list the documents from the
 Document Receipt. Do not pad with transition phrases ("As noted above", "In summary"). Every
 sentence in Section A must carry unique information not found elsewhere in the dossier.
 
-Each paragraph requires minimum 2 citations. Paragraph 1: company identification, geography,
-revenue, headcount. Paragraph 2: strategic context with at least one document citation. Paragraph 3:
-top operational constraint quantified, citing ≥2 documents. Paragraph 4: inflection point, named
-internal champion, named resistance points.
+**Per-paragraph word budgets (hard limits — count before finalising):**
+
+| Para | Content mandate | Budget |
+|------|----------------|--------|
+| 1 | Company identification: legal name, geography, revenue, headcount, business model in one sentence | max 80 words |
+| 2 | Strategic context: primary growth objective with ≥1 PDF citation, timeframe, named owner | max 90 words |
+| 3 | Top operational constraint: quantified bottleneck citing ≥2 documents, consequence if unresolved | max 90 words |
+| 4 | Inflection point: what has changed to make AI viable now, named internal champion, named resistance point | max 80 words |
+
+Total ceiling across all four paragraphs: **340 words** (10-word buffer before hard fail at 350).
+
+If any single paragraph exceeds its budget, cut from that paragraph — do NOT redistribute to
+other paragraphs. The 4-paragraph total must stay at or below 340 words.
+
+Each paragraph requires minimum 2 citations.
 
 ### B) Key Data Points (Reference Table)
 
@@ -412,8 +426,26 @@ upgrade ≥1 dossier claim.
 
 ### H) Reviewer Checklist
 
-Four mandatory categories: Highest-risk numbers to verify / Contradictions detected between
-form and documents / Low-confidence extractions / Document quality issues.
+Five mandatory categories — each must contain ≥1 specific item:
+
+1. **Highest-risk numbers to verify** — numbers that, if wrong, would materially change the analysis (revenue figures, headcount totals, key KPIs)
+2. **Contradictions detected between form and documents** — any case where a form answer conflicts with a document extract
+3. **Low-confidence extractions** — claims carrying [Inferred] or [Assumption] tags that the reviewer should prioritise validating
+4. **Document quality issues** — failed parses, unaudited financials, missing documents, low-confidence PDFs
+5. **Strategic Priority Coverage** — mandatory assessment of how the algorithm treated the client's stated strategic priorities
+
+**Strategic Priority Coverage — how to write it:**
+
+If all stated priorities are represented in the top 7: List each priority from the strategic plan (or intake form Section 2) with the hypothesis that addresses it and its score. One line per priority.
+
+If a stated priority is NOT in the top 7: For each unrepresented priority, include:
+- The priority verbatim from the source
+- The hypothesis that was evaluated for it, with its full Score (Impact × Feasibility × Alignment = product)
+- Which hypothesis displaced it and what the score gap was
+- What specific condition would move it into the top 7
+- One algorithm-positioning sentence: "Our scoring algorithm evaluated [Priority] via [Hypothesis Title] and determined that [specific factor — typically feasibility score] prevents it from qualifying at this time. This reflects the execution conditions documented in this engagement, not a gap in strategic understanding."
+
+This is not an apology for the algorithm's decision — it is a demonstration of the algorithm's intelligence. A senior consultant reviewing the Blueprint should be able to read this section and immediately understand why the algorithm made the trade-off it made.
 
 ### [JUSTIFICATION] Block
 

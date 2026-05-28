@@ -524,8 +524,8 @@ def check_section_d(sections: dict, report: ValidationReport, arch_defaults: dic
     for i, chunk in enumerate(h_chunks):
         if not re.search(r"\*\*Linked Pain Point\(s\):\*\*\s*PP\d+", chunk):
             report.add_fail("section_d_pp_link", f"Hypothesis {i+1}", "Missing or malformed Linked Pain Point(s) reference (must reference at least one PP)")
-        if not re.search(r"\*\*Classification(?: hypothesis)?:\*\*\s*(Quick Win|Foundation Builder|Big Bet)", chunk):
-            report.add_fail("section_d_classification", f"Hypothesis {i+1}", "Missing or invalid Classification field (must be Quick Win, Foundation Builder, or Big Bet)")
+        if not re.search(r"\*\*Classification(?: hypothesis)?:\*\*\s*(Quick Win|Foundation Builder(?:\s+\(enabler\))?|Big Bet)", chunk):
+            report.add_fail("section_d_classification", f"Hypothesis {i+1}", "Missing or invalid Classification field (must be Quick Win, Foundation Builder, Foundation Builder (enabler), or Big Bet)")
 
 def check_section_e(sections: dict, report: ValidationReport, arch_defaults: dict = None) -> None:
     if "E" not in sections:
@@ -557,6 +557,38 @@ def check_section_g(sections: dict, report: ValidationReport, arch_defaults: dic
     if not (arch["section_g_open_questions_min"] <= len(questions) <= arch["section_g_open_questions_max"]):
         report.add_fail("section_g_count", "Section G", f"Found {len(questions)} open questions; bounded range [{arch['section_g_open_questions_min']}, {arch['section_g_open_questions_max']}]")
 
+def check_section_d_enabler_ordering(sections: dict, report: ValidationReport) -> None:
+    """FW-02: Within Foundation Builders, enablers must appear before non-enablers."""
+    if "D" not in sections:
+        return
+    h_num_re = re.compile(r"^###\s+Hypothesis\s+(\d+)\s+—", re.MULTILINE)
+    classification_re = re.compile(r"\*\*Classification(?:\s+hypothesis)?:\*\*\s*(.+?)(?:\n|$)")
+    h_numbers = [int(m.group(1)) for m in h_num_re.finditer(sections["D"])]
+    h_chunks = re.split(r"^###\s+Hypothesis\s+\d+\s+—", sections["D"], flags=re.MULTILINE)[1:]
+    fb_sequence = []
+    for i, chunk in enumerate(h_chunks):
+        class_m = classification_re.search(chunk)
+        if not class_m:
+            continue
+        classification = class_m.group(1).strip()
+        if "Foundation Builder" in classification:
+            is_enabler = "(enabler)" in classification.lower()
+            h_num = h_numbers[i] if i < len(h_numbers) else i + 1
+            fb_sequence.append((h_num, is_enabler))
+    seen_non_enabler = False
+    for h_num, is_enabler in fb_sequence:
+        if not is_enabler:
+            seen_non_enabler = True
+        elif seen_non_enabler:
+            report.add_fail(
+                "section_d_enabler_ordering",
+                f"Section D — Hypothesis {h_num}",
+                f"Foundation Builder (enabler) H{h_num} appears after a non-enabler Foundation Builder. "
+                "Per FW-02: enablers must precede non-enablers within the Foundation Builder group, "
+                "regardless of score. See references/algorithms/ordering.md §Section D."
+            )
+
+
 def check_section_h(sections: dict, report: ValidationReport) -> None:
     if "H" not in sections:
         return
@@ -565,6 +597,7 @@ def check_section_h(sections: dict, report: ValidationReport) -> None:
         "Contradictions detected",
         "Low-confidence extractions",
         "Document quality issues",
+        "Strategic Priority Coverage",
     ]
     for cat in required_categories:
         if cat not in sections["H"]:
@@ -662,6 +695,7 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
     check_section_b(sections, report, arch_defaults)
     check_section_c(sections, report, arch_defaults)
     check_section_d(sections, report, arch_defaults)
+    check_section_d_enabler_ordering(sections, report)
     check_section_e(sections, report, arch_defaults)
     check_section_g(sections, report, arch_defaults)
     check_section_h(sections, report)

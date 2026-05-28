@@ -41,11 +41,11 @@ stub [Document-Backed — financial summary p.1]. stub [Document-Backed — org 
 
 def run_validator(text: str) -> tuple:
     """Run the validator on the given text. Returns (returncode, stdout)."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(text)
         path = f.name
     result = subprocess.run(
-        ["python3", str(HARNESS), path],
+        [sys.executable, str(HARNESS), path],
         capture_output=True, text=True
     )
     Path(path).unlink()
@@ -76,7 +76,7 @@ def main():
 
     # Test 1: Golden Output passes
     print("\n[Test 1] Golden Output validates clean")
-    rc, out = run_validator(GOLDEN.read_text())
+    rc, out = run_validator(GOLDEN.read_text(encoding="utf-8"))
     if rc == 0:
         print("  PASS: Golden Output validates against intake_v1.0")
         passed += 1
@@ -120,7 +120,7 @@ def main():
 
     # Test 5: Non-canonical source name (use Golden Output as base; swap one source)
     print("\n[Test 5] Non-canonical source name 'process docs' must be rejected")
-    golden_text = GOLDEN.read_text()
+    golden_text = GOLDEN.read_text(encoding="utf-8")
     bad_source = golden_text.replace(
         "[Document-Backed — SOP p.2]",
         "[Document-Backed — process documentation file p.2]",

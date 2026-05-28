@@ -164,10 +164,16 @@ Supporting evidence:
 
 What we'd validate next: [Single sentence, specific and actionable]
 
-Classification: [Quick Win / Foundation Builder / Big Bet]
+Classification: [Quick Win / Foundation Builder / Foundation Builder (enabler) / Big Bet]
 Linked Pain Point(s): [Reference to Section C item numbers, e.g. "PP1, PP3"]
 **Selection score:** Impact [N] × Feasibility [N] × Alignment [N] = **[product]**
 ```
+
+**Classification values:**
+- `Quick Win` — Feasibility ≥ 4, no dependency on incomplete foundational work, addresses top-4 pain point
+- `Foundation Builder` — prerequisite for other hypotheses, or addresses a structural gap
+- `Foundation Builder (enabler)` — same as Foundation Builder, AND is a hard dependency for ≥1 other selected hypothesis; presented before plain Foundation Builders in Section D regardless of score (FW-02)
+- `Big Bet` — Impact ≥ 4, requires Foundation Builders and Quick Wins to be live first
 
 The `### Hypothesis N — Title` line is a markdown H3 heading with a Unicode em-dash (—). See §3a for the full heading format requirements and forbidden alternates.
 
@@ -195,12 +201,28 @@ Each hypothesis must link to ≥1 pain point. Hypotheses without a linked pain p
 
 ### 4.10 Section H — Reviewer Checklist
 
-- **Policy:** FIXED 4 mandatory categories
+- **Policy:** FIXED 5 mandatory categories
 - **Categories** (each must contain ≥1 specific item):
   1. Highest-risk numbers to verify
   2. Contradictions detected between form and documents
   3. Low-confidence extractions
   4. Document quality issues
+  5. Strategic Priority Coverage
+
+**Category 5 — Strategic Priority Coverage** is mandatory in every dossier. Its content depends on outcome:
+
+_When all stated priorities are represented in the top 7:_
+> List each priority from PDF 7 (or intake form Section 2) with the hypothesis that covers it and its score. One line per priority. Example: "Executive Search Growth (PDF 7, p.4) → Hypothesis 5 — AI-Assisted Specialist Sourcing (Score: 75)"
+
+_When ≥1 stated priority is NOT represented in the top 7:_
+> For each unrepresented priority, include all of the following:
+> - **Priority stated:** Quote the priority verbatim from PDF 7 or intake form
+> - **Candidate evaluated:** The hypothesis considered for this priority, with its Score (Impact × Feasibility × Alignment = product)
+> - **Why it did not qualify:** Which higher-scoring hypothesis displaced it, and what the score gap was
+> - **What would change the outcome:** The specific condition under which this hypothesis would enter the top 7 (e.g., "Feasibility would need to reach 3, which requires X prerequisite to be in place")
+> - **Algorithm note:** One sentence positioning the finding as an algorithm assessment, not an oversight — e.g., "Our scoring algorithm evaluated [Priority] via [Hypothesis] and found feasibility constrained by [specific factor]. This is not a gap in the analysis — it is an honest assessment of current execution conditions."
+
+This category is the mechanism for demonstrating algorithmic intelligence on strategic priorities. A reviewer reading the deliverable should never be able to say "you missed their top priority" — the answer must be visible inside the dossier with a clear explanation.
 
 ### 4.11 [JUSTIFICATION] Block
 

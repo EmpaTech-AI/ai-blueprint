@@ -28,11 +28,14 @@
 | Item | Priority | Status | Deliverable |
 |------|----------|--------|-------------|
 | FW-01 | HIGH | ✅ DONE | `references/algorithms/hypothesis_selection.md` — integer scoring anchors, deterministic displacement procedure, tie-breaking hierarchy at all stages, Stage 6 score line requirement |
-| FW-02 | HIGH | ✅ DONE | `references/algorithms/hypothesis_selection.md` + `references/algorithms/ordering.md` — explicit within-group tie-breaking, H1–H7 position labels documented |
+| FW-02 | HIGH | ✅ DONE | `references/algorithms/ordering.md` + `hypothesis_selection.md` Stage 5 — `Foundation Builder (enabler)` always precedes plain `Foundation Builder` within group regardless of score; enablers sorted by score among themselves. `harness/validate_intake.py` — `check_section_d_enabler_ordering()` enforces this mechanically. Business decision (May 2026): Option B — enabler first. |
 | FW-03 | MEDIUM | ✅ DONE | `references/intake_v1.0.md` §4.11 — "one entry per distinct claim" rule with same-claim test |
 | FW-04 | MEDIUM | ✅ DONE | `references/confidence_thresholds.md` — 7 worked edge cases including Georgieva rule, conflict resolution, aggregate calculation rule |
-| FW-05 | HIGH | ✅ DONE | `references/intake_v1.0.md` §4.3 + `SKILL.md` + `archetypes/recruitment.md` — hard ceiling 350 words, no ±20% expansion |
+| FW-05 | HIGH | ⚠️ PARTIAL — v4.1 OPEN | Harness ceiling set to 350 words. Prose guidance still insufficient — V4 T1 produced 404 words, V4 T2 produced 419 words. Structural fix (per-paragraph budgets) added to `SKILL.md` in v4.1 sprint. Monitor next 3 runs. |
 | FW-06 | HIGH | ✅ DONE | `references/intake_v1.0.md` §3a + `SKILL.md` — mandatory heading format table, H3 + em-dash enforced |
+| FW-07 | MEDIUM | ✅ DONE | `references/intake_v1.0.md` §4.10 + `SKILL.md` §H — Added 5th mandatory Section H category "Strategic Priority Coverage". When a stated priority is not in the top 7, the dossier must explain: the candidate evaluated, its score, what displaced it, what would change the outcome, and one algorithm-positioning sentence. Business decision (May 2026): Option A — algorithm was correct; callout makes the reasoning transparent and positions the algorithm as intelligent, not blind to client priorities. |
+| FW-08 | MEDIUM | ✅ DONE (v4.1) | `references/confidence_thresholds.md` — "Inline Tagging Density Rule" added; expected band 12–18 body tags; connective tissue exclusion documented. |
+| FW-09 | MEDIUM | ✅ DONE | `references/intake_v1.0.md` §4.11 already contains the "one item per unique inference chain" rule as the "Distinct claim rule" paragraphs. No separate spec change needed. |
 
 ---
 
@@ -44,6 +47,8 @@
 | SK-02 | MEDIUM | ✅ DONE | `SKILL.md` + `references/algorithms/hypothesis_selection.md` — `**Selection score:**` line mandatory in every hypothesis; Stage 6 documents it |
 | SK-03 | MEDIUM | ✅ DONE | `blueprint-maturity.md`, `blueprint-opportunities.md`, `blueprint-roadmap.md`, `blueprint-assembly.md` — all carry `schema_version: intake_v1.0`, `skill_version: 1.0.0`, `last_updated: 2026-05-27` |
 | SK-04 | HIGH | ✅ DONE | `blueprint-orchestrator.md` — cross-stage consistency check rewrites to match by hypothesis title, not position; versioning table populated; schema enforcement note added |
+| SK-05 | MEDIUM | ✅ DONE (v4.1) | `SKILL.md` Chunk 2 format examples + `blueprint-opportunities.md` — machine-readable HTML comment block added alongside human-readable Selection Score line for downstream parsing. |
+| SK-06 | LOW | ⏳ PENDING | Requires WR-01 (live wrapper test) to verify H3 heading output in raw markdown. Cannot verify from DOCX export. |
 
 ---
 
@@ -226,11 +231,11 @@ LOW-priority items with no implementation commitment:
 
 **Theme 2 — Reproducibility as a cohesive sub-programme (FW-01, FW-02, FW-04, SK-02, QA-02):**
 - FW-01: deterministic scoring and displacement
-- FW-02: explicit tie-breaking in ordering
+- FW-02: enabler-first ordering within Foundation Builders, harness-enforced
 - FW-04: edge case classification rules
 - SK-02: visible scoring math in every hypothesis
 - QA-02: automated tool to verify consistency
-- All five implemented; production consistency verification pending OA-02
+- All five fully implemented; production consistency verification pending OA-02
 - ✅ COMPLIANT (implementation); ⏳ PENDING (production evidence)
 
 **Theme 3 — Documentation alongside engineering (DC-01 through DC-03):**

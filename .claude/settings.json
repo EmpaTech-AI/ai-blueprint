@@ -47,7 +47,10 @@
       "Bash(dir \"D:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\" -Recurse -Filter \"*.ts\" -Name)",
       "Bash(Select-String -Pattern \"\\(skill|read|load\\)\")",
       "Bash(git mv *)",
-      "Bash(Select-Object Name, PSIsContainer)"
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(python harness/validate_intake.py golden/recruitment_meridian_v1.md)",
+      "Bash(python harness/tests/test_validate.py)",
+      "Bash(dir /s /b \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\*BACKLOG*\")"
     ]
   }
 }

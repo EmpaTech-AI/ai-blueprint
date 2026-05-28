@@ -163,6 +163,104 @@ When adding a new check:
 
 ---
 
+## v4 Changes — What to Know If You're Updating These Skills
+
+The v4 release (May 2026) introduced several conventions that all future skill changes must respect.
+
+### Selection Score format (SK-02, SK-05)
+
+Every hypothesis in Section D must end with TWO lines — the human-readable score and the
+machine-readable comment:
+
+```markdown
+**Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
+<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+```
+
+`class` values: `QuickWin`, `FoundationBuilder`, `BigBet` (CamelCase, no spaces).
+
+If you update the Selection Score format, update:
+1. `SKILL.md` Chunk 2 format examples
+2. `references/algorithms/hypothesis_selection.md` Stage 6
+3. `blueprint-opportunities.md` Step 3b and the opportunity card template
+
+### Heading format (FW-06, SK-01)
+
+Pain Points and Hypotheses use H3 headings with an em-dash (—, U+2014):
+
+```markdown
+### Pain Point 1 — Manual Candidate Sourcing Bottleneck
+### Hypothesis 1 — AI-Powered CV Formatting
+```
+
+The harness regex is strict on this format. Do NOT use bold (`**Pain Point 1 —**`) or
+triple hyphens (`---`). If you change the heading format, update the harness regex in
+`validate_intake.py` at the same time.
+
+### Section A word ceiling (FW-05)
+
+The hard ceiling is 350 words with per-paragraph budgets (max 80/90/90/80 words). The
+harness hard-fails above 350. The gate.sh now surfaces the word count on every run.
+If you update Section A structure or paragraph count, update both the paragraph budget
+table in `SKILL.md` and the `ARCHETYPE_DEFAULTS` in `validate_intake.py`.
+
+### Ordering (FW-02 — DONE)
+
+Within-group ordering is fully specified in `references/algorithms/ordering.md`.
+
+**Foundation Builder enabler rule (FW-02):** A hypothesis classified as
+`Foundation Builder (enabler)` always appears before plain `Foundation Builder`
+entries within the Foundation Builder group, regardless of score. Multiple enablers
+sort by score among themselves; non-enablers sort by score among themselves.
+
+The harness enforces this: `check_section_d_enabler_ordering()` in `validate_intake.py`
+will FAIL the gate if a non-enabler Foundation Builder appears before an enabler.
+
+When to use `Foundation Builder (enabler)`: only when there is a hard execution
+dependency — another selected hypothesis literally cannot start until this one delivers.
+"Reduces risk if done first" is NOT sufficient; that is a plain Foundation Builder.
+
+### Inline tagging density (FW-08)
+
+The expected band for Inferred/Assumption body tags is 12–18 for a standard dossier.
+The rule is in `references/confidence_thresholds.md` §"Inline Tagging Density Rule".
+Update that section if the band changes based on production data.
+
+### Section H — Strategic Priority Coverage (FW-07)
+
+Section H now has 5 mandatory categories. The 5th — "Strategic Priority Coverage" —
+must appear in every dossier. It either confirms all priorities are in the top 7 (with
+a mapping), or explains each omitted priority with: the candidate evaluated, its score,
+what displaced it, what would change the outcome, and an algorithm-positioning sentence.
+
+This category is required even when all priorities are covered. The harness checks for
+the heading `Strategic Priority Coverage` in Section H text. See
+`references/intake_v1.0.md` §4.10 for the full format specification.
+
+---
+
+## Adding Golden Outputs to Downstream Skills
+
+The four downstream skills (maturity, opportunities, roadmap, assembly) now have `golden/`
+directories. When a live engagement completes, save the approved output for each step into
+its respective golden folder.
+
+**Location:**
+- `../blueprint-maturity/golden/`
+- `../blueprint-opportunities/golden/`
+- `../blueprint-roadmap/golden/`
+- `../blueprint-assembly/golden/`
+
+Each folder has a `README.md` describing the expected structure and naming convention.
+Naming: `{archetype}_{client_short_name}_v{version}.md` (e.g., `recruitment_meridian_v1.md`).
+
+**Cross-consistency requirement:** The four downstream goldens for a given archetype must be
+mutually consistent — opportunity titles in the Opportunity Map golden must match hypothesis
+titles in the intake golden, classifications in the Roadmap golden must match the Opportunity
+Map, and so on. Review all four before committing any of them.
+
+---
+
 ## Quality Gates Before Merging Any Change
 
 Every change must pass these gates:

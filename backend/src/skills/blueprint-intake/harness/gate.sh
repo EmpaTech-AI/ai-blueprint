@@ -34,9 +34,23 @@ if [[ ! -f "${VALIDATOR}" ]]; then
     exit 2
 fi
 
-# Run the harness (output goes to stdout/stderr as-is)
-python3 "${VALIDATOR}" "${DOSSIER_PATH}"
+# Run the harness; capture output so we can post-process the Section A word count (HR-06)
+HARNESS_OUTPUT=$(python3 "${VALIDATOR}" "${DOSSIER_PATH}" 2>&1)
 HARNESS_EXIT=$?
+echo "${HARNESS_OUTPUT}"
+
+# HR-06: Surface Section A word count as a prominent notice on every run
+SEC_A_WORDS=$(echo "${HARNESS_OUTPUT}" | grep -oP "section_a_words: \K\d+" || true)
+echo ""
+if [[ -n "${SEC_A_WORDS}" ]]; then
+    if [[ "${SEC_A_WORDS}" -gt 350 ]]; then
+        echo ">>> SECTION A: ${SEC_A_WORDS} words — EXCEEDS hard ceiling of 350. Gate FAIL."
+    elif [[ "${SEC_A_WORDS}" -ge 320 ]]; then
+        echo ">>> SECTION A: ${SEC_A_WORDS} words — approaching ceiling (target 300, ceiling 350)."
+    else
+        echo ">>> SECTION A: ${SEC_A_WORDS} words — OK (target 300, ceiling 350)."
+    fi
+fi
 
 echo ""
 if [[ $HARNESS_EXIT -eq 0 ]]; then

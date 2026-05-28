@@ -50,6 +50,11 @@ concise opportunity cards.
 
 If either is missing, request them and do not proceed.
 
+## Scoring Reference
+
+Full scoring rubric, readiness adjustment rules, classification criteria, and tie-breaking
+logic: `references/scoring_rubric.md`. Read it before Step 4.
+
 ## Operating Procedure
 
 ### Step 1 — Confirm the Baseline
@@ -85,6 +90,18 @@ Every signal must have at least one citation to the dossier or snapshot.
    - Removing generic ideas not linked to specific pain points
    - Removing ideas requiring prerequisites that are clearly out of reach given maturity
 3. The final 5–7 should represent a mix of Quick Wins, Foundation Builders, and Big Bets
+
+### Step 3b — Cross-Check with Intake Dossier Hypothesis Scores (if available)
+
+The intake dossier (Section D) includes a `<!-- score: ... -->` comment block after each
+hypothesis's Selection Score line. If present, these scores represent the intake analyst's
+evaluation for the corresponding opportunity. Use them as a starting point but apply the
+**Readiness Adjustment Rule** (Step 4 below) — intake scores do not account for maturity.
+To extract them, look for HTML comment lines of the form:
+```
+<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+```
+If the comment block is absent, score from scratch per Step 4.
 
 ### Step 4 — Score Each Opportunity
 
@@ -173,6 +190,7 @@ confidence tag — e.g. "Manual sourcing bottleneck (Dossier C.1) [Document-Back
 
 **Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5
 **Classification:** Quick Win / Foundation Builder / Big Bet
+<!-- score: impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} -->
 
 **Pilot suggestion:** (1–2 sentences — tag any assumptions about technology or process:
 e.g. "A pilot using an AI sourcing tool on 10 mandates would validate the time saving

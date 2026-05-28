@@ -54,10 +54,14 @@ When a pain point has multiple impact areas, use the leftmost area in this list 
 Per `hypothesis_selection.md` Stage 5. Full ordering:
 
 1. Quick Wins — sorted by Strategic Value Score DESC within this group
-2. Foundation Builders — sorted by Strategic Value Score DESC within this group
+2. Foundation Builders — **two-tier ordering** within this group (FW-02):
+   - **Tier 1:** `Foundation Builder (enabler)` entries first — sorted by Strategic Value Score DESC among themselves
+   - **Tier 2:** Plain `Foundation Builder` entries next — sorted by Strategic Value Score DESC among themselves
 3. Big Bets — sorted by Strategic Value Score DESC within this group
 
-**Within-group tie-breaking (apply in order when two hypotheses in the same class have equal scores):**
+**Enabler definition:** A hypothesis is an enabler if its Classification field reads `Foundation Builder (enabler)`. It must be a prerequisite for one or more other hypotheses (e.g., a GDPR compliance sprint required before any AI model trained on personal data can proceed). Enabler status reflects execution dependency, not score superiority.
+
+**Within-tier tie-breaking (apply in order when two hypotheses in the same tier have equal scores):**
 1. Higher Impact component wins
 2. Higher Alignment component wins
 3. Higher Feasibility component wins
