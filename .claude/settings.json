@@ -52,7 +52,8 @@
       "Bash(python harness/tests/test_validate.py)",
       "Bash(dir /s /b \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\*BACKLOG*\")",
       "Bash(python -c \"import backend.src.skills.blueprint-intake.harness.validate_intake\")",
-      "Bash(python \"backend/src/skills/blueprint-intake/harness/validate_intake.py\" --help)"
+      "Bash(python \"backend/src/skills/blueprint-intake/harness/validate_intake.py\" --help)",
+      "Bash(python \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\blueprint-intake\\\\harness\\\\validate_intake.py\" --help)"
     ]
   }
 }

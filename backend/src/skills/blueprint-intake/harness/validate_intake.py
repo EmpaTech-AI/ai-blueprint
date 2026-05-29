@@ -401,35 +401,30 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
             f"Total tag count {len(citation_tags)} outside acceptable band [{arch['total_tags_min']}, {arch['total_tags_max']}]"
         )
 
-    # FW-08a: Raw low-confidence count band (warn outside 10–22; expected 12–18)
+    # FW-08: Three-tier low-confidence count check (v4.1 spec)
+    # Tier 1 — expected:    12–18  → OK, no action
+    # Tier 2 — advisory:    10–11 or 19–22  → WARN
+    # Tier 3 — mis-tagging: <10 or >22      → FAIL
     lc_count = tag_counts.get("Inferred", 0) + tag_counts.get("Assumption", 0)
     report.metrics["lc_raw_count"] = lc_count
-    if lc_count < 10:
-        report.add_warn(
-            "fw08a_lc_count_low",
+    if lc_count < 10 or lc_count > 22:
+        report.add_fail(
+            "fw08_lc_count_out_of_band",
             "Body",
-            f"Low-confidence body tag count {lc_count} below expected minimum 10 (expected band 10–22, ideal 12–18). "
-            "Under-tagging of derivative claims likely — check that every Inferred/Assumption claim references appendix."
+            f"Low-confidence body tag count {lc_count} outside mis-tagging threshold (expected 12–18, outer bound 10–22). "
+            + ("Under-tagging: check that every Inferred/Assumption claim references appendix."
+               if lc_count < 10 else
+               "Over-tagging: tags should cover claims only, not transitions or restatements.")
         )
-    elif lc_count > 22:
+    elif not (12 <= lc_count <= 18):
         report.add_warn(
-            "fw08a_lc_count_high",
+            "fw08_lc_count_advisory",
             "Body",
-            f"Low-confidence body tag count {lc_count} above expected maximum 22 (expected band 10–22, ideal 12–18). "
-            "Over-tagging of connective tissue suspected — tags should cover claims, not transitions or restatements."
-        )
-
-    # FW-08b: LC/Total density ratio (warn outside 4%–8%)
-    lc_density_pct = lc_count / len(citation_tags) * 100
-    report.metrics["lc_density_pct"] = round(lc_density_pct, 1)
-    if not (4.0 <= lc_density_pct <= 8.0):
-        direction = "under-tagging" if lc_density_pct < 4.0 else "over-tagging"
-        report.add_warn(
-            "fw08b_lc_density",
-            "Body",
-            f"Low-confidence tag density {lc_density_pct:.1f}% outside expected band [4%–8%] "
-            f"({lc_count} Inferred/Assumption of {len(citation_tags)} total body tags); "
-            f"{direction} of derivative claims suspected. Historical range across 7 production runs: 4.5%–7.2%."
+            f"Low-confidence body tag count {lc_count} outside expected band [12–18] "
+            f"(acceptable range 10–22). "
+            + ("Under-tagging advisory: review whether all derivative claims are tagged."
+               if lc_count < 12 else
+               "Over-tagging advisory: review whether any connective tissue is carrying tags.")
         )
 
     # Document-Backed and Form-Stated tags MUST have sources
