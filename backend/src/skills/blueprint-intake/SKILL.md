@@ -204,7 +204,7 @@ The 3-chunk workflow is the default and only supported mode:
 
 1. Re-read the relevant framework files for Sections C and D (algorithms and archetype)
 2. Produce: Section C with exactly 8 pain points, Section D with exactly 7 hypotheses — using the exact heading and citation formats shown below
-3. End with the Checkpoint 2 block (format below)
+3. **MANDATORY FINAL STEP: End with the complete Checkpoint 2 block (format below). This is the last thing you produce in this response. Do not stop writing before the checkpoint block is complete — omitting it causes an unrecoverable pipeline failure.**
 4. Stop. Do not begin Section E.
 
 **Chunk 2 mandatory formats — copy these exactly:**
@@ -236,7 +236,7 @@ The HTML comment is invisible in rendered output but allows downstream skills to
 without regex-matching the human-readable prose line. `class` values: `QuickWin`,
 `FoundationBuilder`, `BigBet` (no spaces).
 
-**Chunk 2 checkpoint block format (mandatory at end of second response):**
+**Chunk 2 checkpoint block format (mandatory — your Chunk 2 response MUST end with this exact block, verbatim structure, no exceptions):**
 
 ```markdown
 ---
@@ -542,7 +542,7 @@ When the user provides intake form responses and/or uploaded documents:
 3. **Produce Chunk 1 only** (Header + Document Receipt + Section A + Section B + Checkpoint 1).
    Do NOT attempt to produce Sections C–H in the same response — single-pass generation truncates.
 4. Stop at the end of Checkpoint 1. Wait for the operator to reply "continue to chunk 2".
-5. When triggered, produce Chunk 2 (Section C + Section D + Checkpoint 2). Stop.
+5. When triggered, produce Chunk 2 (Section C + Section D + **Checkpoint 2 — mandatory final block, do not stop before emitting it**). Stop.
 6. When triggered, produce Chunk 3 (Sections E–H + [JUSTIFICATION] + Final marker).
 7. Inform the operator to assemble the three chunks and run `bash harness/gate.sh <path>` before
    invoking downstream skills.

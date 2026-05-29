@@ -204,11 +204,34 @@ async function buildChunkUntilMarker(
       return accumulated;
     }
 
-    // Model finished cleanly but skipped the marker — genuine content failure, not truncation.
+    // Model finished cleanly but skipped the marker — attempt one targeted recovery pass before
+    // failing. The recovery appends the full output as assistant context and explicitly asks
+    // the model to append the missing checkpoint block without repeating prior content.
     if (stopReason !== 'max_tokens') {
+      log('warn',
+        `${skillName} chunk ${chunkNum} hit end_turn without "${requiredMarker}" — ` +
+        `requesting checkpoint recovery`,
+        { outputLength: accumulated.length },
+      );
+      const recoveryMessages: MessageParam[] = [
+        ...messages,
+        { role: 'assistant', content: text },
+        { role: 'user',      content: `Your response was received but the required checkpoint marker "${requiredMarker}" is missing from your output. Please append the complete checkpoint block now — do not repeat or summarise any prior content, only output the checkpoint block.` },
+      ];
+      const { text: recoveryText } = await invokeChunk(
+        systemPrompt, recoveryMessages, maxTokens, skillName, chunkNum,
+      );
+      accumulated += recoveryText;
+      if (accumulated.includes(requiredMarker)) {
+        log('info',
+          `${skillName} chunk ${chunkNum} recovered checkpoint marker after end_turn recovery`,
+          { totalLength: accumulated.length },
+        );
+        return accumulated;
+      }
       throw new Error(
         `${skillName} chunk ${chunkNum} finished (stop_reason: ${stopReason}) without required marker ` +
-        `"${requiredMarker}". The model may have skipped or merged sections. ` +
+        `"${requiredMarker}". Recovery pass also failed. The model may have skipped or merged sections. ` +
         `Total output: ${accumulated.length} chars.`,
       );
     }
