@@ -271,12 +271,22 @@ def extract_pain_points_structured(sections: dict) -> list:
     return result
 
 
+# Ordered tuple of content section keys that constitute the "body" of the dossier.
+# JUSTIFICATION is excluded; the order matches schema intake_v1.0.
+# Used wherever body text must be defined independently of JUSTIFICATION's document position.
+_BODY_SECTION_KEYS = ("A", "B", "C", "D", "E", "F", "G", "H")
+
+
+def _body_text(sections: dict) -> str:
+    """Return body text by joining all content sections, excluding JUSTIFICATION.
+    Safe regardless of whether JUSTIFICATION appears before or after Section H.
+    """
+    return "".join(sections.get(k, "") for k in _BODY_SECTION_KEYS)
+
+
 def extract_weak_tags_structured(text: str, sections: dict) -> list:
     """Return list of {tag, sources} dicts for all Inferred/Assumption tags in the body."""
-    if "JUSTIFICATION" in sections:
-        body = text[: text.find(sections["JUSTIFICATION"])]
-    else:
-        body = text
+    body = _body_text(sections)
     result = []
     for m in CITATION_TAG_RE.finditer(body):
         if m.group("tag") in {"Inferred", "Assumption"}:
@@ -357,9 +367,18 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
     # (3) Tags inside the [JUSTIFICATION] block (tag-name references, not citations)
     # These are NOT citations and don't need source citations.
 
-    # Find the start of the JUSTIFICATION block (if present)
+    # Find the JUSTIFICATION block span (start and end) so we can exclude it precisely.
+    # Using a span rather than "start only" means this filter is safe when JUSTIFICATION
+    # appears before Section H (§3.C document order) — H tags are not inadvertently excluded.
     just_match = re.search(r"^##\s+\[?JUSTIFICATION\]?", text, re.MULTILINE)
-    justification_start = just_match.start() if just_match else len(text)
+    if just_match:
+        just_start = just_match.start()
+        # End of block = start of next H2 heading, or EOF
+        next_h2 = re.search(r"^##\s+", text[just_match.end():], re.MULTILINE)
+        just_end = just_match.end() + next_h2.start() if next_h2 else len(text)
+    else:
+        just_start = len(text)
+        just_end = len(text)
 
     # Find all citation tag positions
     all_tag_matches = list(CITATION_TAG_RE.finditer(text))
@@ -368,8 +387,8 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
     for m in all_tag_matches:
         start = m.start()
         end = m.end()
-        # Skip if inside JUSTIFICATION block
-        if start >= justification_start:
+        # Skip if inside the JUSTIFICATION block (inclusive start, exclusive end)
+        if just_start <= start < just_end:
             continue
         # Check for **Confidence:** prefix in last 20 chars before tag
         prefix = text[max(0, start - 20):start]
@@ -616,6 +635,68 @@ def check_section_d_enabler_ordering(sections: dict, report: ValidationReport) -
             )
 
 
+def check_db_tag_coverage_section_b(sections: dict, report: ValidationReport) -> None:
+    """§2.A (v5.3): Every Section B data row must carry exactly one citation tag.
+    Rows where the value is 'n/a' or 'not available' are exempt.
+    """
+    if "B" not in sections:
+        return
+    lines = sections["B"].split("\n")
+    in_table = False
+    data_rows = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            if in_table:
+                in_table = False
+            continue
+        if "---" in stripped:
+            in_table = True
+            continue
+        if in_table:
+            data_rows.append(stripped)
+
+    NA_RE = re.compile(r"^(n/?a|not\s+available|unknown|tbc)$", re.IGNORECASE)
+    rows_total = 0
+    rows_one = 0
+    rows_zero = 0
+    rows_multi = 0
+
+    for row in data_rows:
+        cells = [c.strip() for c in row.split("|") if c.strip()]
+        if len(cells) < 2:
+            continue
+        rows_total += 1
+        value_cell = cells[1] if len(cells) > 1 else ""
+        if NA_RE.match(value_cell):
+            rows_one += 1
+            continue
+        tag_count = len(CITATION_TAG_RE.findall(row))
+        if tag_count == 0:
+            rows_zero += 1
+            report.add_warn(
+                "section_b_row_missing_citation",
+                "Section B",
+                f"Row value '{value_cell[:60]}' has no citation tag; every data row requires exactly one."
+            )
+        elif tag_count > 1:
+            rows_multi += 1
+            report.add_warn(
+                "section_b_row_multiple_citations",
+                "Section B",
+                f"Row value '{value_cell[:60]}' has {tag_count} citation tags; split into one tag per row."
+            )
+        else:
+            rows_one += 1
+
+    report.metrics["section_b_citation_coverage"] = {
+        "rows_total": rows_total,
+        "rows_with_one_citation": rows_one,
+        "rows_with_zero_citations": rows_zero,
+        "rows_with_multiple_citations": rows_multi,
+    }
+
+
 def check_section_h(sections: dict, report: ValidationReport) -> None:
     if "H" not in sections:
         return
@@ -630,13 +711,54 @@ def check_section_h(sections: dict, report: ValidationReport) -> None:
         if cat not in sections["H"]:
             report.add_fail("section_h_category", "Section H", f"Missing required category '{cat}'")
 
+def check_first_mention_db_uniqueness(text: str, sections: dict, report: ValidationReport) -> None:
+    """§2.C (v5.3): No single source artifact should be cited >3 times via Document-Backed tags
+    in the body. Catches pathological over-citation while permitting legitimate cross-section reference.
+    Source names are normalised (page/step suffixes stripped) before counting.
+    """
+    body = _body_text(sections)
+
+    db_source_re = re.compile(r"\[Document-Backed(?:\s+\+\s+Form-Stated)?\s+—\s+([^\]]+)\]")
+    page_suffix_re = re.compile(
+        r"\s+(p\.\s*\d+(?:-\d+)?|step\s+\d+(?:\.\d+)?|section\s+\d+(?:\.\d+)?)$",
+        re.IGNORECASE
+    )
+
+    source_counts = Counter()
+    for m in db_source_re.finditer(body):
+        normalized = page_suffix_re.sub("", m.group(1).strip()).strip()
+        source_counts[normalized] += 1
+
+    max_repeat = max(source_counts.values(), default=0)
+    over_rep = [(src, cnt) for src, cnt in source_counts.items() if cnt > 3]
+
+    report.metrics["db_first_mention_uniqueness"] = {
+        "unique_source_references": len(source_counts),
+        "max_repeat_count": max_repeat,
+        "over_represented_sources": [
+            {"source": src, "count": cnt}
+            for src, cnt in sorted(over_rep, key=lambda x: -x[1])
+        ],
+    }
+
+    for src, cnt in over_rep:
+        report.add_warn(
+            "db_citation_overrepeated",
+            "Body",
+            f"Source '{src}' cited {cnt} times in Document-Backed tags (threshold: ≤3). "
+            "Check whether all occurrences are distinct claims or whether the source is over-cited."
+        )
+
+
 def check_justification_block(text: str, sections: dict, report: ValidationReport) -> None:
     if "JUSTIFICATION" not in sections:
         report.add_fail("justification_missing", "[JUSTIFICATION]", "Mandatory [JUSTIFICATION] block missing")
         return
     just_text = sections["JUSTIFICATION"]
-    # Body text excludes the justification block
-    body_text = text[: text.find(just_text)]
+    # Body text = all content sections except JUSTIFICATION, joined.
+    # Using section keys rather than a text offset makes this safe when JUSTIFICATION
+    # appears before Section H (§3.C document order).
+    body_text = _body_text(sections)
     # Find all body [Inferred] and [Assumption] tags, and what appendix items they reference
     # A reference can be: "derivation per appendix item N" or "appendix item N"
     appendix_ref_re = re.compile(
@@ -676,6 +798,15 @@ def check_justification_block(text: str, sections: dict, report: ValidationRepor
             "[JUSTIFICATION]",
             f"Justification Item {n} not referenced from body"
         )
+
+    # §2.B (v5.3): Structured correspondence metrics for downstream-skill handoff
+    items_with_refs = len(referenced_items & item_numbers)
+    report.metrics["appendix_inline_correspondence"] = {
+        "appendix_items_total": len(item_numbers),
+        "items_with_at_least_one_inline_reference": items_with_refs,
+        "items_with_zero_references": len(orphans),
+        "orphan_references": len(missing),
+    }
 
     # Each item must have required fields
     item_chunks = re.split(r"\*\*Item\s+\d+\s+—", just_text)[1:]
@@ -720,6 +851,7 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
     # Per-section checks (HR-03: pass arch_defaults to each)
     check_section_a(sections, report, arch_defaults)
     check_section_b(sections, report, arch_defaults)
+    check_db_tag_coverage_section_b(sections, report)  # §2.A v5.3
     check_section_c(sections, report, arch_defaults)
     check_section_d(sections, report, arch_defaults)
     check_section_d_enabler_ordering(sections, report)
@@ -730,6 +862,7 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
     # Citations (HR-03: pass arch_defaults)
     check_citation_format(text, report, arch_defaults)
     check_source_registry(text, report)
+    check_first_mention_db_uniqueness(text, sections, report)  # §2.C v5.3
 
     # Justification
     check_justification_block(text, sections, report)

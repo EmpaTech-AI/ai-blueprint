@@ -169,13 +169,15 @@ The 3-chunk workflow is the default and only supported mode:
 |-------|----------|----------------|------------|
 | 1 | Header + Document Receipt + Section A + Section B | ~1,500 | Section B complete + Checkpoint 1 emitted |
 | 2 | Section C (8 pain points) + Section D (7 hypotheses) | ~2,200 | Section D complete + Checkpoint 2 emitted |
-| 3 | Section E + Section F + Section G + Section H + [JUSTIFICATION] | ~800 | [JUSTIFICATION] complete + Final marker emitted |
+| 3 | Section E + Section F + Section G + [JUSTIFICATION] + Section H | ~800 | Final marker emitted |
 
 **Chunk 1 production — first response when invoked:**
 
 1. Produce: Header block, Document Receipt table, Section A (Executive Summary), Section B (Key Data Points table)
 2. End with the Checkpoint 1 block (format below)
 3. Stop. Do not begin Section C.
+
+**Citation requirement for Section B:** Every data row in the Section B table must carry exactly one citation tag in its row. Use `[Document-Backed — <source artifact, page>]` if the value comes from an uploaded document, `[Form-Stated — <Section Name>]` if it comes from the intake form, or `[Document-Backed + Form-Stated — <source>, <Section Name>]` if both. Do not place multiple tags on a single row — if a value has two supporting sources, choose the higher-confidence one. Do not omit the tag — if no source can be cited, the value should not appear in the table. Rows where the value is genuinely unavailable may be written as "n/a" with no tag required.
 
 **Chunk 1 checkpoint block format (mandatory at end of first response):**
 
@@ -226,6 +228,8 @@ Sourcing consumes approximately 6 hours per mandate [Form-Stated — pain points
 Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3].
 ```
 
+**Supporting evidence bullet format:** Each bullet under **Supporting evidence:** must end with exactly one citation tag identifying its source. Bullets without a tag are not permitted. If a claim has two supporting sources, write two separate bullets — one tag per bullet. When citing a derivative claim (Inferred or Assumption), the tag must reference an appendix item: `[Inferred — appendix item N]` or `[Assumption — appendix item N]`.
+
 Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
@@ -269,10 +273,13 @@ without regex-matching the human-readable prose line. `class` values: `QuickWin`
 
 **Chunk 3 production — triggered when operator says "continue to chunk 3" (or equivalent):**
 
-1. Reference Checkpoint 2 to know which pain points and hypotheses to link in Sections E–H
+**Production order for Chunk 3 (mandatory):** Produce [JUSTIFICATION] *before* Section H. This is the reverse of the schema's reading order — it is intentional. Producing the appendix first commits each derivation chain before writing Section H, which prevents "did I already tag this?" variance between runs. Section H must not introduce new inline citation tags; its references are limited to "appendix item N" pointers to items already created in [JUSTIFICATION].
+
+1. Reference Checkpoint 2 to know which Inferred and Assumption tags were used in Chunks 1–2
 2. Produce: Section E (5 org bullets + 5 process bullets), Section F (Document Index table),
-   Section G (3–6 Open Questions), Section H (Reviewer Checklist with 4 categories), and the
-   complete [JUSTIFICATION] block with one entry per Inferred and Assumption tag used in the body
+   Section G (3–6 Open Questions), then the complete [JUSTIFICATION] block (one entry per
+   Inferred/Assumption tag from Chunks 1–2), then Section H (Reviewer Checklist, 5 categories,
+   referencing appendix items by number — no new citation tags in Section H)
 
 **Chunk 3 mandatory formats:**
 
