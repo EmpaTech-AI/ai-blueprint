@@ -82,7 +82,14 @@ Apply this rule to decide whether a specific sentence needs a tag:
 2. **Do not tag** if the sentence is connective tissue (transition, restatement, explanation of what the next claim shows) that does not add a new verifiable assertion.
 3. **One tag per claim.** If the same derived figure appears in two different sections (e.g., "revenue per FTE of £103k" in Section A and again in Section D), it requires one [JUSTIFICATION] appendix entry and both body occurrences carry `[Inferred — appendix item N]`. The body tag count will be 2, but the appendix item count is 1.
 
-**Practical ceiling:** For a standard 7-hypothesis dossier with 8 pain points, expect roughly 12–18 total Inferred/Assumption body tags (combined). If you are below 10 or above 22, re-check your tagging — either claims are going untagged or connective tissue is being over-tagged.
+**Harness enforcement — two checks (both WARN, not FAIL):**
+
+| Check | Formula | Band | Fires when |
+|---|---|---|---|
+| FW-08a (raw count) | Inferred + Assumption body tags | Warn outside 10–22; ideal 12–18 | Gross mis-tagging; sensitive to dossier length |
+| FW-08b (density ratio) | (Inferred + Assumption) ÷ total body tags | Warn outside 4%–8% | Reasoning-depth drift; length-normalised |
+
+Historical range across 7 production runs (V3–V5): FW-08a 9–15 tags; FW-08b 4.5%–7.2%. Both current bands have buffer on each side of observed history. A WARN on FW-08b at >8% signals the model is tagging connective tissue; a WARN at <4% signals derivative claims are going untagged.
 
 **What this resolves:** Without this rule, identical reasoning produces different tag counts across runs (V4 evidence: 10 tags in T1 vs 15 in T2 on identical content). The appendix item count is the stable signal; body tag count is bounded but not fixed.
 

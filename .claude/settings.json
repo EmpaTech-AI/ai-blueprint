@@ -50,7 +50,9 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(python harness/validate_intake.py golden/recruitment_meridian_v1.md)",
       "Bash(python harness/tests/test_validate.py)",
-      "Bash(dir /s /b \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\*BACKLOG*\")"
+      "Bash(dir /s /b \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\*BACKLOG*\")",
+      "Bash(python -c \"import backend.src.skills.blueprint-intake.harness.validate_intake\")",
+      "Bash(python \"backend/src/skills/blueprint-intake/harness/validate_intake.py\" --help)"
     ]
   }
 }

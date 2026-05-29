@@ -400,6 +400,38 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
             "Body",
             f"Total tag count {len(citation_tags)} outside acceptable band [{arch['total_tags_min']}, {arch['total_tags_max']}]"
         )
+
+    # FW-08a: Raw low-confidence count band (warn outside 10–22; expected 12–18)
+    lc_count = tag_counts.get("Inferred", 0) + tag_counts.get("Assumption", 0)
+    report.metrics["lc_raw_count"] = lc_count
+    if lc_count < 10:
+        report.add_warn(
+            "fw08a_lc_count_low",
+            "Body",
+            f"Low-confidence body tag count {lc_count} below expected minimum 10 (expected band 10–22, ideal 12–18). "
+            "Under-tagging of derivative claims likely — check that every Inferred/Assumption claim references appendix."
+        )
+    elif lc_count > 22:
+        report.add_warn(
+            "fw08a_lc_count_high",
+            "Body",
+            f"Low-confidence body tag count {lc_count} above expected maximum 22 (expected band 10–22, ideal 12–18). "
+            "Over-tagging of connective tissue suspected — tags should cover claims, not transitions or restatements."
+        )
+
+    # FW-08b: LC/Total density ratio (warn outside 4%–8%)
+    lc_density_pct = lc_count / len(citation_tags) * 100
+    report.metrics["lc_density_pct"] = round(lc_density_pct, 1)
+    if not (4.0 <= lc_density_pct <= 8.0):
+        direction = "under-tagging" if lc_density_pct < 4.0 else "over-tagging"
+        report.add_warn(
+            "fw08b_lc_density",
+            "Body",
+            f"Low-confidence tag density {lc_density_pct:.1f}% outside expected band [4%–8%] "
+            f"({lc_count} Inferred/Assumption of {len(citation_tags)} total body tags); "
+            f"{direction} of derivative claims suspected. Historical range across 7 production runs: 4.5%–7.2%."
+        )
+
     # Document-Backed and Form-Stated tags MUST have sources
     for tag, sources in citation_tags:
         if tag in {"Document-Backed", "Form-Stated", "Document-Backed + Form-Stated"} and not sources:
