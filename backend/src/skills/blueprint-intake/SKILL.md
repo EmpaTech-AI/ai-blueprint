@@ -147,8 +147,8 @@ Pain point selection (per `references/algorithms/pain_point_selection.md`):
 Hypothesis selection (per `references/algorithms/hypothesis_selection.md`):
 - Stage 1: Build candidate pool from archetype hypothesis library + document-surfaced candidates
 - Stage 2: Score each on Impact × Feasibility × Alignment (multiplicative)
-- Stage 3: Enforce coverage rules (all 4 strategic priorities addressed; ≥2 Quick Wins; ≥1 enabler)
-- Stage 4: Take top 7 with adjustments for coverage
+- Stage 3: Check coverage (≥2 Quick Wins; ≥1 enabler; if a strategic priority has zero candidates in the pool, add one per Check 3.1 — it will compete on score like any other candidate)
+- Stage 4: Take strictly top 7 by score — no coverage-based displacement; any unrepresented strategic priority is documented in Section H, not force-included
 - Stage 5: Present in classification order (Quick Wins → Foundation Builders → Big Bets)
 
 These are not heuristics. They are formulas. The output of the selection is determined by the
@@ -305,6 +305,8 @@ Confidence: High
 *End of Compressed Client Dossier. Schema: intake_v1.0. Chunks 1–3 complete. Next pipeline step: blueprint-maturity (after GATE 1 PASS).*
 ```
 
+**The final marker is the last line of the dossier output.** Nothing may appear after it. Do NOT include operator assembly instructions, gate validation commands, schema validation expectations, or any pipeline metadata in the dossier — those are documented below for the human operator and must not appear in the dossier itself.
+
 **Operator assembly step:**
 
 After Chunk 3 is produced, the operator concatenates Chunks 1 + 2 + 3 into a single file
@@ -448,7 +450,7 @@ If all stated priorities are represented in the top 7: List each priority from t
 If a stated priority is NOT in the top 7: For each unrepresented priority, include:
 - The priority verbatim from the source
 - The hypothesis that was evaluated for it, with its full Score (Impact × Feasibility × Alignment = product)
-- Which hypothesis displaced it and what the score gap was
+- The hypothesis currently holding the 7th slot (lowest-scoring selected hypothesis) and the score gap between it and the unrepresented priority's candidate
 - What specific condition would move it into the top 7
 - One algorithm-positioning sentence: "Our scoring algorithm evaluated [Priority] via [Hypothesis Title] and determined that [specific factor — typically feasibility score] prevents it from qualifying at this time. This reflects the execution conditions documented in this engagement, not a gap in strategic understanding."
 

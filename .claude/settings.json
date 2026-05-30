@@ -56,7 +56,11 @@
       "Bash(python \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\blueprint-intake\\\\harness\\\\validate_intake.py\" --help)",
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Recurse -Filter \"*blueprint-intake*\" -Type Directory)",
       "Bash(Select-Object -First 5)",
-      "Bash(python \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\blueprint-intake\\\\harness\\\\tests\\\\test_cross_run_regression.py\")"
+      "Bash(python \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\blueprint-intake\\\\harness\\\\tests\\\\test_cross_run_regression.py\")",
+      "PowerShell(python3 -c \"import docx; print\\('ok'\\)\" 2>$null)",
+      "PowerShell(python -c \"import docx; print\\('ok'\\)\" 2>$null)",
+      "PowerShell(pip install python-docx -q)",
+      "PowerShell(python -c \"import docx; print\\('installed'\\)\")"
     ]
   }
 }

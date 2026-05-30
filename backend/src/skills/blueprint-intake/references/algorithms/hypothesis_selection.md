@@ -97,7 +97,7 @@ For each priority, scan the candidate pool and identify which candidates address
 
 **If a priority has zero candidates:** Add a new candidate to the pool specifically targeting that priority. Score it per Stage 2 rules. It will compete on score in Stage 4 like any other candidate.
 
-**If a priority is covered by at least one candidate:** No action needed at this stage. Stage 4 handles displacement if that candidate falls outside the top 7.
+**If a priority is covered by at least one candidate:** No action needed at this stage. If all of that priority's candidates fall below the top-7 score cutoff in Stage 4, the gap is documented in Section H (Strategic Priority Coverage — Reviewer Checklist item 5). The selection is NOT altered to force coverage. Selection is determined by score only.
 
 ### Check 3.2 — Quick Win Minimum
 
@@ -113,19 +113,11 @@ Check if any candidate is a prerequisite enabler (governance or compliance). If 
 
 ## Stage 4 — Rank and Select Top 7 (Deterministic)
 
-Sort all candidates by Strategic Value Score DESC. Take the **preliminary top 7**.
+Sort all candidates by Strategic Value Score DESC. Take the **top 7**. This is the final selection — no swaps, displacements, or coverage-based adjustments are made after this step.
 
-### Strategic Priority Displacement (apply after preliminary ranking)
+**Strict cutoff rule:** The 7th-highest score is included; the 8th is not. Ties in score are broken by the Tie-Breaking Hierarchy below. Strategic priority status DOES NOT alter which hypotheses are selected. A lower-scored hypothesis is NEVER substituted for a higher-scored one to achieve priority coverage.
 
-For each of the 4 strategic priorities: check if it is represented by at least one hypothesis in the preliminary top 7.
-
-**If a priority is NOT represented:**
-
-1. **Identify the coverage candidate:** The highest-scoring excluded candidate (outside the top 7) that addresses the missing priority.
-2. **Identify the displacement target:** In the current top 7, find the candidate with the LOWEST score that does NOT uniquely cover any strategic priority. A candidate "uniquely covers" a priority if removing it would leave that priority unrepresented among the remaining 6.
-3. **Apply the swap:** Replace the displacement target with the coverage candidate.
-4. **If multiple candidates tie as displacement target:** Apply the tie-breaking hierarchy below to select which one to displace.
-5. **Repeat** for each uncovered priority (one swap per uncovered priority).
+**If a strategic priority is not represented in the top 7:** Document it in Section H item 5 (Strategic Priority Coverage). Explain which hypothesis was evaluated for it, what it scored, which selected hypothesis it scores below, and what specific condition would raise its score into the top 7. Do NOT alter the selection. See SKILL.md for the mandatory Section H format.
 
 ### Tie-Breaking Hierarchy (apply in order, at every decision point)
 
@@ -137,7 +129,7 @@ When two candidates produce an identical Strategic Value Score:
 4. Linked to the **higher-severity pain point** wins (use PP severity rank from Section C; PP#1 > PP#2, etc.)
 5. **Alphabetical** by hypothesis title (A before B)
 
-This hierarchy applies identically at: preliminary ranking, displacement target selection, and Stage 5 presentation ordering. It guarantees a unique ordering for any set of candidates.
+This hierarchy applies identically at: Stage 4 ranking and Stage 5 presentation ordering. It guarantees a unique ordering for any set of candidates.
 
 ## Stage 5 — Final Ordering for Presentation (Deterministic)
 
@@ -229,7 +221,7 @@ A hypothesis cannot be both Quick Win and Big Bet. If criteria conflict, the mor
 | — | H-6 | 36 | dropped |
 | — | H-9 | 32 | dropped |
 
-Wait — H-9 covers Priority 4. If H-9 is dropped, Priority 4 is uncovered. **Adjustment applies (Stage 3 Rule 1):** Lower-scored candidate that doesn't cover an uncovered priority gets dropped instead. H-6 has score 36 and doesn't uniquely cover anything (Pipeline Visibility addresses pain point #7 only). H-9 score 32 is the only Priority 4 coverage. **Drop H-6, keep H-9.**
+H-9 (score 32) and H-6 (score 36) are both excluded. H-9 is the only candidate covering Priority 4 (Executive Search Growth), but its score (32) is below every selected hypothesis including H-4 (48). Selection is final — H-9 is not force-included. Priority 4 is documented in Section H.
 
 **Final 7:**
 
@@ -238,10 +230,9 @@ Wait — H-9 covers Priority 4. If H-9 is dropped, Priority 4 is uncovered. **Ad
 | 1 | H-2 | AI-Powered CV Formatting | Quick Win |
 | 2 | H-3 | ATS-Driven Client Status Updates | Quick Win (post-cutover) |
 | 3 | H-5 | Interview Scheduling Standardisation | Quick Win |
-| 4 | H-1 | AI-Assisted Specialist Sourcing | Foundation Builder |
-| 5 | H-7 | GDPR Compliance Foundation | Foundation Builder (enabler) |
+| 4 | H-7 | GDPR Compliance Foundation | Foundation Builder (enabler) |
+| 5 | H-1 | AI-Assisted Specialist Sourcing | Foundation Builder |
 | 6 | H-4 | Candidate Database Revival + Governance | Foundation Builder |
 | 7 | H-8 | RPO Product Infrastructure | Big Bet |
-| (8) | H-9 | Executive Search Workflow Intelligence | Big Bet (deferred to AI Audit if Blueprint scope limited to 7) |
 
-Note: Stage 3 Rule 1 (coverage) may force a Big Bet to displace a higher-scoring Foundation Builder. This is intentional — the schema prioritises strategic completeness over local score optimisation.
+**Section H — Priority 4 documentation (required):** H-9 (Executive Search Workflow Intelligence) was evaluated at Impact 4 × Feasibility 2 × Alignment 4 = 32. It is excluded because H-8 (50) and H-4 (48) both score higher. Feasibility must reach 3 — requiring documented stakeholder buy-in and a functioning data foundation — before H-9 would displace H-4 (48) as the 7th-slot candidate.
