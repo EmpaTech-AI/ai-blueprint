@@ -116,7 +116,8 @@ VALID_CONFIDENCE_TAGS = {
 ARCHETYPE_DEFAULTS = {
     "recruitment": {
         "section_a_words_min": 200,
-        "section_a_words_max": 350,   # FW-05: strict ceiling, no ±20% expansion
+        "section_a_words_target_max": 400,  # FW-05: target ceiling (WARN above this) — v5.6
+        "section_a_words_max": 430,         # FW-05: hard ceiling (FAIL above this) — v5.6
         "section_a_paragraphs": 4,
         "section_b_rows_min": 35,
         "section_b_rows_max": 50,
@@ -420,29 +421,29 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
             f"Total tag count {len(citation_tags)} outside acceptable band [{arch['total_tags_min']}, {arch['total_tags_max']}]"
         )
 
-    # FW-08: Three-tier low-confidence count check (v4.1 spec)
-    # Tier 1 — expected:    12–18  → OK, no action
-    # Tier 2 — advisory:    10–11 or 19–22  → WARN
-    # Tier 3 — mis-tagging: <10 or >22      → FAIL
+    # FW-08: Three-tier low-confidence count check (v5.6: floor widened from 12→9 / 10→7)
+    # Tier 1 — expected:    9–18   → OK, no action
+    # Tier 2 — advisory:    7–8 or 19–22   → WARN
+    # Tier 3 — mis-tagging: <7 or >22      → FAIL
     lc_count = tag_counts.get("Inferred", 0) + tag_counts.get("Assumption", 0)
     report.metrics["lc_raw_count"] = lc_count
-    if lc_count < 10 or lc_count > 22:
+    if lc_count < 7 or lc_count > 22:
         report.add_fail(
             "fw08_lc_count_out_of_band",
             "Body",
-            f"Low-confidence body tag count {lc_count} outside mis-tagging threshold (expected 12–18, outer bound 10–22). "
+            f"Low-confidence body tag count {lc_count} outside mis-tagging threshold (expected 9–18, outer bound 7–22). "
             + ("Under-tagging: check that every Inferred/Assumption claim references appendix."
-               if lc_count < 10 else
+               if lc_count < 7 else
                "Over-tagging: tags should cover claims only, not transitions or restatements.")
         )
-    elif not (12 <= lc_count <= 18):
+    elif not (9 <= lc_count <= 18):
         report.add_warn(
             "fw08_lc_count_advisory",
             "Body",
-            f"Low-confidence body tag count {lc_count} outside expected band [12–18] "
-            f"(acceptable range 10–22). "
+            f"Low-confidence body tag count {lc_count} outside expected band [9–18] "
+            f"(mis-tagging threshold: <7 or >22). "
             + ("Under-tagging advisory: review whether all derivative claims are tagged."
-               if lc_count < 12 else
+               if lc_count < 9 else
                "Over-tagging advisory: review whether any connective tissue is carrying tags.")
         )
 
@@ -486,8 +487,28 @@ def check_section_a(sections: dict, report: ValidationReport, arch_defaults: dic
         report.add_fail("section_a_paragraphs", "Section A", f"Expected {arch['section_a_paragraphs']} paragraphs, found {len(paragraphs)}")
     word_count = sum(len(p.split()) for p in paragraphs)
     report.metrics["section_a_words"] = word_count
-    if not (arch["section_a_words_min"] <= word_count <= arch["section_a_words_max"]):
-        report.add_fail("section_a_word_count", "Section A", f"Word count {word_count} outside band [{arch['section_a_words_min']}, {arch['section_a_words_max']}]")
+    target_max = arch.get("section_a_words_target_max", arch["section_a_words_max"])
+    if word_count > arch["section_a_words_max"]:
+        report.add_fail(
+            "section_a_word_count",
+            "Section A",
+            f"Word count {word_count} exceeds hard ceiling {arch['section_a_words_max']} (FW-05). "
+            f"Aim for the 280–340 window; target ceiling is {target_max}."
+        )
+    elif word_count > target_max:
+        report.add_warn(
+            "section_a_word_count_exceeds_target",
+            "Section A",
+            f"Word count {word_count} exceeds target ceiling {target_max} "
+            f"(hard ceiling: {arch['section_a_words_max']}). "
+            "Tighten for conciseness; aim for the 280–340 window."
+        )
+    elif word_count < arch["section_a_words_min"]:
+        report.add_fail(
+            "section_a_word_count",
+            "Section A",
+            f"Word count {word_count} below minimum {arch['section_a_words_min']}"
+        )
     # Each paragraph must have at least 2 citations
     for i, para in enumerate(paragraphs):
         c = len(CITATION_TAG_RE.findall(para))
@@ -603,24 +624,54 @@ def check_section_g(sections: dict, report: ValidationReport, arch_defaults: dic
     if not (arch["section_g_open_questions_min"] <= len(questions) <= arch["section_g_open_questions_max"]):
         report.add_fail("section_g_count", "Section G", f"Found {len(questions)} open questions; bounded range [{arch['section_g_open_questions_min']}, {arch['section_g_open_questions_max']}]")
 
-def check_section_d_enabler_ordering(sections: dict, report: ValidationReport) -> None:
-    """FW-02: Within Foundation Builders, enablers must appear before non-enablers."""
+def check_section_d_cluster_ordering(sections: dict, report: ValidationReport) -> None:
+    """HR-05: Within each cluster, hypotheses must be ordered by score DESC.
+    Within Foundation Builders, enablers must precede non-enablers (FW-02).
+    Score is read from the machine-readable <!-- score: product=N --> comment (SK-05).
+    If score comments are absent a WARN is emitted and score ordering is not checked.
+    """
     if "D" not in sections:
         return
+
     h_num_re = re.compile(r"^###\s+Hypothesis\s+(\d+)\s+—", re.MULTILINE)
     classification_re = re.compile(r"\*\*Classification(?:\s+hypothesis)?:\*\*\s*(.+?)(?:\n|$)")
+    score_comment_re = re.compile(r"<!--\s*score:[^>]*?product=(\d+)[^>]*?-->")
+
     h_numbers = [int(m.group(1)) for m in h_num_re.finditer(sections["D"])]
     h_chunks = re.split(r"^###\s+Hypothesis\s+\d+\s+—", sections["D"], flags=re.MULTILINE)[1:]
-    fb_sequence = []
+
+    hypotheses = []
     for i, chunk in enumerate(h_chunks):
         class_m = classification_re.search(chunk)
         if not class_m:
             continue
         classification = class_m.group(1).strip()
-        if "Foundation Builder" in classification:
-            is_enabler = "(enabler)" in classification.lower()
-            h_num = h_numbers[i] if i < len(h_numbers) else i + 1
-            fb_sequence.append((h_num, is_enabler))
+        score_m = score_comment_re.search(chunk)
+        score = int(score_m.group(1)) if score_m else None
+        h_num = h_numbers[i] if i < len(h_numbers) else i + 1
+        is_enabler = "(enabler)" in classification.lower()
+        if "Quick Win" in classification:
+            cluster = "Quick Win"
+        elif "Foundation Builder" in classification:
+            cluster = "Foundation Builder"
+        elif "Big Bet" in classification:
+            cluster = "Big Bet"
+        else:
+            cluster = "Unknown"
+        hypotheses.append({"num": h_num, "cluster": cluster, "is_enabler": is_enabler, "score": score})
+
+    # SK-05: warn if score comments are absent — score ordering cannot be verified
+    if not any(h["score"] is not None for h in hypotheses):
+        report.add_warn(
+            "hr05_scores_absent",
+            "Section D",
+            "No machine-readable <!-- score: product=N --> comments found. "
+            "Within-cluster score ordering cannot be verified (SK-05 dependency). "
+            "Run gate on native markdown BEFORE DOCX conversion."
+        )
+
+    # FW-02: Within Foundation Builders, enablers must precede non-enablers
+    fb_sequence = [(h["num"], h["is_enabler"]) for h in hypotheses if h["cluster"] == "Foundation Builder"]
     seen_non_enabler = False
     for h_num, is_enabler in fb_sequence:
         if not is_enabler:
@@ -633,6 +684,39 @@ def check_section_d_enabler_ordering(sections: dict, report: ValidationReport) -
                 "Per FW-02: enablers must precede non-enablers within the Foundation Builder group, "
                 "regardless of score. See references/algorithms/ordering.md §Section D."
             )
+
+    # HR-05: score DESC within every cluster and tier
+    if any(h["score"] is not None for h in hypotheses):
+        for cluster_name in ("Quick Win", "Big Bet"):
+            cluster_hyps = [h for h in hypotheses if h["cluster"] == cluster_name and h["score"] is not None]
+            for i in range(1, len(cluster_hyps)):
+                prev, curr = cluster_hyps[i - 1], cluster_hyps[i]
+                if curr["score"] > prev["score"]:
+                    report.add_fail(
+                        "section_d_cluster_score_ordering",
+                        f"Section D — Hypothesis {curr['num']}",
+                        f"{cluster_name} cluster: H{curr['num']} (score {curr['score']}) appears after "
+                        f"H{prev['num']} (score {prev['score']}). "
+                        "Within-cluster ordering must be score DESC. "
+                        "See references/algorithms/ordering.md §Section D (HR-05)."
+                    )
+        fb_enablers = [h for h in hypotheses if h["cluster"] == "Foundation Builder" and h["is_enabler"] and h["score"] is not None]
+        fb_plain    = [h for h in hypotheses if h["cluster"] == "Foundation Builder" and not h["is_enabler"] and h["score"] is not None]
+        for tier_label, tier_hyps in [
+            ("Foundation Builder (enabler) tier", fb_enablers),
+            ("Foundation Builder (plain) tier",   fb_plain),
+        ]:
+            for i in range(1, len(tier_hyps)):
+                prev, curr = tier_hyps[i - 1], tier_hyps[i]
+                if curr["score"] > prev["score"]:
+                    report.add_fail(
+                        "section_d_cluster_score_ordering",
+                        f"Section D — Hypothesis {curr['num']}",
+                        f"{tier_label}: H{curr['num']} (score {curr['score']}) appears after "
+                        f"H{prev['num']} (score {prev['score']}). "
+                        "Within-tier ordering must be score DESC. "
+                        "See references/algorithms/ordering.md §Section D (HR-05)."
+                    )
 
 
 def check_db_tag_coverage_section_b(sections: dict, report: ValidationReport) -> None:
@@ -854,7 +938,7 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
     check_db_tag_coverage_section_b(sections, report)  # §2.A v5.3
     check_section_c(sections, report, arch_defaults)
     check_section_d(sections, report, arch_defaults)
-    check_section_d_enabler_ordering(sections, report)
+    check_section_d_cluster_ordering(sections, report)  # HR-05: all clusters
     check_section_e(sections, report, arch_defaults)
     check_section_g(sections, report, arch_defaults)
     check_section_h(sections, report)

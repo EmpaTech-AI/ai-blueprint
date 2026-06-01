@@ -141,12 +141,14 @@ Hypotheses are presented in this order in the dossier (NOT selection-score order
    - **Tier 2:** Plain `Foundation Builder` entries next — sorted by Strategic Value Score DESC among themselves
 3. **Big Bets** — sorted by Strategic Value Score DESC within this group
 
-**Within-tier tie-breaking (apply in order when two hypotheses in the same tier have equal scores):**
+**Within-cluster and within-tier tie-breaking — applies to ALL three clusters (Quick Wins, Foundation Builder tiers, Big Bets). Apply in order when two hypotheses in the same cluster or tier have equal scores:**
 1. Higher Impact component wins
 2. Higher Alignment component wins
 3. Higher Feasibility component wins
 4. Linked to higher-severity pain point wins (PP#1 > PP#2, etc.)
 5. Alphabetical by hypothesis title (A before B)
+
+This hierarchy is identical for every cluster. Quick Wins and Big Bets are single-tier groups; Foundation Builders have two tiers (enabler, plain) — apply the hierarchy within each tier independently. The harness (HR-05) validates score-DESC ordering in every cluster; a swap within any cluster is a FAIL regardless of how small the score gap.
 
 Position labels **H1 through H7** are assigned AFTER this ordering is complete. H1 is the first Quick Win (or first Foundation Builder if no Quick Wins), etc. Downstream skills reference hypotheses by position label; the ordering must therefore be identical across all runs on identical inputs.
 

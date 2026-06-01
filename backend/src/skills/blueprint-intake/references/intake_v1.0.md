@@ -90,7 +90,7 @@ Required: a table with columns `# | Filename | Category | Parse Status` containi
 ### 4.3 Section A — Executive Summary
 
 - **Policy:** FIXED at 4 paragraphs
-- **Word count:** Target 300 words. Hard ceiling: **350 words**. The standard ±20% BOUNDED tolerance does NOT apply to Section A — the ceiling is strict. Dossiers exceeding 350 words in Section A fail validation. Aim for the 280–320 window.
+- **Word count:** Target 300 words. Target ceiling: **400 words** (WARN above this). Hard ceiling: **430 words** (FAIL above this). The standard ±20% BOUNDED tolerance does NOT apply to Section A. Aim for the 280–340 window; validator warns above 400, fails above 430.
 - **Citations per paragraph:** Minimum 2
 - **Mandatory content per paragraph:**
 

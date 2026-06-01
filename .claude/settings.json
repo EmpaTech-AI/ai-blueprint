@@ -60,7 +60,11 @@
       "PowerShell(python3 -c \"import docx; print\\('ok'\\)\" 2>$null)",
       "PowerShell(python -c \"import docx; print\\('ok'\\)\" 2>$null)",
       "PowerShell(pip install python-docx -q)",
-      "PowerShell(python -c \"import docx; print\\('installed'\\)\")"
+      "PowerShell(python -c \"import docx; print\\('installed'\\)\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(Write-Host)"
     ]
   }
 }

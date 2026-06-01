@@ -61,12 +61,14 @@ Per `hypothesis_selection.md` Stage 5. Full ordering:
 
 **Enabler definition:** A hypothesis is an enabler if its Classification field reads `Foundation Builder (enabler)`. It must be a prerequisite for one or more other hypotheses (e.g., a GDPR compliance sprint required before any AI model trained on personal data can proceed). Enabler status reflects execution dependency, not score superiority.
 
-**Within-tier tie-breaking (apply in order when two hypotheses in the same tier have equal scores):**
+**Within-cluster and within-tier tie-breaking — applies to ALL three clusters. Apply in order when two hypotheses in the same cluster or tier have equal scores:**
 1. Higher Impact component wins
 2. Higher Alignment component wins
 3. Higher Feasibility component wins
 4. Linked to higher-severity pain point wins (PP#1 > PP#2, etc.)
 5. Alphabetical by hypothesis title (A before B)
+
+This hierarchy is identical for Quick Wins, Foundation Builder tiers (enabler and plain separately), and Big Bets. The harness (HR-05) validates score-DESC ordering in every cluster.
 
 **Position labels H1–H7** are assigned after this ordering is complete. H1 = first Quick Win (or first Foundation Builder if no Quick Wins exist). Downstream skills reference hypotheses by H-number; positions must be identical across all runs on identical inputs.
 

@@ -367,8 +367,7 @@ Low confidence / Failed. Any Failed or Low confidence row triggers a Section H e
 
 ### A) Executive Summary (4 paragraphs — target 300 words, hard ceiling 350)
 
-**Target word count: 300 words. Hard ceiling: 350 words. Do not exceed 350.** The validator
-hard-fails dossiers above 350 words. Aim for the 280–320 window.
+**Target word count: 300 words. Target ceiling: 400 words (validator WARN). Hard ceiling: 430 words (validator FAIL).** Aim for the 280–340 window. The validator warns above 400 and hard-fails above 430.
 
 Write tight. Do not restate facts that appear in Section B. Do not list the documents from the
 Document Receipt. Do not pad with transition phrases ("As noted above", "In summary"). Every
@@ -383,7 +382,7 @@ sentence in Section A must carry unique information not found elsewhere in the d
 | 3 | Top operational constraint: quantified bottleneck citing ≥2 documents, consequence if unresolved | max 90 words |
 | 4 | Inflection point: what has changed to make AI viable now, named internal champion, named resistance point | max 80 words |
 
-Total ceiling across all four paragraphs: **340 words** (10-word buffer before hard fail at 350).
+Total ceiling across all four paragraphs: **340 words** (target; validator warns above 400, hard-fails above 430).
 
 If any single paragraph exceeds its budget, cut from that paragraph — do NOT redistribute to
 other paragraphs. The 4-paragraph total must stay at or below 340 words.
