@@ -1,3 +1,18 @@
+---
+name: methodology-and-contracts
+description: >
+  Shared methodology reference and data contracts for all AI Value Blueprint pipeline skills.
+  Defines confidence tagging standards, the mandatory [JUSTIFICATION] block format, quality
+  rules, the 6 maturity dimensions, opportunity scoring formula, roadmap sequencing rules,
+  and inter-skill data contracts. Read by blueprint-maturity, blueprint-opportunities,
+  blueprint-roadmap, and blueprint-assembly before producing output. This is a reference
+  document, not an active skill — it has no operating procedure or first-turn behavior.
+metadata:
+  schema_version: intake_v1.0
+  skill_version: 1.0.0
+  last_updated: 2026-05-27
+---
+
 # AI Value Blueprint — Shared Methodology & Data Contracts
 
 ## Identity
