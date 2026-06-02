@@ -54,6 +54,8 @@ HYPOTHESIS_RE   = re.compile(r"^###\s+Hypothesis\s+\d+\s+—\s+(.+?)$", re.MULTI
 PAIN_POINT_RE   = re.compile(r"^###\s+Pain Point\s+\d+\s+—\s+(.+?)$", re.MULTILINE)
 CITATION_TAG_RE = re.compile(r"\[(Document-Backed \+ Form-Stated|Document-Backed|Form-Stated|Inferred|Assumption)")
 SECTION_A_RE    = re.compile(r"^## A\)\s+Executive Summary.*?(?=^## [A-Z]\))", re.MULTILINE | re.DOTALL)
+# 1B: JUSTIFICATION item titles — matches both "**Item N — title**" and "Item N — title" forms
+JUSTIFICATION_ITEM_RE = re.compile(r"^\*{0,2}Item\s+\d+\s+—\s+(.+?)\*{0,2}$", re.MULTILINE)
 
 # Per-class patterns (order matters: DB+FS before DB to avoid partial-match double-count)
 _DB_RE      = re.compile(r"\[Document-Backed(?:\s+\+\s+Form-Stated)?")  # DB + DB+FS
@@ -63,6 +65,20 @@ _LC_RE      = re.compile(r"\[(Inferred|Assumption)")                     # low-c
 
 def extract_hypothesis_titles(text: str) -> list:
     return sorted(m.group(1).strip() for m in HYPOTHESIS_RE.finditer(text))
+
+
+def extract_justification_item_titles(text: str) -> list:
+    """1B: Extract JUSTIFICATION appendix item titles for cross-run tag-set stability check.
+
+    Scopes to the [JUSTIFICATION] block so that hypothesis/pain-point headings with
+    similar em-dash patterns in the dossier body are not accidentally matched.
+    Returns a sorted list of item title strings (5-8 word labels).
+    """
+    just_match = re.search(r"^##\s+\[?JUSTIFICATION\]?", text, re.MULTILINE)
+    if not just_match:
+        return []
+    just_text = text[just_match.start():]
+    return sorted(m.group(1).strip() for m in JUSTIFICATION_ITEM_RE.finditer(just_text))
 
 
 def extract_pain_point_titles(text: str) -> list:
@@ -189,6 +205,36 @@ def check_section_a_word_count(a_words: int, b_words: int, tolerance: int = 50) 
     return []
 
 
+def check_justification_item_stability(a_titles: list, b_titles: list) -> list:
+    """1B (v9): The set of claims tagged [Inferred]/[Assumption] must be identical
+    across runs — the grounding analog of the QA-02 selection-identity check.
+
+    Tag count CV (existing check) catches drift in volume but misses 'same count,
+    different claims' non-determinism. A JUSTIFICATION item title mismatch means
+    different claims were designated low-confidence on each run, which non-
+    deterministically promotes or demotes evidence quality at the Stage 2 boundary.
+    """
+    failures = []
+    if len(a_titles) != len(b_titles):
+        failures.append(
+            f"FAIL justification_item_count: Run A has {len(a_titles)} items, "
+            f"Run B has {len(b_titles)} — tag-set size is non-deterministic"
+        )
+    only_in_a = set(a_titles) - set(b_titles)
+    only_in_b = set(b_titles) - set(a_titles)
+    if only_in_a:
+        failures.append(
+            f"FAIL justification_item_stability: Tagged in A but not B "
+            f"(claim dropped between runs): {sorted(only_in_a)}"
+        )
+    if only_in_b:
+        failures.append(
+            f"FAIL justification_item_stability: Tagged in B but not A "
+            f"(claim added between runs): {sorted(only_in_b)}"
+        )
+    return failures
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def run_comparison(path_a: Path, path_b: Path) -> int:
@@ -205,14 +251,16 @@ def run_comparison(path_a: Path, path_b: Path) -> int:
     b_classes = count_tags_by_class(text_b)
     a_words   = section_a_word_count(text_a)
     b_words   = section_a_word_count(text_b)
+    a_just    = extract_justification_item_titles(text_a)
+    b_just    = extract_justification_item_titles(text_b)
 
     total_cv = _cv(a_tags, b_tags)
     print(f"Run A: {path_a.name}")
     print(f"  Hypotheses: {len(a_hyps)} | Pain Points: {len(a_pps)} | Tags: {a_tags} | Sec-A words: {a_words}")
-    print(f"  DB={a_classes['db']} | FS={a_classes['fs']} | LC={a_classes['lowconf']}")
+    print(f"  DB={a_classes['db']} | FS={a_classes['fs']} | LC={a_classes['lowconf']} | JUST items: {len(a_just)}")
     print(f"Run B: {path_b.name}")
     print(f"  Hypotheses: {len(b_hyps)} | Pain Points: {len(b_pps)} | Tags: {b_tags} | Sec-A words: {b_words}")
-    print(f"  DB={b_classes['db']} | FS={b_classes['fs']} | LC={b_classes['lowconf']}")
+    print(f"  DB={b_classes['db']} | FS={b_classes['fs']} | LC={b_classes['lowconf']} | JUST items: {len(b_just)}")
     print(f"Total tag CV: {total_cv:.2f}% (target <{TOTAL_TAG_CV_TARGET:.0f}%, fail >{TOTAL_TAG_CV_FAIL:.0f}%)")
     print()
 
@@ -221,6 +269,7 @@ def run_comparison(path_a: Path, path_b: Path) -> int:
     all_failures.extend(check_pain_points(a_pps, b_pps))
     all_failures.extend(check_tag_variance(a_tags, b_tags, a_classes, b_classes))
     all_failures.extend(check_section_a_word_count(a_words, b_words))
+    all_failures.extend(check_justification_item_stability(a_just, b_just))  # 1B
 
     if all_failures:
         print("CROSS-RUN REGRESSION: FAIL")
@@ -233,12 +282,14 @@ def run_comparison(path_a: Path, path_b: Path) -> int:
         print("  - pain_point_titles: tie-breaking rule not applied (see pain_point_selection.md)")
         print("  - db_tag_variance: source citation choices differ between runs (primary V5 driver)")
         print("  - lowconf_tag_variance: reasoning chain depth inconsistent between runs")
+        print("  - justification_item_stability: different claims tagged [Inferred]/[Assumption] across runs (1B)")
         print("  - section_a_word_count: word count ceiling not enforced consistently")
         return 1
 
     print("CROSS-RUN REGRESSION: PASS")
     print(f"  Hypotheses: identical ({len(a_hyps)} / {len(a_hyps)})")
     print(f"  Pain Points: identical ({len(a_pps)} / {len(a_pps)})")
+    print(f"  Justification items: identical ({len(a_just)} / {len(a_just)})")
     print(f"  Total tag CV: {total_cv:.2f}% (target <{TOTAL_TAG_CV_TARGET:.0f}%, fail >{TOTAL_TAG_CV_FAIL:.0f}%)")
     word_diff = abs(a_words - b_words)
     print(f"  Section A word diff: {word_diff} words (tolerance: ±50)")

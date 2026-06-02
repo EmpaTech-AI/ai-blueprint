@@ -106,6 +106,7 @@ For each of the 6 dimensions:
 2. Write a 2–4 sentence rationale citing specific evidence
 3. Tag the confidence level of the score based on evidence quality
 4. Note what additional evidence would change the score (1 sentence)
+5. **Confidence annotation (2A):** If the score rests partly or wholly on `[Inferred]` or `[Assumption]` claims, append a parenthetical confidence note to the level label — e.g. "Developing *(score rests partly on inferred claims — Data dimension evidence is partially derived)*". This note must **not** alter the level itself. A dimension scored "Developing" stays "Developing" — it gains a note, not a new value. If maturity levels shift after adding annotations, the annotation logic has bled into scoring; remove it and re-score.
 
 ### Step 3 — Identify the Key Takeaways
 
@@ -171,6 +172,35 @@ A brief narrative synthesizing the 6 scores. **Tag every claim with its evidence
 The most important maturity gaps that will shape which AI opportunities are feasible and
 in what order they should be pursued. **Each bullet must carry an inline confidence tag on the constraint claim.** These directly feed the Opportunity Harvester's readiness adjustment and the Roadmap's maturity gating.
 
+## Confidence-Propagation Output Field (Mandatory — 2B)
+
+Append this structured block after "Key Constraints for AI Adoption" and before the `## [JUSTIFICATION]` block. It is the inter-stage contract that carries grounding signals to Stages 3, 4, and 5. Do not remove, rephrase, or move it.
+
+```
+## [CONFIDENCE_PROPAGATION]
+
+Schema: maturity_v1.0
+Stage: 2 (Maturity Scorer)
+
+| Dimension | Level | Grounding | Notes |
+|-----------|-------|-----------|-------|
+| Strategy | {Early/Developing/Established} | High / Partial / Low | {blank, or brief note on which claims are inferred} |
+| Data | ... | ... | ... |
+| Technology | ... | ... | ... |
+| People | ... | ... | ... |
+| Processes | ... | ... | ... |
+| Governance | ... | ... | ... |
+
+Overall grounding: {High — all 6 dimensions fully document/form-backed | Partial — N of 6 dimensions rest on inferred claims | Low — majority of dimensions inferred}
+
+[END CONFIDENCE_PROPAGATION]
+```
+
+**Grounding values:**
+- **High** — dimension score supported entirely by `[Document-Backed]` or `[Form-Stated]` evidence
+- **Partial** — dimension score uses one or more `[Inferred]` or `[Assumption]` claims as supporting evidence
+- **Low** — dimension score rests primarily on `[Inferred]` or `[Assumption]` claims; direct evidence is absent or minimal
+
 ## Methodology Reference
 
 For the full shared methodology, read `../methodology-and-contracts/SKILL.md`.
@@ -209,4 +239,5 @@ When the user provides the Compressed Client Dossier:
 1. Confirm you received it and summarize key client facts
 2. Produce the full Readiness Snapshot immediately
 3. If the dossier is missing critical sections, produce partial scoring with clear `[Insufficient Evidence]` flags
-4. Append the mandatory [JUSTIFICATION] block at the very end
+4. Append the `## [CONFIDENCE_PROPAGATION]` field (2B) after Key Constraints and before [JUSTIFICATION]
+5. Append the mandatory [JUSTIFICATION] block at the very end

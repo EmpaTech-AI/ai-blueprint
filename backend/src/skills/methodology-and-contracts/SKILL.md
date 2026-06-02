@@ -159,9 +159,34 @@ Used consistently across all Blueprint skills:
 
 | Handoff | What Must Be Present | Quality Gate |
 |---------|---------------------|-------------|
-| Intake → Maturity | Sections A–D complete; pain points (C) with severity; hypotheses (D) with evidence links | All sections present. Claims cited or tagged |
-| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale | No dimension scored without at least one supporting data point |
+| Intake → Maturity | Sections A–D complete; pain points (C) with severity; hypotheses (D) with evidence links; **confidence-propagation field** listing which claims are low-confidence | All sections present. Claims cited or tagged. Propagation field present and well-formed. |
+| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + **confidence annotations** on dimensions resting on inferred claims | No dimension scored without at least one supporting data point. Confidence annotations present where required. |
 | Opportunities → Roadmap | Scored opportunities with Impact/Feasibility/Alignment and classification | At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels |
+
+## Confidence Propagation Contract
+
+Low-confidence tags (`[Inferred]`, `[Assumption]`) are **not** a client-facing feature — they are an **entry-gate grounding contract** that conditions how every downstream stage interprets each claim.
+
+Under compression, an untagged inference is treated as fact at the first stage boundary and propagated as fact through every subsequent stage. Output reproducibility does not prove input fidelity: a stably-wrong maturity level built on a silently-promoted inference looks exactly as reproducible as a correct one.
+
+### Requirements
+
+| Requirement | Stage | Enforced by |
+|-------------|-------|------------|
+| Every non-document assertion in B/C/D must carry `[Inferred]` or `[Assumption]` with an appendix item reference | 1 | `check_tagging_completeness()` |
+| The **set** of low-confidence claims must be stable across runs (not just the count) | 1 (cross-run) | `check_justification_item_stability()` |
+| Dimensions resting on `[Inferred]` claims must carry a confidence annotation on the score | 2 | `check_confidence_annotation()` |
+| Stage 2 output must include a structured `[CONFIDENCE_PROPAGATION]` field for Stages 3–5 | 2 | `check_propagation_field()` |
+
+### What This Does NOT Mean
+
+- Per-claim `[Inferred]` tags are never surfaced to the client — the document-level Confidence Overview is the correct client-facing design
+- Completeness does not mean tagging connective tissue — transitions, restatements, and explanations that make no new verifiable assertion are exempt
+- A confidence annotation on a maturity level must not change the level assigned — it annotates, it does not re-score
+
+### Output Design Standard
+
+All substage outputs (Maturity Assessment) and the final output (AI Value Blueprint) must render to the **AI Assist BG Corporate Consulting Design System** (validated on the Baros Vision client deliverable). Key tokens: Dark Navy `#1B2A4A` for H1/title/table headers; Medium Blue `#2E5090` for H2; Teal-Blue `#4A6FA5` for H3; Body Charcoal `#2D3748`; Gold Accent `#C17B2C` for callout headers. Typography: Calibri/Carlito (body, H1–H3), Georgia italic (subtitles), Arial (metadata/headers/footers). Severity labels are inline coloured bold text — never coloured cell fills. These are correctness requirements for client-facing parity, not stylistic preferences.
 
 ## Scope Boundary: What the Blueprint Does NOT Include
 

@@ -72,7 +72,7 @@ These are analytical judgements made by the intake skill. Tag them based on the 
 - Severity rated based only on form: `[Form-Stated]`
 - Severity rated based on analyst judgement without explicit source: `[Inferred]` with brief rationale
 
-## Inline Tagging Density Rule (FW-08)
+## Inline Tagging Completeness Rule (1A — v9)
 
 **Tag every claim whose derivation would appear in the [JUSTIFICATION] appendix. Do not tag connective tissue.**
 
@@ -82,17 +82,15 @@ Apply this rule to decide whether a specific sentence needs a tag:
 2. **Do not tag** if the sentence is connective tissue (transition, restatement, explanation of what the next claim shows) that does not add a new verifiable assertion.
 3. **One tag per claim.** If the same derived figure appears in two different sections (e.g., "revenue per FTE of £103k" in Section A and again in Section D), it requires one [JUSTIFICATION] appendix entry and both body occurrences carry `[Inferred — appendix item N]`. The body tag count will be 2, but the appendix item count is 1.
 
-**Harness enforcement — single three-tier count check (`lc_raw_count` metric):**
+**Completeness criterion (replaces FW-08 count-band):** Zero untagged non-document assertions in Sections B, C, and D. The criterion is not "how many tags" but "are there untagged claims?" The count-band detected wrong volume but could not detect "same count, different claims" non-determinism — a dossier with 14 tags but 5 untagged inferences passes a count check and fails the grounding contract.
 
-| Tier | Count band | Gate result | Meaning |
-|---|---|---|---|
-| Expected | 12–18 | OK — no action | Model is tagging at the right depth |
-| Advisory | 10–11 or 19–22 | WARN (`fw08_lc_count_advisory`) | Outside expected but not yet mis-tagging; review |
-| Mis-tagging | <10 or >22 | FAIL (`fw08_lc_count_out_of_band`) | Clear signal of under- or over-tagging |
+**Harness enforcement — `check_tagging_completeness()` (v9):**
 
-Historical range across 7 production runs (V3–V5): 9–15 tags. Two runs (V3_T2, Ivan V3) sit at 9 — these would FAIL the mis-tagging tier, correctly identifying under-tagging. The density ratio (Inf+Asm ÷ total tags) is intentionally not encoded: at Meridian-class dossier sizes (~190–220 total tags) the count band is a sufficient proxy, and a separate density check measuring an overlapping concept would introduce contradictory verdicts on the same dossier.
+Every `[Inferred]` and `[Assumption]` tag in the dossier body must reference a JUSTIFICATION appendix item using the form `[Inferred — appendix item N]` or `[Assumption — appendix item N]`. Bare tags (`[Inferred]` without an appendix reference) are a FAIL — they indicate a claim whose derivation is undocumented and whose confidence signal cannot propagate to Stage 2.
 
-**What this resolves:** Without this rule, identical reasoning produces different tag counts across runs (V4 evidence: 10 tags in T1 vs 15 in T2 on identical content). The appendix item count is the stable signal; body tag count is bounded but not fixed.
+The `lc_raw_count` metric is still tracked for observability but no longer gates the output.
+
+**Cross-run stability (1B):** A separate cross-run check — `check_justification_item_stability()` in `test_cross_run_regression.py` — enforces that the **set** of claims tagged low-confidence is identical across runs, not merely the count. This is the grounding analog of the QA-02 hypothesis/pain-point selection-identity check. A CV within the old 8% tolerance is not sufficient if different claims are being tagged on each run.
 
 ## Forbidden Patterns
 

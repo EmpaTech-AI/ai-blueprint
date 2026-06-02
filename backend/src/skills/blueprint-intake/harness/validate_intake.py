@@ -421,31 +421,11 @@ def check_citation_format(text: str, report: ValidationReport, arch_defaults: di
             f"Total tag count {len(citation_tags)} outside acceptable band [{arch['total_tags_min']}, {arch['total_tags_max']}]"
         )
 
-    # FW-08: Three-tier low-confidence count check (v5.6: floor widened from 12→9 / 10→7)
-    # Tier 1 — expected:    9–18   → OK, no action
-    # Tier 2 — advisory:    7–8 or 19–22   → WARN
-    # Tier 3 — mis-tagging: <7 or >22      → FAIL
+    # 1A (v9): Track low-confidence count as an observability metric only.
+    # Completeness enforcement (zero untagged non-document assertions) is handled
+    # by check_tagging_completeness() — FW-08 count-band has been retired.
     lc_count = tag_counts.get("Inferred", 0) + tag_counts.get("Assumption", 0)
     report.metrics["lc_raw_count"] = lc_count
-    if lc_count < 7 or lc_count > 22:
-        report.add_fail(
-            "fw08_lc_count_out_of_band",
-            "Body",
-            f"Low-confidence body tag count {lc_count} outside mis-tagging threshold (expected 9–18, outer bound 7–22). "
-            + ("Under-tagging: check that every Inferred/Assumption claim references appendix."
-               if lc_count < 7 else
-               "Over-tagging: tags should cover claims only, not transitions or restatements.")
-        )
-    elif not (9 <= lc_count <= 18):
-        report.add_warn(
-            "fw08_lc_count_advisory",
-            "Body",
-            f"Low-confidence body tag count {lc_count} outside expected band [9–18] "
-            f"(mis-tagging threshold: <7 or >22). "
-            + ("Under-tagging advisory: review whether all derivative claims are tagged."
-               if lc_count < 9 else
-               "Over-tagging advisory: review whether any connective tissue is carrying tags.")
-        )
 
     # Document-Backed and Form-Stated tags MUST have sources
     for tag, sources in citation_tags:
@@ -900,6 +880,59 @@ def check_justification_block(text: str, sections: dict, report: ValidationRepor
                 report.add_fail("justification_field", f"Justification Item {i+1}", f"Missing required field '{field}'")
 
 # ============================================================================
+# 1A — Tagging completeness (v9: replaces FW-08 count-band)
+# ============================================================================
+
+# Matches any [Inferred] or [Assumption] tag start in the body
+_ANY_LC_TAG_RE = re.compile(r"\[(Inferred|Assumption)")
+
+# Matches only the valid form: [Inferred — appendix item N] or [Assumption — derivation per appendix item N]
+_VALID_LC_TAG_RE = re.compile(
+    r"\[(Inferred|Assumption)\s+—\s+(?:derivation\s+per\s+)?appendix\s+item\s+\d+\]",
+    re.IGNORECASE,
+)
+
+
+def check_tagging_completeness(text: str, sections: dict, report: ValidationReport) -> None:
+    """1A (v9): Every [Inferred] and [Assumption] tag in the dossier body must
+    reference a JUSTIFICATION appendix item via [Inferred — appendix item N].
+
+    Replaces FW-08 count-band. The count-band checked tag volume but could not
+    detect 'same count, different claims' non-determinism. Completeness means
+    zero untagged non-document assertions — enforced by requiring all low-confidence
+    tags to carry appendix item references that document their derivation chain.
+    """
+    body = _body_text(sections)
+
+    # Collect start positions of all valid LC tags (they reference an appendix item)
+    valid_starts = {m.start() for m in _VALID_LC_TAG_RE.finditer(body)}
+
+    bare_tags = []
+    for m in _ANY_LC_TAG_RE.finditer(body):
+        if m.start() not in valid_starts:
+            # Capture the full tag text up to the closing bracket for the error message
+            close = body.find("]", m.start())
+            tag_text = body[m.start() : close + 1] if close != -1 else body[m.start() : m.start() + 60]
+            ctx_start = max(0, m.start() - 40)
+            context = body[ctx_start : m.start() + 80].replace("\n", " ")
+            bare_tags.append((tag_text, context))
+
+    report.metrics["bare_lc_tags"] = len(bare_tags)
+
+    for tag_text, context in bare_tags:
+        report.add_fail(
+            "tagging_completeness",
+            "Body",
+            f"Unanchored low-confidence tag '{tag_text[:70]}' does not reference a "
+            f"JUSTIFICATION appendix item. Use [Inferred — appendix item N] or "
+            f"[Assumption — appendix item N]. Context: '...{context[:80]}...'",
+        )
+
+    if not bare_tags:
+        report.metrics["tagging_completeness"] = "PASS"
+
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -950,6 +983,9 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
 
     # Justification
     check_justification_block(text, sections, report)
+
+    # 1A: Tagging completeness (v9 — replaces FW-08 count-band)
+    check_tagging_completeness(text, sections, report)
 
     # HR-04: Extract structured data for downstream-skill handoff
     report.metrics["hypotheses"] = extract_hypotheses_structured(sections)
