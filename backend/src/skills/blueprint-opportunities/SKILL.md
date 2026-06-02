@@ -164,6 +164,13 @@ What categories of opportunities dominate, 2–3 themes connecting to maturity f
 - Tag the "What it is" description and "Pain point addressed" sentence
 - Example: "The client processes 258 mandates annually [Document-Backed]. Sourcing currently requires 6–8 hours per mandate [Form-Stated], suggesting a total annual sourcing burden of ~1,500–2,000 hours [Inferred]. Automation could reduce this by 40–60% [Assumption] based on industry benchmarks for AI-assisted sourcing tools."
 
+**Forbidden tag forms (rejected by the dashboard):**
+
+- `[Doc-Backed]` — spell out fully as `[Document-Backed]`
+- `[Form Stated]` — must use hyphen: `[Form-Stated]`
+- `[Likely]` / `[Probably]` / bare `[Estimated]` — not recognised confidence tags
+- Tag without source identifier when source is known
+
 ### Opportunity Cards (5–7)
 
 For each opportunity, produce a half-page card:
@@ -231,7 +238,7 @@ This replaces the full Parking Lot section — keep it brief.
 ## Methodology Reference
 
 For full scoring methodology and shared standards, read
-`../blueprint-orchestrator/references/methodology-and-contracts.md`.
+`../methodology-and-contracts/SKILL.md`.
 
 ## Confidence Justification Report (Mandatory)
 
@@ -249,6 +256,17 @@ For Stage 3 specifically, common sources of low-confidence items are:
 The consultant actions for Stage 3 should be specific to what data would validate the opportunity
 (e.g., "Request the client's invoice processing volume from the last 12 months to validate the
 impact estimate" or "Confirm CRM integration capabilities with their IT team before finalising feasibility score").
+
+## Pre-Flight Sanitization
+
+Before finalising the Opportunity Map, scan for and remove:
+
+- Test metadata in the document header (`TEST`, `DEBUG`, `DRAFT`, temp markers)
+- Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 3 output`, `this skill produces`, etc.)
+- Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
+- Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+
+These patterns disqualify output from pipeline use.
 
 ## First-Turn Behavior
 

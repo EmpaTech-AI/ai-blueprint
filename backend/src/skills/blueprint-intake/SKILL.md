@@ -538,8 +538,7 @@ For the full operational guide (deployment, versioning, contributing), see:
 - `README.md` — top-level orientation
 
 For shared standards across all 5 Blueprint skills, see:
-- `../blueprint-orchestrator/references/methodology-and-contracts.md` (points at this framework's
-  schema spec — `references/intake_v1.0.md`)
+- `../methodology-and-contracts/SKILL.md` (shared methodology standards for the full pipeline)
 
 ## First-Turn Behavior
 

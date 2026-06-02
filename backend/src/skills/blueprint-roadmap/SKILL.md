@@ -114,6 +114,13 @@ This makes the sequencing feel logical and evidence-based, not arbitrary.
 - When sequencing inherits uncertainty from Stage 2 or 3, explicitly carry the tag forward: "Placed in Now because Data maturity is Early [Inferred — Stage 2 score had no data governance documentation to confirm]"
 - Example of correctly tagged placement: "Opportunity #2 moves to Next rather than Now because the Vincere migration must complete first [Form-Stated] and the estimated completion date of Q2 2026 was provided verbally, not in a project plan [Inferred]."
 
+**Forbidden tag forms (rejected by the dashboard):**
+
+- `[Doc-Backed]` — spell out fully as `[Document-Backed]`
+- `[Form Stated]` — must use hyphen: `[Form-Stated]`
+- `[Likely]` / `[Probably]` / bare `[Estimated]` — not recognised confidence tags
+- Tag without source identifier when source is known
+
 ## Output Format: Recommended Action Sequence
 
 ### Sequencing Rationale (3–5 sentences)
@@ -169,7 +176,7 @@ Blueprint's action sequence is intentionally lighter — directional, not operat
 ## Methodology Reference
 
 For full sequencing standards and shared methodology, read
-`../blueprint-orchestrator/references/methodology-and-contracts.md`.
+`../methodology-and-contracts/SKILL.md`.
 
 ## Confidence Justification Report (Mandatory)
 
@@ -188,6 +195,17 @@ For each sequencing decision that depended on an inherited low-confidence score 
 the justification entry must name the upstream source: "Sequencing of Opportunity #X to Next phase
 depends on the Stage 2 Data maturity score which was itself [Inferred] — validate data readiness
 level before committing to this timeline."
+
+## Pre-Flight Sanitization
+
+Before finalising the Action Sequence, scan for and remove:
+
+- Test metadata in the document header (`TEST`, `DEBUG`, `DRAFT`, temp markers)
+- Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 4 output`, `this skill produces`, etc.)
+- Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
+- Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+
+These patterns disqualify output from pipeline use.
 
 ## First-Turn Behavior
 

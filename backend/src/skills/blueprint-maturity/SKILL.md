@@ -130,6 +130,13 @@ Review all 6 scores together:
 - If a single sentence draws on mixed evidence, tag the weakest source used
 - Example of correctly tagged text: "The client has named AI adoption as a top priority in their FY2026 strategic plan [Document-Backed]. No dedicated AI budget or implementation timeline has been documented [Inferred], suggesting intent without structured commitment. The Operations Director acts as de facto AI lead [Form-Stated] but no formal role definition or governance structure exists [Assumption]."
 
+**Forbidden tag forms (rejected by the dashboard):**
+
+- `[Doc-Backed]` — spell out fully as `[Document-Backed]`
+- `[Form Stated]` — must use hyphen: `[Form-Stated]`
+- `[Likely]` / `[Probably]` / bare `[Estimated]` — not recognised confidence tags
+- Tag without source identifier when source is known
+
 ## Output Format: AI Readiness Snapshot
 
 ### Readiness Scorecard
@@ -166,7 +173,7 @@ in what order they should be pursued. **Each bullet must carry an inline confide
 
 ## Methodology Reference
 
-For the full shared methodology, read `../blueprint-orchestrator/references/methodology-and-contracts.md`.
+For the full shared methodology, read `../methodology-and-contracts/SKILL.md`.
 
 ## Confidence Justification Report (Mandatory)
 
@@ -184,6 +191,17 @@ For each maturity score that used [Inferred] or [Assumption], the consultant act
 which document upload or interview question would provide the missing evidence (e.g., "Request
 the client's data governance policy document" or "Ask about formal AI training programmes in
 place").
+
+## Pre-Flight Sanitization
+
+Before finalising the Readiness Snapshot, scan for and remove:
+
+- Test metadata in the document header (`TEST`, `DEBUG`, `DRAFT`, temp markers)
+- Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 2 output`, `this skill produces`, etc.)
+- Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
+- Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+
+These patterns disqualify output from pipeline use.
 
 ## First-Turn Behavior
 

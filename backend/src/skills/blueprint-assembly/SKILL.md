@@ -159,6 +159,74 @@ or file-generation commands. The document infrastructure (DOCX conversion, brand
 footers, page numbers) is handled automatically by the pipeline — your job is to produce
 the content.
 
+**MANDATORY: Use chunked generation.** The Blueprint target length is 12–18 pages (~5,000–7,000
+words). Single-pass generation truncates at approximately 4,100 words — the same failure mode
+confirmed during blueprint-intake test runs (May 2026). The 3-chunk workflow below is the default
+and only supported mode.
+
+| Chunk | Contains | Expected words | Stops when |
+|-------|----------|----------------|-----------|
+| 1 | Sections 1 + 2 | ~1,200 | Section 2 complete + Checkpoint 1 emitted |
+| 2 | Sections 3 + 4 | ~2,500 | Section 4 complete + Checkpoint 2 emitted |
+| 3 | Sections 5–8 + [JUSTIFICATION] + Final marker | ~2,000 | Final marker emitted |
+
+**Chunk 1 — produced in the first response after inputs are confirmed:**
+
+1. Produce Section 1 (Executive Summary) and Section 2 (AI Readiness Snapshot)
+2. End with the Checkpoint 1 block (format below)
+3. Stop. Do not begin Section 3.
+
+**Chunk 1 checkpoint block format (mandatory at end of first response):**
+
+```markdown
+---
+
+## CHECKPOINT 1 — Foundation Complete
+
+**Engagement:** [client name + reference]
+**Chunk 1 word count:** [N words]
+**Sections complete:** Executive Summary ✓ | AI Readiness Snapshot ✓
+
+**Operator action:** Reply "continue to chunk 2" to produce Sections 3 and 4.
+```
+
+**Chunk 2 — triggered when operator says "continue to chunk 2" (or equivalent):**
+
+1. Produce Section 3 (Key Findings) and Section 4 (AI Opportunity Map) in full
+2. End with the Checkpoint 2 block (format below)
+3. Stop. Do not begin Section 5.
+
+**Chunk 2 checkpoint block format (mandatory — last thing in the response):**
+
+```markdown
+---
+
+## CHECKPOINT 2 — Analysis Complete
+
+**Engagement:** [client name + reference]
+**Chunk 2 word count:** [N words]
+**Sections complete:** Key Findings ✓ | AI Opportunity Map ✓
+**Opportunities in map:** [N] ([QW] Quick Wins, [FB] Foundation Builders, [BB] Big Bets)
+**Inferred/Assumption tags used so far:** [N] — justification entries will be produced in Chunk 3
+
+**Operator action:** Reply "continue to chunk 3" to produce Sections 5–8 and the [JUSTIFICATION] block.
+```
+
+**Chunk 3 — triggered when operator says "continue to chunk 3" (or equivalent):**
+
+1. Produce Sections 5 (Action Sequence), 6 (Readiness Gaps), 7 (Next Steps), 8 (Methodology Appendix)
+2. Append the mandatory [JUSTIFICATION] block (one entry per [Inferred] and [Assumption] used in Chunks 1–2)
+3. End with the Final marker:
+
+```markdown
+---
+
+*End of AI Value Blueprint. Chunks 1–3 complete. Engagement: [reference]. Document ready for DOCX conversion and client delivery.*
+```
+
+The CHECKPOINT 1 and CHECKPOINT 2 blocks are removed when assembling the final document for
+delivery. The Final marker is the last line of the complete Blueprint. Nothing may appear after it.
+
 **Markdown conventions to use:**
 - `# Section Title` for the 8 major sections (e.g. `# 1. Executive Summary`)
 - `## Sub-heading` for named sub-sections within a section
@@ -194,7 +262,7 @@ Before producing the final document, verify:
 ## Methodology Reference
 
 For shared methodology standards, read
-`../methodology-and-contracts.md`.
+`../methodology-and-contracts/SKILL.md`.
 
 ## Confidence Justification Report (Mandatory)
 
@@ -217,10 +285,41 @@ For each [Inferred] or [Assumption] in the assembly output, the consultant actio
 which section of the Blueprint it affects and what would need to be re-verified with the client
 before delivering the document.
 
+## Pre-Flight Sanitization
+
+Before finalising each chunk, scan for and remove:
+
+- **Pipeline references** — no "from the dossier", "per the Step 2 snapshot", "as produced by
+  blueprint-maturity", or any internal pipeline language in client-facing prose
+- **Unresolved placeholders** — search for `{`, `[CLIENT_NAME]`, `TBD`, `INSERT HERE`; resolve all
+- **Internal scoring jargon** — no `Selection score:`, no algorithm class labels (`QuickWin`,
+  `FoundationBuilder`, `BigBet` as raw strings), no `<!-- score: -->` comment blocks in client sections
+- **Test metadata** — no `TEST`, `DEBUG`, `DRAFT`, temp markers in any heading or body
+- **Methodology meta-references** — no "per the methodology", "this skill produces", "the SKILL.md requires"
+- **Currency inconsistency** — EUR throughout; replace any `€` symbol with `EUR`
+
+These patterns produce unprofessional client deliverables and must be removed before DOCX conversion.
+
+**Forbidden tag forms** (confidence tags are embedded in the markdown source but must be well-formed
+so the pipeline strips them correctly):
+
+- `[Doc-Backed]` — spell out fully as `[Document-Backed]`
+- `[Form Stated]` — must use hyphen: `[Form-Stated]`
+- `[Likely]` / `[Probably]` / bare `[Estimated]` — not recognised confidence tags
+- Tag without source identifier when source is known
+
 ## First-Turn Behavior
 
 When the user provides all 4 upstream outputs:
 1. Confirm all inputs are received and complete (one short paragraph — do not reproduce the inputs)
 2. Flag any missing or incomplete sections
-3. Output the complete AI Value Blueprint in clean markdown, following the 8-section structure above
-4. Append the mandatory [JUSTIFICATION] block after the Appendix — this is internal only and will be stripped before client delivery
+3. **Produce Chunk 1 only** (Sections 1–2 + Checkpoint 1). Do NOT attempt Sections 3–8 in the
+   same response — single-pass generation truncates.
+4. Stop at the end of Checkpoint 1. Wait for the operator to reply "continue to chunk 2".
+5. When triggered, produce Chunk 2 (Sections 3–4 + Checkpoint 2). Stop.
+6. When triggered, produce Chunk 3 (Sections 5–8 + [JUSTIFICATION] + Final marker).
+7. The operator concatenates the three chunks (removing the CHECKPOINT 1 and CHECKPOINT 2 blocks
+   but keeping the Final marker) before DOCX conversion.
+
+If any upstream input is missing or incomplete: do not produce any chunks. Flag the missing step
+and request it be run first.
