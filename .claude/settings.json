@@ -64,7 +64,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Recurse -Force)",
       "Bash(Select-Object -Property FullName, PSIsContainer)",
       "Bash(ConvertTo-Csv -NoTypeInformation)",
-      "Bash(Write-Host)"
+      "Bash(Write-Host)",
+      "PowerShell(foreach \\($skill in Get-ChildItem \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\"\\) { $hasSKILL = Test-Path \"$\\($skill.FullName\\)\\\\SKILL.md\"; $hasFlatMd = Test-Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\backend\\\\src\\\\skills\\\\$\\($skill.Name\\).md\"; Write-Host \"$\\($skill.Name\\): folder=$hasSKILL  flat=$hasFlatMd\" })"
     ]
   }
 }

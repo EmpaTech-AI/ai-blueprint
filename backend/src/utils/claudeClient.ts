@@ -31,18 +31,23 @@ function loadFolderSkill(skillDir: string): string {
 function loadSkillSystemPrompt(skillName: string): string {
   const flatSkillPath = path.join(SKILLS_DIR, `${skillName}.md`);
   const folderSkillPath = path.join(SKILLS_DIR, skillName);
-  const methodologyPath = path.join(SKILLS_DIR, 'methodology-and-contracts.md');
+  const methodologyFlatPath = path.join(SKILLS_DIR, 'methodology-and-contracts.md');
+  const methodologyFolderPath = path.join(SKILLS_DIR, 'methodology-and-contracts');
 
   const hasFlatSkill = fs.existsSync(flatSkillPath);
   const hasFolderSkill = fs.existsSync(path.join(folderSkillPath, 'SKILL.md'));
+  const hasMethodologyFlat = fs.existsSync(methodologyFlatPath);
+  const hasMethodologyFolder = fs.existsSync(path.join(methodologyFolderPath, 'SKILL.md'));
 
   if (!hasFlatSkill && !hasFolderSkill) throw new Error(`Skill file not found: ${skillName}`);
-  if (!fs.existsSync(methodologyPath)) throw new Error(`Methodology file not found: ${methodologyPath}`);
+  if (!hasMethodologyFlat && !hasMethodologyFolder) throw new Error(`Methodology file not found: ${methodologyFlatPath}`);
 
   const skillContent = hasFolderSkill
     ? loadFolderSkill(folderSkillPath)
     : fs.readFileSync(flatSkillPath, 'utf-8');
-  const methodologyContent = fs.readFileSync(methodologyPath, 'utf-8');
+  const methodologyContent = hasMethodologyFolder
+    ? loadFolderSkill(methodologyFolderPath)
+    : fs.readFileSync(methodologyFlatPath, 'utf-8');
 
   return `${skillContent}\n\n---\n\n# SHARED METHODOLOGY REFERENCE\n\n${methodologyContent}`;
 }
