@@ -42,6 +42,7 @@ much simpler output.
 5. Assembly → Final Blueprint Deliverable
 
 **Input:** Scored Opportunity Map (Step 3) + AI Readiness Snapshot (Step 2). Both required.
+The `[CONFIDENCE_PROPAGATION]` field from the Readiness Snapshot is also required — it determines whether maturity gating decisions rest on well-grounded or inferred dimension scores.
 **Output:** 1–2 page action sequence consumed by Step 5 (Assembly).
 
 ## The Three Phases
@@ -77,6 +78,11 @@ than fit in "Now," the lower-impact ones move to "Next."
 Confirm you have:
 - The scored opportunity map with 5–7 opportunities ranked and classified
 - The readiness snapshot with 6 dimension scores and key constraints
+- The `[CONFIDENCE_PROPAGATION]` field from the snapshot
+
+Read the `[CONFIDENCE_PROPAGATION]` table before sequencing. For any dimension with Grounding: **Partial** or **Low**, the maturity score that drives your gating decision is itself based on inferred evidence. When applying the maturity gating rules (Step 2), make this uncertainty explicit in the placement rationale — e.g. "Placed in Next because Data maturity is Early [Inferred — Stage 2 Data score has Partial grounding; validate data governance posture before committing to this timeline]."
+
+A gating decision that moves a high-impact opportunity from Now to Next carries weight with the client. If that gate rests on a Low-grounded score, that uncertainty must be surfaced, not buried.
 
 Restate the key constraints that will shape sequencing.
 

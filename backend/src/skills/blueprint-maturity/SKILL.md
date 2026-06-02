@@ -222,6 +222,23 @@ which document upload or interview question would provide the missing evidence (
 the client's data governance policy document" or "Ask about formal AI training programmes in
 place").
 
+## Post-Production Validation
+
+After producing the Readiness Snapshot, the operator must run:
+
+```bash
+python3 harness/validate_maturity.py <snapshot_path>
+```
+
+Exit code 0 = PASS (downstream skills may proceed).
+Exit code 1 = FAIL (the report itemises which checks failed; correct or regenerate before continuing).
+
+The harness enforces:
+- `check_confidence_annotation()` — every dimension whose rationale uses `[Inferred]` or `[Assumption]` carries a confidence annotation; no level value has changed (cardinal regression trap)
+- `check_propagation_field()` — `[CONFIDENCE_PROPAGATION]` block is present, all 6 dimensions present, grounding values valid, `[END CONFIDENCE_PROPAGATION]` present
+
+Downstream skills (`blueprint-opportunities`, `blueprint-roadmap`, `blueprint-assembly`) are entitled to assume a passing snapshot conforms to the v9 confidence-propagation contract.
+
 ## Pre-Flight Sanitization
 
 Before finalising the Readiness Snapshot, scan for and remove:

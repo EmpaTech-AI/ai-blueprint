@@ -47,6 +47,7 @@ Before assembling, confirm you have:
 |-------|----------|-------|
 | Compressed Client Dossier | Step 1 (Intake) | Sections A–D complete, pain points prioritized |
 | AI Readiness Snapshot | Step 2 (Maturity) | All 6 dimensions scored with rationale |
+| `[CONFIDENCE_PROPAGATION]` field | Step 2 (Maturity) | Present and well-formed; `Overall grounding:` line present |
 | Scored Opportunity Map | Step 3 (Opportunities) | 5–7 opportunities scored and classified |
 | Recommended Action Sequence | Step 4 (Roadmap) | All opportunities assigned to Now/Next/Later |
 
@@ -151,6 +152,14 @@ Brief explanation of the methodology:
 - The opportunity scoring approach (Impact × Feasibility × Alignment)
 - Note that this Blueprint uses a streamlined version of the full methodology;
   a comprehensive AI Company Audit provides deeper analysis
+
+**Confidence statement (mandatory — sourced from `[CONFIDENCE_PROPAGATION]` field):**
+Close the Methodology Note with the Overall grounding statement from the `[CONFIDENCE_PROPAGATION]` field, rewritten in client-facing language. Examples:
+- If Overall grounding is **High**: "All maturity assessments in this Blueprint are backed by documentation provided during the intake process."
+- If Overall grounding is **Partial**: "The majority of maturity assessments are document-backed. [N] dimensions include inferred elements — areas where supporting documentation was limited and professional judgement was applied. These are flagged in the Confidence Overview above."
+- If Overall grounding is **Low**: "Several maturity assessments in this Blueprint rest on inferred evidence due to limited documentation at intake. The opportunities and recommendations remain directionally sound, but the consultant review is particularly important before client delivery."
+
+Do not reproduce the `[CONFIDENCE_PROPAGATION]` raw table in the client deliverable — rewrite it as the calibrated confidence statement above.
 
 ## Output Format
 

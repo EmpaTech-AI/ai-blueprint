@@ -47,8 +47,9 @@ concise opportunity cards.
 
 - **Compressed Client Dossier** — pain points, data points, hypotheses, org/process views
 - **AI Readiness Snapshot** — 6 dimension scores with rationales and key constraints
+- **`[CONFIDENCE_PROPAGATION]` field** — the structured grounding block at the end of the Readiness Snapshot (before `[JUSTIFICATION]`). This carries Stage 2's assessment of which dimension scores are well-grounded vs. resting on inferred evidence. Read it before scoring.
 
-If either is missing, request them and do not proceed.
+If the Dossier or Snapshot is missing, request them and do not proceed. If the `[CONFIDENCE_PROPAGATION]` field is absent from the snapshot, flag it and treat all dimension scores as Grounding: Unknown.
 
 ## Scoring Reference
 
@@ -63,6 +64,12 @@ Briefly restate:
 - Client industry and business model (from Dossier Section A)
 - Top 5 pain points (from Dossier Section C, with citations)
 - Maturity scores summary and key constraints (from Readiness Snapshot)
+- Grounding quality per dimension (from `[CONFIDENCE_PROPAGATION]` field)
+
+Read the `[CONFIDENCE_PROPAGATION]` table. For each dimension, note its grounding value:
+- **High** — score is fully document/form-backed; apply the Readiness Adjustment Rule with normal confidence
+- **Partial** — score rests partly on inferred evidence; when this dimension drives a feasibility reduction, tag it: `[Inferred — Stage 2 {Dim} score has Partial grounding per CONFIDENCE_PROPAGATION field]`
+- **Low** — score is primarily inferred; treat with maximum caution. Apply the adjustment but flag prominently that the underlying maturity assessment itself carries uncertainty
 
 This confirms alignment and catches any misunderstandings before generating opportunities.
 
