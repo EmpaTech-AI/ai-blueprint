@@ -894,15 +894,20 @@ _VALID_LC_TAG_RE = re.compile(
 
 
 def check_tagging_completeness(text: str, sections: dict, report: ValidationReport) -> None:
-    """1A (v9): Every [Inferred] and [Assumption] tag in the dossier body must
+    """1A (v9): Every [Inferred] and [Assumption] tag in Sections B, C, and D must
     reference a JUSTIFICATION appendix item via [Inferred — appendix item N].
+
+    Scoped to B/C/D per spec: "every assertion in Sections B/C/D not directly
+    document-backed must carry [Inferred] or [Assumption]." Sections A, E, F, G, H
+    contain prose references to the tag concepts (e.g. "carry [Inferred] tags") that
+    are not citation tags — scanning them produces false positives.
 
     Replaces FW-08 count-band. The count-band checked tag volume but could not
     detect 'same count, different claims' non-determinism. Completeness means
-    zero untagged non-document assertions — enforced by requiring all low-confidence
-    tags to carry appendix item references that document their derivation chain.
+    zero untagged non-document assertions in B/C/D — enforced by requiring all
+    low-confidence tags to carry appendix item references that document their chain.
     """
-    body = _body_text(sections)
+    body = "".join(sections.get(k, "") for k in ("B", "C", "D"))
 
     # Collect start positions of all valid LC tags (they reference an appendix item)
     valid_starts = {m.start() for m in _VALID_LC_TAG_RE.finditer(body)}
@@ -922,7 +927,7 @@ def check_tagging_completeness(text: str, sections: dict, report: ValidationRepo
     for tag_text, context in bare_tags:
         report.add_fail(
             "tagging_completeness",
-            "Body",
+            "Sections B/C/D",
             f"Unanchored low-confidence tag '{tag_text[:70]}' does not reference a "
             f"JUSTIFICATION appendix item. Use [Inferred — appendix item N] or "
             f"[Assumption — appendix item N]. Context: '...{context[:80]}...'",
