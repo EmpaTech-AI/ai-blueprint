@@ -9,18 +9,18 @@
 
 The intake skill detects industry from intake form Section 1 ("What industry are you in?") and applies this routing table.
 
-| Detected Industry Keywords | Archetype File | Status |
-|---|---|---|
-| recruitment, talent, staffing, executive search, RPO, HR consulting | `recruitment.md` | ACTIVE |
-| manufacturing, industrial, factory, production, plant, fabrication | `manufacturing.md` (Golden Output pending) | PENDING VALIDATION |
-| professional services, consulting, advisory, audit, accountancy, law | `_template_skeleton.md` (planned: professional_services) | SKELETON ONLY |
-| financial services, fintech, banking, asset management, insurance | `_template_skeleton.md` (planned: financial_services) | SKELETON ONLY |
-| software, SaaS, technology, IT services | `_template_skeleton.md` (planned: technology) | SKELETON ONLY |
-| retail, e-commerce, consumer goods | `_template_skeleton.md` (planned: retail) | SKELETON ONLY |
-| healthcare, medical, pharmaceutical, biotech | `_template_skeleton.md` (planned: healthcare) | SKELETON ONLY |
-| logistics, transportation, supply chain, 3PL | `_template_skeleton.md` (planned: logistics) | SKELETON ONLY |
-| construction, engineering, real estate, property | `_template_skeleton.md` (planned: construction) | SKELETON ONLY |
-| (no match) | `_template_skeleton.md` | FALLBACK |
+| Detected Industry Keywords | Archetype File | Validator Key | Status |
+|---|---|---|---|
+| recruitment, talent, staffing, executive search, RPO, HR consulting | `recruitment.md` | `recruitment` | ACTIVE |
+| manufacturing, industrial, factory, production, plant, fabrication | `manufacturing.md` | `manufacturing` | PENDING VALIDATION — archetype file populated; Golden Output to be built before ACTIVE |
+| professional services, consulting, advisory, audit, accountancy, law | `_template_skeleton.md` (planned: professional_services) | `generic` | SKELETON ONLY |
+| financial services, fintech, banking, asset management, insurance | `_template_skeleton.md` (planned: financial_services) | `generic` | SKELETON ONLY |
+| software, SaaS, technology, IT services | `_template_skeleton.md` (planned: technology) | `generic` | SKELETON ONLY |
+| retail, e-commerce, consumer goods | `_template_skeleton.md` (planned: retail) | `generic` | SKELETON ONLY |
+| healthcare, medical, pharmaceutical, biotech | `_template_skeleton.md` (planned: healthcare) | `generic` | SKELETON ONLY |
+| logistics, transportation, supply chain, 3PL | `_template_skeleton.md` (planned: logistics) | `generic` | SKELETON ONLY |
+| construction, engineering, real estate, property | `_template_skeleton.md` (planned: construction) | `generic` | SKELETON ONLY |
+| (no match) | `_template_skeleton.md` | `generic` | FALLBACK |
 
 ## Detection Algorithm
 
@@ -50,12 +50,12 @@ Each archetype file contains:
 5. Update this INDEX with the new mapping and status `ACTIVE`
 6. Bump the framework version (PATCH increment) and update the CHANGELOG
 
-## Currently Active Archetypes
+## Archetype Status
 
-| Archetype | Validated Golden Output | Industries Covered |
-|---|---|---|
-| Recruitment & Talent Solutions | golden/recruitment_meridian_v1 | Permanent placement, executive search, RPO, contract staffing, HR consulting |
-| Manufacturing | *pending — build from Baros Vision data* | Discrete manufacturing, process manufacturing, industrial production, OEM, job shop |
+| Archetype | Validator Key | Status | Validated Golden Output | Industries Covered |
+|---|---|---|---|---|
+| Recruitment & Talent Solutions | `recruitment` | ACTIVE | golden/recruitment_meridian_v1 | Permanent placement, executive search, RPO, contract staffing, HR consulting |
+| Manufacturing | `manufacturing` | PENDING VALIDATION | *pending — build from first manufacturing engagement* | Discrete manufacturing, process manufacturing, industrial production, OEM, job shop |
 
 ## Backlog (in priority order)
 

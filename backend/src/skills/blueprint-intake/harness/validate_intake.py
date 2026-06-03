@@ -131,15 +131,129 @@ ARCHETYPE_DEFAULTS = {
         "total_tags_max": 200,
         "per_pp_evidence_bullets_min": 3,
         "per_pp_evidence_bullets_max": 5,
-    }
+    },
+    "manufacturing": {
+        "section_a_words_min": 200,
+        "section_a_words_target_max": 400,
+        "section_a_words_max": 430,
+        "section_a_paragraphs": 4,
+        "section_b_rows_min": 35,
+        "section_b_rows_max": 55,           # manufacturing has more operational metrics
+        "section_c_pain_points": 8,   # FIXED
+        "section_d_hypotheses": 7,    # FIXED
+        "section_e_org_bullets": 5,   # FIXED
+        "section_e_process_bullets": 5,  # FIXED
+        "section_g_open_questions_min": 3,
+        "section_g_open_questions_max": 6,
+        "total_tags_min": 100,
+        "total_tags_max": 220,           # manufacturing dossiers carry more [Inferred] tags
+        "per_pp_evidence_bullets_min": 3,
+        "per_pp_evidence_bullets_max": 5,
+    },
+    # Generic fallback — used when no archetype matches (skeleton dossier path).
+    # Counts are deliberately conservative; Section H must flag the missing archetype.
+    "generic": {
+        "section_a_words_min": 200,
+        "section_a_words_target_max": 400,
+        "section_a_words_max": 430,
+        "section_a_paragraphs": 4,
+        "section_b_rows_min": 30,
+        "section_b_rows_max": 55,
+        "section_c_pain_points": 8,   # FIXED
+        "section_d_hypotheses": 7,    # FIXED
+        "section_e_org_bullets": 5,   # FIXED
+        "section_e_process_bullets": 5,  # FIXED
+        "section_g_open_questions_min": 3,
+        "section_g_open_questions_max": 6,
+        "total_tags_min": 80,
+        "total_tags_max": 220,
+        "per_pp_evidence_bullets_min": 3,
+        "per_pp_evidence_bullets_max": 5,
+    },
+}
+
+# ============================================================================
+# Richness-tier modifiers — override BOUNDED counts based on document richness.
+# FIXED counts are never modified. Only BOUNDED fields scale.
+# Richness can be operator-declared ("Document Richness: sparse/standard/heavy"
+# in dossier header), passed via --richness flag, or auto-detected from the
+# Document-Backed tag count in Section B (proxy for uploaded document quality).
+# Auto-detection thresholds: sparse < 25 DB tags in B; heavy > 55 DB tags in B.
+# ============================================================================
+
+RICHNESS_TIER_MODIFIERS = {
+    # Few or low-quality documents — limited citable data points
+    "sparse": {
+        "section_b_rows_min": 22,
+        "section_b_rows_max": 38,
+        "total_tags_min": 70,
+        "total_tags_max": 150,
+    },
+    # Standard document set — archetype defaults apply unmodified
+    "standard": {},
+    # Rich document set — many high-quality documents, more citable points
+    "heavy": {
+        "section_b_rows_min": 42,
+        "section_b_rows_max": 65,
+        "total_tags_min": 130,
+        "total_tags_max": 260,
+    },
+}
+
+# Auto-detection thresholds: count [Document-Backed] tags in Section B only
+_RICHNESS_SPARSE_THRESHOLD = 25   # < 25 DB tags in Section B → sparse
+_RICHNESS_HEAVY_THRESHOLD = 55    # > 55 DB tags in Section B → heavy
+
+# ============================================================================
+# Size-band modifiers — override BOUNDED counts based on declared company size.
+# FIXED counts (pain points = 8, hypotheses = 7, Section E bullets = 5) are never
+# modified by size band. Only BOUNDED fields (Section B rows, total tags) scale.
+# Size band is operator-declared at intake setup, not inferred from text.
+# Override via --size-band flag or "Company Size Band:" dossier header field.
+# ============================================================================
+
+SIZE_BAND_MODIFIERS = {
+    # < 20 employees — simpler operations, fewer trackable KPIs
+    "micro": {
+        "section_b_rows_min": 22,
+        "section_b_rows_max": 35,
+        "total_tags_min": 70,
+        "total_tags_max": 150,
+    },
+    # 20–100 employees — baseline; archetype defaults apply unmodified
+    "small": {},
+    # 100–500 employees — slightly richer data, more departments
+    "mid": {
+        "section_b_rows_min": 38,
+        "section_b_rows_max": 55,
+        "total_tags_min": 110,
+        "total_tags_max": 230,
+    },
+    # 500+ employees — complex org, many KPI categories
+    "large": {
+        "section_b_rows_min": 40,
+        "section_b_rows_max": 65,
+        "total_tags_min": 120,
+        "total_tags_max": 260,
+    },
 }
 
 # Maps keywords found in the "Industry Archetype:" header line → ARCHETYPE_DEFAULTS key
 ARCHETYPE_HEADER_MAP = {
+    # Recruitment & Talent Solutions
     "recruitment": "recruitment",
     "talent solutions": "recruitment",
     "talent & staffing": "recruitment",
     "staffing": "recruitment",
+    "executive search": "recruitment",
+    "rpo": "recruitment",
+    "hr consulting": "recruitment",
+    # Manufacturing
+    "manufacturing": "manufacturing",
+    "industrial": "manufacturing",
+    "factory": "manufacturing",
+    "production": "manufacturing",
+    "fabrication": "manufacturing",
     # add new archetypes here as they are promoted to ACTIVE status
 }
 
@@ -154,6 +268,72 @@ def detect_archetype_from_header(text: str) -> Optional[str]:
         if keyword in raw:
             return archetype_key
     return None
+
+
+def detect_size_band_from_header(text: str) -> Optional[str]:
+    """Auto-detect company size band from 'Company Size Band:' header field."""
+    m = re.search(r"Company Size Band:\s*(.+?)(?:\n|$)", text, re.IGNORECASE)
+    if not m:
+        return None
+    raw = m.group(1).strip().lower()
+    for band in SIZE_BAND_MODIFIERS:
+        if band in raw:
+            return band
+    return None
+
+
+def apply_size_band_modifiers(arch_defaults: dict, size_band: str) -> dict:
+    """Overlay size-band modifiers on top of archetype defaults.
+
+    Returns a new dict so arch_defaults is never mutated. Only BOUNDED fields
+    (Section B rows, total tags) are adjusted — FIXED counts are never touched.
+    'small' has no overrides so archetype defaults apply unmodified.
+    """
+    overrides = SIZE_BAND_MODIFIERS.get(size_band, {})
+    if not overrides:
+        return arch_defaults
+    return {**arch_defaults, **overrides}
+
+
+def detect_richness_from_header(text: str) -> Optional[str]:
+    """Read 'Document Richness:' from the dossier header if declared."""
+    m = re.search(r"Document Richness:\s*(.+?)(?:\n|$)", text, re.IGNORECASE)
+    if not m:
+        return None
+    raw = m.group(1).strip().lower()
+    for tier in RICHNESS_TIER_MODIFIERS:
+        if tier in raw:
+            return tier
+    return None
+
+
+def detect_richness_from_section_b(sections: dict) -> str:
+    """Auto-detect richness tier from Document-Backed tag count in Section B.
+
+    Proxy for uploaded document quality: more [Document-Backed] tags in the
+    key data table means the client provided richer, more citable documents.
+    Thresholds: < 25 → sparse; > 55 → heavy; otherwise → standard.
+    """
+    section_b = sections.get("B", "")
+    db_count = len(re.findall(r"\[Document-Backed", section_b))
+    if db_count < _RICHNESS_SPARSE_THRESHOLD:
+        return "sparse"
+    if db_count > _RICHNESS_HEAVY_THRESHOLD:
+        return "heavy"
+    return "standard"
+
+
+def apply_richness_modifiers(arch_defaults: dict, richness: str) -> dict:
+    """Overlay richness-tier modifiers on top of current archetype defaults.
+
+    Applied after size-band modifiers so richness can further narrow or widen
+    the bands. Returns a new dict; does not mutate arch_defaults.
+    'standard' has no overrides — archetype + size defaults apply unmodified.
+    """
+    overrides = RICHNESS_TIER_MODIFIERS.get(richness, {})
+    if not overrides:
+        return arch_defaults
+    return {**arch_defaults, **overrides}
 
 IMPACT_AREAS_CANONICAL = ["Revenue", "Cost", "Risk", "Time", "Customer", "Compliance", "Strategic", "Team"]
 
@@ -941,7 +1121,7 @@ def check_tagging_completeness(text: str, sections: dict, report: ValidationRepo
 # Main
 # ============================================================================
 
-def validate(path: Path, archetype: str = "auto") -> ValidationReport:
+def validate(path: Path, archetype: str = "auto", size_band: str = "auto", richness: str = "auto") -> ValidationReport:
     report = ValidationReport()
     try:
         text = path.read_text(encoding="utf-8")
@@ -949,14 +1129,33 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
         report.add_fail("file_unreadable", str(path), f"Cannot read file: {e}")
         return report
 
-    # HR-03: Resolve archetype — auto-detect from header, CLI flag overrides
+    # HR-03: Resolve archetype — operator-declared via --archetype flag is canonical;
+    # auto-detect from dossier header as fallback; generic skeleton if nothing matches.
     if archetype == "auto":
         detected = detect_archetype_from_header(text)
-        archetype = detected or "recruitment"
+        archetype = detected or "generic"
         if not detected:
-            report.add_warn("archetype_not_detected", "Header", "Industry Archetype not found in header; defaulting to 'recruitment'")
-    arch_defaults = ARCHETYPE_DEFAULTS.get(archetype, ARCHETYPE_DEFAULTS["recruitment"])
+            report.add_warn(
+                "archetype_not_detected", "Header",
+                "Industry Archetype not found in header; defaulting to 'generic'. "
+                "Declare 'Industry Archetype: <sector>' in the dossier header or pass --archetype."
+            )
+    arch_defaults = ARCHETYPE_DEFAULTS.get(archetype, ARCHETYPE_DEFAULTS["generic"])
     report.metrics["archetype"] = archetype
+
+    # Size-band: operator-declared via --size-band is canonical; auto-detect from header
+    # as fallback; 'small' (no count adjustments) if not declared.
+    if size_band == "auto":
+        detected_band = detect_size_band_from_header(text)
+        size_band = detected_band or "small"
+        if not detected_band:
+            report.add_warn(
+                "size_band_not_declared", "Header",
+                "Company Size Band not declared in header; defaulting to 'small' (no count adjustments). "
+                "Add 'Company Size Band: micro/small/mid/large' to the dossier header or pass --size-band."
+            )
+    arch_defaults = apply_size_band_modifiers(arch_defaults, size_band)
+    report.metrics["size_band"] = size_band
 
     # HR-01: Detect pandoc/DOCX-roundtrip artifacts before any other checks
     check_pandoc_artifacts(text, report)
@@ -968,6 +1167,24 @@ def validate(path: Path, archetype: str = "auto") -> ValidationReport:
     # Section structure
     sections = split_sections(text)
     check_required_sections(sections, report)
+
+    # Richness tier: operator-declared or auto-detected from Section B tag count.
+    # Applied after size-band so both modifiers stack correctly.
+    # Auto-detection runs here (after sections are parsed) because it needs Section B.
+    if richness == "auto":
+        detected_richness = detect_richness_from_header(text)
+        if detected_richness:
+            richness = detected_richness
+        else:
+            richness = detect_richness_from_section_b(sections)
+            report.add_warn(
+                "richness_not_declared", "Header",
+                f"Document Richness not declared in header; auto-detected as '{richness}' "
+                f"from Section B Document-Backed tag count. Declare 'Document Richness: "
+                f"sparse/standard/heavy' in the dossier header or pass --richness to override."
+            )
+    arch_defaults = apply_richness_modifiers(arch_defaults, richness)
+    report.metrics["richness"] = richness
     check_leading_paragraphs(text, sections, report)
 
     # Per-section checks (HR-03: pass arch_defaults to each)
@@ -1036,7 +1253,26 @@ def main():
     parser.add_argument(
         "--archetype",
         default="auto",
-        help="Industry archetype (default: auto-detect from header). Override with: recruitment, manufacturing, etc."
+        help="Industry archetype key (default: auto-detect from header). "
+             "Override with: recruitment, manufacturing, generic. "
+             "Operator-declared value takes precedence over header auto-detection."
+    )
+    parser.add_argument(
+        "--size-band",
+        default="auto",
+        dest="size_band",
+        choices=["auto", "micro", "small", "mid", "large"],
+        help="Company size band (default: auto-detect from 'Company Size Band:' header field). "
+             "Override with: micro (<20 employees), small (20-100), mid (100-500), large (500+). "
+             "Adjusts BOUNDED schema fields (Section B rows, total tags) — FIXED counts unchanged."
+    )
+    parser.add_argument(
+        "--richness",
+        default="auto",
+        choices=["auto", "sparse", "standard", "heavy"],
+        help="Document richness tier (default: auto-detect from Section B Document-Backed tag count). "
+             "Override with: sparse (few/poor docs), standard (baseline), heavy (many rich docs). "
+             "Adjusts BOUNDED schema fields (Section B rows, total tags) — FIXED counts unchanged."
     )
     parser.add_argument("--json", "--completeness-json", dest="json", action="store_true",
                         help="Output JSON instead of human report (includes downstream-skill handoff data)")
@@ -1047,7 +1283,7 @@ def main():
         print(f"ERROR: File not found: {path}", file=sys.stderr)
         sys.exit(2)
 
-    report = validate(path, args.archetype)
+    report = validate(path, args.archetype, args.size_band, args.richness)
 
     if args.json:
         print(json.dumps(report.to_dict(), indent=2))

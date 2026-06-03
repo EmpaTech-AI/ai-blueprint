@@ -64,7 +64,9 @@ process standardization, automation maturity, measurement culture.
 
 ### Governance
 Policies, controls, and risk management for AI. Look for: data privacy policies, AI ethics
-guidelines, risk frameworks, compliance posture, approval workflows.
+guidelines, risk frameworks, compliance posture, approval workflows. Apply the regulatory
+regime declared for this engagement (EU/GDPR, non-EU, sector-specific) — do not assume a
+specific regime if none is declared.
 
 ## Scoring Levels
 
@@ -89,6 +91,24 @@ does not lift the organizational score.
 **Evidence requirement:** Every score must have at least one supporting data point from the
 dossier. If a dimension has no evidence at all, score it as "Early" and tag it
 `[Insufficient Evidence — defaulted to Early]`.
+
+**Evidenced-Absence rule:** The Conservative-bias tiebreak downgrades a dimension only when
+there is *evidence that a capability is absent* — not merely *absence of a record* of that
+capability when positive signals are otherwise present. Distinguish: (i) "no document was
+provided about X" — this is absence of record; log it as a Key Constraint or Open Question
+and do not downgrade; from (ii) "the evidence shows X does not exist, has failed, or is
+actively resisted with no offsetting capability signal" — this is evidenced absence; the
+downgrade applies. When a dimension carries present, characterised positive signals and the
+only negative is an unrecorded item, hold at the higher level and note the gap.
+
+*Meridian Talent Partners illustration (not the rule — the rule is dimension-general):*
+The T3 run read "does not record any leadership commitment to AI" as evidenced absence and
+dropped People to Early. The correct classification under this rule: the missing commitment
+record is absence of record, not evidence that leadership commitment is absent — Meridian's
+named internal AI champion and documented organic tool adoption are present positive signals.
+People holds at Developing; the missing commitment record is logged as a Key Constraint and
+Open Question. The same principle protects any dimension in any sector from the same
+conflation.
 
 ## Operating Procedure
 

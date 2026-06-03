@@ -357,8 +357,37 @@ hyphens), or `–` (en-dash). Do NOT use bold formatting for pain point or hypot
 
 ### Header Block
 
-Schema version (`intake_v1.0`), industry archetype, classification, date, pipeline position,
-engagement reference if available. No test metadata, no draft markers — see `references/preflight.md`.
+Schema version (`intake_v1.0`), industry archetype, company size band, regulatory regime,
+classification, date, pipeline position, engagement reference if available. No test metadata,
+no draft markers — see `references/preflight.md`.
+
+**Mandatory header fields (operator-declared at engagement setup):**
+
+```
+Schema: intake_v1.0
+Industry Archetype: <Recruitment & Talent Solutions | Manufacturing | Generic — no match>
+Company Size Band: <micro | small | mid | large>
+Document Richness: <sparse | standard | heavy>
+Regulatory Regime: <EU | Non-EU | Sector-specific: [name]>
+```
+
+- **Industry Archetype** — must match a key in `archetypes/INDEX.md`. The model reads Section 1
+  of the intake form to identify the industry, but the declared archetype is the authoritative
+  value used by the validation harness. If the operator passes `--archetype` to the validator,
+  that value overrides the header. Do not let the model infer the archetype silently — declare it.
+- **Company Size Band** — micro (<20 employees), small (20–100), mid (100–500), large (500+).
+  Drives Section B row targets and total tag bands. If unknown, default to `small` and flag in
+  Section H.
+- **Document Richness** — sparse (few or low-quality documents uploaded), standard (typical
+  document set), heavy (many rich, well-structured documents). Scales Section B row targets and
+  total tag bands. If not declared, the validator auto-detects from the Document-Backed tag count
+  in Section B — declare explicitly when the auto-detection would be misleading (e.g. a rich
+  client with poor PDF text extraction).
+- **Regulatory Regime** — governs how Governance-related pain points and hypotheses are framed.
+  `EU` means GDPR and EU AI Act apply. `Non-EU` means local data protection law applies — do
+  not reference GDPR by name. `Sector-specific` means an industry-specific regime overrides
+  general data protection law (e.g. financial services, healthcare). If not declared, use
+  `EU` as default for Bulgarian clients and flag in Section H.
 
 ### Document Receipt
 
@@ -515,16 +544,23 @@ assume a passing dossier conforms to `intake_v1.0`.
 Industry detection happens in Phase 1 of the operating procedure. The router in `archetypes/INDEX.md`
 matches industry keywords from intake form Section 1 to archetype files.
 
-Currently ACTIVE archetypes:
-- **Recruitment & Talent Solutions** (`archetypes/recruitment.md`) — covers permanent placement,
-  executive search, contract staffing, RPO, HR consulting
+**Canonical routing (check INDEX.md for the current authoritative list):**
 
-Currently SKELETON ONLY (use `_template_skeleton.md` and flag):
-- Manufacturing, Professional Services, Financial Services, Technology, Retail, Healthcare,
-  Logistics, Construction
+| Status | Archetype | Validator key | Covers |
+|--------|-----------|---------------|--------|
+| ACTIVE | Recruitment & Talent Solutions | `recruitment` | Permanent placement, executive search, RPO, contract staffing, HR consulting |
+| PENDING VALIDATION | Manufacturing | `manufacturing` | Discrete/process manufacturing, industrial production, OEM, job shop |
+| SKELETON ONLY | All others | `generic` | Professional services, financial services, technology, retail, healthcare, logistics, construction |
 
-When using the skeleton, the dossier is still produced — but Section H must flag that the archetype
-is generic and that a tailored archetype build is recommended before the next engagement in this industry.
+**Routing procedure:**
+1. Read intake form Section 1 to identify the industry.
+2. Declare `Industry Archetype:` in the dossier header using the plain-language name (e.g. "Recruitment & Talent Solutions", "Manufacturing").
+3. The validation harness maps this to the correct validator key automatically.
+4. For SKELETON ONLY industries: use `archetypes/_template_skeleton.md` + `generic` validator key and flag in Section H: "No matching industry archetype — generic skeleton used. A tailored archetype build is recommended before the next engagement in this industry."
+5. For PENDING VALIDATION: the archetype file and pain point/hypothesis libraries exist but have no validated Golden Output yet. Use the archetype file for content guidance; flag in Section H that the archetype is pending validation.
+
+When using the skeleton or pending archetype, the dossier is still produced in full — but Section H
+must carry the flag so the reviewer knows the content guidance was less precise than a validated archetype.
 
 ## Methodology Reference
 

@@ -67,7 +67,7 @@ Common pain points for recruitment firms. Use as candidates during selection; pr
 | PP-RT-04 | Client communication inconsistency | High | Customer/Revenue |
 | PP-RT-05 | Interview & offer coordination friction | Medium | Time/Customer |
 | PP-RT-06 | No real-time pipeline visibility for leadership | Medium-High | Risk/Time |
-| PP-RT-07 | Ungoverned AI use creating GDPR risk | High | Compliance/Risk |
+| PP-RT-07 | Ungoverned AI use creating data protection compliance risk | High | Compliance/Risk |
 | PP-RT-08 | RPO product not formally structured | High | Strategic/Revenue |
 | PP-RT-09 | Executive search practice operating semi-independently | Medium | Strategic/Team |
 | PP-RT-10 | High researcher turnover (>25%) | Medium | Team/Cost |
@@ -91,7 +91,7 @@ Common AI opportunities for recruitment firms. Each has a typical Impact × Feas
 | H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder |
 | H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win |
 | H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder |
-| H-RT-07 | GDPR Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder |
+| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder |
 | H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet |
 | H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet |
 | H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder |
