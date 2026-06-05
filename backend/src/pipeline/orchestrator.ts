@@ -9,6 +9,7 @@ import {
   saveDocxData,
   savePdfData,
   saveTxtData,
+  jobExists,
 } from '../storage/jobStore';
 import { runStepA } from './stepA-parser';
 import { runStepB } from './stepB-intake';
@@ -24,6 +25,14 @@ import fs from 'fs';
 
 const JOBS_DIR = process.env.JOBS_DIR ||
   (process.env.NODE_ENV === 'production' ? '/app/data/jobs' : path.join(__dirname, '../../jobs'));
+
+class CancelledError extends Error {
+  constructor(jobId: string) { super(`Job ${jobId} was cancelled`); this.name = 'CancelledError'; }
+}
+
+function assertNotCancelled(jobId: string): void {
+  if (!jobExists(jobId)) throw new CancelledError(jobId);
+}
 
 // ─── Quality gate helpers ──────────────────────────────────────────────────────
 
@@ -115,6 +124,7 @@ export async function runPipeline(jobId: string): Promise<void> {
 
   try {
     // Step A — parse documents
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'A');
     const corpus = await runStepA(job.uploadedFiles);
     await saveStepOutput(jobId, 'A', corpus);
@@ -131,6 +141,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     }
 
     // Step B — blueprint-intake (chunked 3-pass invocation)
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'B');
     const dossier = await runStepWithGate(
       'Stage 1 (Intake Analysis)', 'stepB',
@@ -141,6 +152,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const dossierClean = stripJustification(dossier);
 
     // Step C — blueprint-maturity
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'C');
     const maturity = await runStepWithGate(
       'Stage 2 (Maturity Scoring)', 'stepC',
@@ -151,6 +163,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const maturityClean = stripJustification(maturity);
 
     // Step D — blueprint-opportunities
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'D');
     const opportunities = await runStepWithGate(
       'Stage 3 (Opportunity Mapping)', 'stepD',
@@ -161,6 +174,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const opportunitiesClean = stripJustification(opportunities);
 
     // Step D2 — blueprint-roadmap
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'D2');
     const roadmap = await runStepWithGate(
       'Stage 4 (Action Roadmap)', 'stepD2',
@@ -171,6 +185,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const roadmapClean = stripJustification(roadmap);
 
     // Step E — blueprint-assembly
+    assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'E');
     const assembled = await runStepWithGate(
       'Stage 5 (Document Assembly)', 'stepE',
@@ -203,11 +218,19 @@ export async function runPipeline(jobId: string): Promise<void> {
 
     log('info', `Pipeline complete for job ${jobId}`, { docxPath, flags: reviewerFlags.length });
   } catch (error: unknown) {
+    if (error instanceof CancelledError) {
+      log('info', `Pipeline cancelled for job ${jobId}`);
+      return;
+    }
     const msg = error instanceof Error ? error.message : String(error);
     log('error', `Pipeline failed for job ${jobId}: ${msg}`);
-    await appendErrorLog(jobId, msg);
-    const current = loadJob(jobId);
-    await updateJobStatus(jobId, 'failed', current.currentStep);
+    try {
+      await appendErrorLog(jobId, msg);
+      const current = loadJob(jobId);
+      await updateJobStatus(jobId, 'failed', current.currentStep);
+    } catch {
+      // job was deleted while pipeline was running
+    }
     throw error;
   }
 }

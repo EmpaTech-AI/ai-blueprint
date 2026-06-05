@@ -157,6 +157,10 @@ export function deleteJob(jobId: string): void {
   db.prepare('DELETE FROM jobs WHERE jobId = ?').run(jobId);
 }
 
+export function jobExists(jobId: string): boolean {
+  return !!db.prepare('SELECT 1 FROM jobs WHERE jobId = ?').get(jobId);
+}
+
 export function saveTruncationMeta(jobId: string, meta: TruncationMeta): void {
   db.prepare('UPDATE jobs SET truncationMeta = ? WHERE jobId = ?').run(JSON.stringify(meta), jobId);
 }
