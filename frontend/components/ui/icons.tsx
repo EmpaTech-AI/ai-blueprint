@@ -198,3 +198,75 @@ export function SearchIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
     </Icon>
   );
 }
+
+export function LockIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
+    </Icon>
+  );
+}
+
+export function UserIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Icon>
+  );
+}
+
+export function UsersIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+    </Icon>
+  );
+}
+
+export function KeyIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+    </Icon>
+  );
+}
+
+export function PlusIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
+export function FolderOpenIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+    </Icon>
+  );
+}
+
+export function UploadCloudIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <polyline points="16 16 12 12 8 16" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+    </Icon>
+  );
+}
+
+export function ClipboardListIcon({ className = 'w-5 h-5', ...rest }: IconProps) {
+  return (
+    <Icon className={className} {...rest}>
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="2" />
+      <path d="M9 12h6M9 16h4" />
+    </Icon>
+  );
+}

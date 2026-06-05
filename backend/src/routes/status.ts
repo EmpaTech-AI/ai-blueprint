@@ -1,10 +1,13 @@
 import express, { Request, Response } from 'express';
-import { loadJob, getAllJobs, approveJob, resetJobForRetry, deleteJob } from '../storage/jobStore';
+import {
+  loadJob, getAllJobs, approveJob, resetJobForRetry, deleteJob,
+  getTruncationMeta, toggleReupload,
+} from '../storage/jobStore';
 import { runPipeline } from '../pipeline/orchestrator';
 import { callClaude } from '../utils/claudeClient';
 import { log } from '../utils/logger';
+import { requireAdmin, AuthRequest } from '../middleware/auth';
 import type { ConfidenceResult, JustificationEntry } from '../types/pipeline';
-import fs from 'fs';
 
 const router = express.Router();
 
@@ -12,16 +15,15 @@ const STEP_PROGRESS: Record<string, number> = {
   A: 10, B: 30, C: 50, D: 65, D2: 80, E: 90, complete: 100,
 };
 
+// Public: client status check by jobId
 router.get('/:jobId', (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const progress = STEP_PROGRESS[job.currentStep] || 0;
-
     const downloadUrl =
       job.status === 'review_ready' || job.status === 'approved'
         ? `/api/download/${job.jobId}`
         : undefined;
-
     res.json({
       jobId: job.jobId,
       status: job.status,
@@ -31,18 +33,13 @@ router.get('/:jobId', (req: Request, res: Response) => {
       reviewerFlags: job.reviewerFlags || [],
       downloadUrl,
     });
-  } catch (err: unknown) {
+  } catch {
     res.status(404).json({ error: 'Job not found' });
   }
 });
 
 // Admin: list all jobs
-router.get('/', (req: Request, res: Response) => {
-  const token = req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.get('/', requireAdmin, (_req: Request, res: Response) => {
   const jobs = getAllJobs();
   res.json(jobs.map((j) => ({
     jobId: j.jobId,
@@ -56,16 +53,17 @@ router.get('/', (req: Request, res: Response) => {
     reviewerFlags: j.reviewerFlags || [],
     errorLog: j.status === 'failed' ? (j.errorLog || []) : [],
     progress: STEP_PROGRESS[j.currentStep] || 0,
+    truncationMeta: j.truncationMeta
+      ? { field: j.truncationMeta.field, originalLength: j.truncationMeta.originalLength, truncatedLength: j.truncationMeta.truncatedLength }
+      : undefined,
+    approvedByName: j.approvedByName ?? null,
+    reuploadAllowed: j.reuploadAllowed || false,
+    clientUploadCount: (j.clientUploads || []).length,
   })));
 });
 
 // Admin: retry a failed job
-router.post('/:jobId/retry', (req: Request, res: Response) => {
-  const token = req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.post('/:jobId/retry', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     if (job.status === 'running' || job.status === 'pending') {
@@ -84,28 +82,57 @@ router.post('/:jobId/retry', (req: Request, res: Response) => {
   }
 });
 
-// Admin: approve a job
-router.post('/:jobId/approve', (req: Request, res: Response) => {
-  const token = req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+// Admin: approve a job (records who approved)
+router.post('/:jobId/approve', requireAdmin, (req: Request, res: Response) => {
+  const adminName = (req as AuthRequest).user?.name;
   try {
-    approveJob(req.params.jobId);
+    approveJob(req.params.jobId, adminName);
     res.json({ success: true });
-  } catch (err) {
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: toggle client re-upload permission
+router.post('/:jobId/request-reupload', requireAdmin, (req: Request, res: Response) => {
+  const { enabled } = req.body as { enabled?: boolean };
+  try {
+    loadJob(req.params.jobId);
+    toggleReupload(req.params.jobId, enabled !== false);
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: get intake data (form answers + uploaded files metadata + client re-uploads)
+router.get('/:jobId/intake-data', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    res.json({
+      formAnswers: job.formAnswers,
+      uploadedFiles: Object.fromEntries(
+        Object.entries(job.uploadedFiles).map(([k, v]) => [k, {
+          filename: v.filename,
+          size: v.size,
+          mimeType: v.mimeType,
+        }]),
+      ),
+      clientUploads: (job.clientUploads || []).map((u) => ({
+        id: u.id,
+        filename: u.filename,
+        size: u.size,
+        mimeType: u.mimeType,
+        uploadedAt: u.uploadedAt,
+      })),
+    });
+  } catch {
     res.status(404).json({ error: 'Job not found' });
   }
 });
 
 // Admin: generate AI risk summary for the final stage's low-confidence items
-router.post('/:jobId/risk-summary', async (req: Request, res: Response) => {
-  const token = req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.post('/:jobId/risk-summary', requireAdmin, async (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const stepE = job.confidenceScores?.stepE as ConfidenceResult | undefined;
@@ -115,9 +142,7 @@ router.post('/:jobId/risk-summary', async (req: Request, res: Response) => {
       return;
     }
 
-    // Build a structured list of every low-confidence item
     const lines: string[] = [];
-
     if (stepE.justificationEntries?.length) {
       stepE.justificationEntries.forEach((entry: JustificationEntry, idx: number) => {
         lines.push(`${idx + 1}. [${entry.tag.toUpperCase()}] ${entry.label}`);
@@ -172,16 +197,32 @@ Rules: Be direct and specific. Reference actual claim text, not vague categories
 });
 
 // Admin: delete a job
-router.delete('/:jobId', (req: Request, res: Response) => {
-  const token = req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.delete('/:jobId', requireAdmin, (req: Request, res: Response) => {
   try {
-    loadJob(req.params.jobId); // throws if not found
+    loadJob(req.params.jobId);
     deleteJob(req.params.jobId);
     res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: get truncation comparison data
+router.get('/:jobId/compare-truncation', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const meta = getTruncationMeta(req.params.jobId);
+    if (!meta) {
+      res.status(404).json({ error: 'No truncation data for this job — Step E ran without truncation.' });
+      return;
+    }
+    res.json({
+      field: meta.field,
+      originalLength: meta.originalLength,
+      truncatedLength: meta.truncatedLength,
+      original: job.stepD_opportunities ?? '',
+      truncated: meta.truncatedText,
+    });
   } catch {
     res.status(404).json({ error: 'Job not found' });
   }

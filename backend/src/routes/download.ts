@@ -1,19 +1,14 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
+import { requireAdmin } from '../middleware/auth';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
 const router = express.Router();
 
-router.get('/:jobId', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
+router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const filename = job.outputDocxPath
@@ -46,12 +41,7 @@ router.get('/:jobId', (req: Request, res: Response) => {
 });
 
 // PDF download
-router.get('/:jobId/pdf', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.get('/:jobId/pdf', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     if (!job.outputPdfData) {
@@ -68,12 +58,7 @@ router.get('/:jobId/pdf', (req: Request, res: Response) => {
 });
 
 // TXT download
-router.get('/:jobId/txt', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     if (!job.outputTxtData) {
@@ -90,12 +75,7 @@ router.get('/:jobId/txt', (req: Request, res: Response) => {
 });
 
 // HTML preview of the assembled blueprint
-router.get('/:jobId/preview', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).send('<p>Unauthorized</p>');
-    return;
-  }
+router.get('/:jobId/preview', requireAdmin, (req: Request, res: Response) => {
 
   try {
     const job = loadJob(req.params.jobId);
@@ -113,12 +93,7 @@ router.get('/:jobId/preview', (req: Request, res: Response) => {
 });
 
 // Pipeline logs — document parse results + error log
-router.get('/:jobId/logs', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).send('<p>Unauthorized</p>');
-    return;
-  }
+router.get('/:jobId/logs', requireAdmin, (req: Request, res: Response) => {
 
   try {
     const job = loadJob(req.params.jobId);
@@ -140,9 +115,7 @@ router.get('/:jobId/logs', (req: Request, res: Response) => {
 });
 
 // Step preview — inline PDF (opens in browser tab)
-router.get('/:jobId/step/:step/preview', async (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+router.get('/:jobId/step/:step/preview', requireAdmin, async (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const raw = getStepRaw(job, req.params.step);
@@ -156,9 +129,7 @@ router.get('/:jobId/step/:step/preview', async (req: Request, res: Response) => 
 });
 
 // Step PDF download
-router.get('/:jobId/step/:step/pdf', async (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+router.get('/:jobId/step/:step/pdf', requireAdmin, async (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const raw = getStepRaw(job, req.params.step);
@@ -173,9 +144,7 @@ router.get('/:jobId/step/:step/pdf', async (req: Request, res: Response) => {
 });
 
 // Step DOCX download
-router.get('/:jobId/step/:step/docx', async (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) { res.status(401).json({ error: 'Unauthorized' }); return; }
+router.get('/:jobId/step/:step/docx', requireAdmin, async (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const raw = getStepRaw(job, req.params.step);
@@ -192,13 +161,7 @@ router.get('/:jobId/step/:step/docx', async (req: Request, res: Response) => {
 });
 
 // Intermediate output download
-router.get('/:jobId/step/:step', (req: Request, res: Response) => {
-  const token = req.query.token || req.headers['x-reviewer-token'];
-  if (token !== process.env.REVIEWER_SECRET_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
+router.get('/:jobId/step/:step', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const stepMap: Record<string, string | undefined> = {
@@ -219,6 +182,52 @@ router.get('/:jobId/step/:step', (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="step-${req.params.step}-${req.params.jobId}.txt"`);
     res.send(content);
   } catch (err) {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: download an original intake-uploaded file
+router.get('/:jobId/files/:fileKey', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const fileInfo = job.uploadedFiles[req.params.fileKey];
+    if (!fileInfo) { res.status(404).json({ error: 'File not found' }); return; }
+    const filename = sanitizeFilename(fileInfo.filename) || `file-${req.params.fileKey}`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+    if (fileInfo.storagePath && fs.existsSync(fileInfo.storagePath)) {
+      fs.createReadStream(fileInfo.storagePath).pipe(res);
+      return;
+    }
+    if (fileInfo.fileData) {
+      res.send(Buffer.from(fileInfo.fileData, 'base64'));
+      return;
+    }
+    res.status(404).json({ error: 'File data not available' });
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: download a client re-upload
+router.get('/:jobId/client-uploads/:uploadId', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const upload = (job.clientUploads || []).find((u) => u.id === req.params.uploadId);
+    if (!upload) { res.status(404).json({ error: 'Upload not found' }); return; }
+    const filename = sanitizeFilename(upload.filename) || `upload-${req.params.uploadId}`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', upload.mimeType || 'application/octet-stream');
+    if (upload.storagePath && fs.existsSync(upload.storagePath)) {
+      fs.createReadStream(upload.storagePath).pipe(res);
+      return;
+    }
+    if (upload.fileData) {
+      res.send(Buffer.from(upload.fileData, 'base64'));
+      return;
+    }
+    res.status(404).json({ error: 'File data not available' });
+  } catch {
     res.status(404).json({ error: 'Job not found' });
   }
 });

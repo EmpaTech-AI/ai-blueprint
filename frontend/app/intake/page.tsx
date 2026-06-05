@@ -16,6 +16,7 @@ import {
   ArrowRightIcon,
   ArrowLeftIcon,
   SpinnerIcon,
+  LockIcon,
 } from '@/components/ui/icons';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -31,6 +32,9 @@ export default function IntakePage() {
   const [isSubmitting,     setIsSubmitting]      = useState(false);
   const [submitError,      setSubmitError]       = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm]  = useState(false);
+
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const { register, handleSubmit, getValues, setValue, formState: { errors }, trigger, reset } =
     useForm<FormValues>({ mode: 'onBlur' });
@@ -58,6 +62,13 @@ export default function IntakePage() {
   const stepTitle       = isDocumentStep ? 'Supporting Documents' : (currentSection?.title || '');
 
   const handleNext = async () => {
+    if (currentStep === 1) {
+      if (!password || password.length < 8) {
+        setPasswordError('Please set a password with at least 8 characters.');
+        return;
+      }
+      setPasswordError('');
+    }
     if (!isDocumentStep && currentSection) {
       const fieldIds = currentSection.questions.map((q) => q.id);
       const valid    = await trigger(fieldIds as (keyof FormValues)[]);
@@ -91,6 +102,10 @@ export default function IntakePage() {
       setSubmitError('Your name and email are required. Please go back to step 1 and fill them in.');
       return;
     }
+    if (!password || password.length < 8) {
+      setSubmitError('Please go back to step 1 and set a password (minimum 8 characters).');
+      return;
+    }
     const missingDocs = missingRequiredDocumentLabels(uploadedFiles);
     if (missingDocs.length > 0) {
       setSubmitError(`Please upload all required documents: ${missingDocs.join(', ')}.`);
@@ -103,6 +118,7 @@ export default function IntakePage() {
       const formData = new FormData();
       formData.append('clientName',   String(data.clientName));
       formData.append('clientEmail',  String(data.clientEmail));
+      formData.append('password',     password);
       formData.append('formAnswers',  JSON.stringify(data));
       for (const [categoryId, file] of Object.entries(uploadedFiles)) {
         formData.append(categoryId, file);
@@ -279,6 +295,30 @@ export default function IntakePage() {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Password field for dashboard access */}
+            <div className="mt-4">
+              <label className="block text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                Dashboard password <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                Set a password so you can log in at any time to check the status of your audit request.
+              </p>
+              <div className="relative max-w-sm">
+                <LockIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                <input
+                  type="password"
+                  className={`input-glass${passwordError ? ' error' : ''}`}
+                  style={{ paddingLeft: '2.25rem' }}
+                  placeholder="Minimum 8 characters"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(''); }}
+                />
+              </div>
+              {passwordError && (
+                <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>{passwordError}</p>
+              )}
             </div>
           </div>
         )}

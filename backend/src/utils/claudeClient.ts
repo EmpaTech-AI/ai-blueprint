@@ -67,21 +67,57 @@ export async function invokeSkill(
   while (attempt < maxAttempts) {
     attempt++;
     try {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens,
-        temperature: 0,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      });
+      const response = await withTimeout(
+        client.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: maxTokens,
+          temperature: 0,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+        CHUNK_TIMEOUT_MS,
+        `${skillName} single-pass`,
+      );
 
       const textContent = response.content.find((block) => block.type === 'text');
       if (!textContent || textContent.type !== 'text') {
         throw new Error(`No text response from Claude for skill: ${skillName}`);
       }
 
-      const result = textContent.text;
+      let result = textContent.text;
       log('info', `Skill ${skillName} complete`, { outputLength: result.length, stopReason: response.stop_reason });
+
+      // One-shot continuation when the model hits max_tokens mid-response.
+      // The chunked protocol in invokeSkillChunked handles this for Step B;
+      // steps C–E use this simpler single-continuation fallback.
+      if (response.stop_reason === 'max_tokens') {
+        log('warn', `${skillName} hit max_tokens — issuing one-shot continuation`);
+        try {
+          const contResponse = await withTimeout(
+            client.messages.create({
+              model: 'claude-sonnet-4-6',
+              max_tokens: maxTokens,
+              temperature: 0,
+              system: systemPrompt,
+              messages: [
+                { role: 'user',      content: userMessage },
+                { role: 'assistant', content: result },
+                { role: 'user',      content: 'continue' },
+              ],
+            }),
+            CHUNK_TIMEOUT_MS,
+            `${skillName} continuation`,
+          );
+          const contBlock = contResponse.content.find((b) => b.type === 'text');
+          if (contBlock?.type === 'text' && contBlock.text.length > 0) {
+            result = result + contBlock.text;
+            log('info', `${skillName} continuation complete`, { totalLength: result.length });
+          }
+        } catch (contErr: unknown) {
+          // Continuation failure is non-fatal — return what we have with a log warning.
+          log('warn', `${skillName} continuation failed, returning partial output: ${contErr instanceof Error ? contErr.message : String(contErr)}`);
+        }
+      }
 
       if (result.length < 200 && attempt < maxAttempts) {
         log('warn', `Suspiciously short output from ${skillName}, retrying with higher token limit`);
@@ -134,13 +170,17 @@ async function invokeChunk(
   while (attempt < maxAttempts) {
     attempt++;
     try {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens,
-        temperature: 0,
-        system: systemPrompt,
-        messages,
-      });
+      const response = await withTimeout(
+        client.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: maxTokens,
+          temperature: 0,
+          system: systemPrompt,
+          messages,
+        }),
+        CHUNK_TIMEOUT_MS,
+        `${skillName} chunk ${chunkNum}`,
+      );
 
       const textContent = response.content.find((b) => b.type === 'text');
       if (!textContent || textContent.type !== 'text') {
@@ -301,7 +341,7 @@ export async function invokeSkillChunked(
   // token count significantly. A 65 s pause ensures we enter a fresh per-minute token window
   // before firing the next call (rate limit: 30 k input tokens/minute).
   log('info', `${skillName} pausing 65s before chunk 2 (input token rate-limit buffer)`);
-  await sleep(65000);
+  await sleep(CHUNK_PAUSE_MS);
 
   // Chunk 2 — Sections C & D + CHECKPOINT 2
   // Uses full chunk 1 output as prior assistant context so Section C can reference Section B.
@@ -318,7 +358,7 @@ export async function invokeSkillChunked(
   log('info', `${skillName} chunk 2 complete`, { length: chunk2.length });
 
   log('info', `${skillName} pausing 65s before chunk 3 (input token rate-limit buffer)`);
-  await sleep(65000);
+  await sleep(CHUNK_PAUSE_MS);
 
   // Chunk 3 — Sections E–H + [JUSTIFICATION] + final marker
   const chunk3 = await buildChunkUntilMarker(
@@ -365,4 +405,22 @@ export async function callClaude(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Configurable via CHUNK_PAUSE_MS env var (default 65s, calibrated for
+// Anthropic's 30k input-token-per-minute rate limit with single-job operation).
+const CHUNK_PAUSE_MS = parseInt(process.env.CHUNK_PAUSE_MS || '65000', 10);
+
+// Per-call timeout for individual API calls. Hanging calls block the pipeline
+// indefinitely without this guard. Default 300s — generous enough to avoid
+// false positives on legitimately slow calls.
+const CHUNK_TIMEOUT_MS = parseInt(process.env.CHUNK_TIMEOUT_MS || '300000', 10);
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`API call timeout: ${label} exceeded ${ms / 1000}s`)), ms),
+    ),
+  ]);
 }

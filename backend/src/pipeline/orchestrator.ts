@@ -174,7 +174,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     await updateJobStatus(jobId, 'running', 'E');
     const assembled = await runStepWithGate(
       'Stage 5 (Document Assembly)', 'stepE',
-      (corrective?) => runStepE(dossierClean, maturityClean, opportunitiesClean, roadmapClean, corrective),
+      (corrective?) => runStepE(dossierClean, maturityClean, opportunitiesClean, roadmapClean, corrective, jobId),
       confidenceScores, reviewerFlags,
     );
     await saveStepOutput(jobId, 'E', assembled);

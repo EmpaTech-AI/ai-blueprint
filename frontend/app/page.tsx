@@ -56,10 +56,15 @@ export default function LandingPage() {
             <span className="font-bold text-white text-[15px] tracking-tight">AI Assist BG</span>
           </Link>
 
-          <Link href="/intake" className="btn-primary" style={{ padding: '9px 22px', fontSize: '0.875rem' }}>
-            Start My Blueprint
-            <ArrowRightIcon className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="btn-ghost" style={{ padding: '9px 18px', fontSize: '0.875rem' }}>
+              Sign In
+            </Link>
+            <Link href="/intake" className="btn-primary" style={{ padding: '9px 22px', fontSize: '0.875rem' }}>
+              Start My Blueprint
+              <ArrowRightIcon className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </header>
       </div>
 

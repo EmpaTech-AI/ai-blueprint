@@ -1,0 +1,157 @@
+import {
+  calculateConfidence,
+  stripJustification,
+  stripConfidenceTags,
+  stripForDelivery,
+} from './confidenceScorer';
+
+// ── stripJustification ────────────────────────────────────────────────────────
+
+describe('stripJustification', () => {
+  it('removes the justification block and nothing else', () => {
+    const input = 'Before content.\n\n## [JUSTIFICATION]\nSome details.\n[END JUSTIFICATION]\n\nAfter content.';
+    const result = stripJustification(input);
+    expect(result).toContain('Before content.');
+    expect(result).toContain('After content.');
+    expect(result).not.toContain('[JUSTIFICATION]');
+    expect(result).not.toContain('[END JUSTIFICATION]');
+    expect(result).not.toContain('Some details.');
+  });
+
+  it('is case-insensitive on the block markers', () => {
+    const input = 'Header.\n## [justification]\nStuff.\n[end justification]\nTrailer.';
+    expect(stripJustification(input)).toContain('Trailer.');
+    expect(stripJustification(input)).not.toContain('Stuff.');
+  });
+
+  it('returns the input unchanged when no justification block exists', () => {
+    const input = 'No block here.';
+    expect(stripJustification(input)).toBe('No block here.');
+  });
+});
+
+// ── stripConfidenceTags ───────────────────────────────────────────────────────
+
+describe('stripConfidenceTags', () => {
+  it('removes all confidence tag variants', () => {
+    const input = 'Revenue [Document-Backed] is growing. Culture [Inferred — from pattern] is strong. Budget [Assumption] is limited. Goal [Form-Stated] is clear.';
+    const result = stripConfidenceTags(input);
+    expect(result).not.toMatch(/\[Document[- ]?Backed[^\]]*\]/i);
+    expect(result).not.toMatch(/\[Inferred[^\]]*\]/i);
+    expect(result).not.toMatch(/\[Assumption[^\]]*\]/i);
+    expect(result).not.toMatch(/\[Form[- ]?Stated[^\]]*\]/i);
+    expect(result).toContain('Revenue');
+    expect(result).toContain('is growing');
+  });
+});
+
+// ── stripForDelivery ──────────────────────────────────────────────────────────
+
+describe('stripForDelivery', () => {
+  it('removes both the justification block and inline tags', () => {
+    const input =
+      'Revenue [Document-Backed] is strong.\n\n## [JUSTIFICATION]\nDetails.\n[END JUSTIFICATION]\n\nGoal [Form-Stated] achieved.';
+    const result = stripForDelivery(input);
+    expect(result).not.toContain('[JUSTIFICATION]');
+    expect(result).not.toMatch(/\[Document[- ]?Backed\]/i);
+    expect(result).not.toMatch(/\[Form[- ]?Stated\]/i);
+    expect(result).toContain('Revenue');
+    expect(result).toContain('Goal');
+  });
+});
+
+// ── calculateConfidence ───────────────────────────────────────────────────────
+
+describe('calculateConfidence', () => {
+  it('scores 100% when all tags are high-confidence', () => {
+    const text = 'Revenue [Document-Backed] is growing. Timeline [Form-Stated] is 12 months.';
+    const result = calculateConfidence(text);
+    expect(result.score).toBe(100);
+    expect(result.breakdown.documentBacked).toBe(1);
+    expect(result.breakdown.formStated).toBe(1);
+    expect(result.breakdown.inferred).toBe(0);
+    expect(result.breakdown.assumption).toBe(0);
+    expect(result.needsReview).toBe(false);
+  });
+
+  it('scores 0% when all tags are low-confidence', () => {
+    const text = 'Culture [Inferred] is collaborative. Budget [Assumption] is limited.';
+    const result = calculateConfidence(text);
+    expect(result.score).toBe(0);
+    expect(result.breakdown.inferred).toBe(1);
+    expect(result.breakdown.assumption).toBe(1);
+    expect(result.needsReview).toBe(true);
+  });
+
+  it('scores 0% (Red, not 50) when there are NO tags — D6 regression', () => {
+    // Before the D6 fix this returned 50. After the fix it returns 0.
+    const text = 'The company has strong revenue growth and a motivated team.';
+    const result = calculateConfidence(text);
+    expect(result.score).toBe(0);
+    expect(result.breakdown.total).toBe(0);
+    expect(result.noTagsReason).toBeDefined();
+    expect(result.needsReview).toBe(true);
+  });
+
+  it('scores correctly with mixed high and low tags', () => {
+    // 3 high (2 doc-backed + 1 form-stated), 1 low (inferred) → 75%
+    const text = 'Revenue [Document-Backed] up. Team [Document-Backed] strong. Goal [Form-Stated] set. Risk [Inferred] moderate.';
+    const result = calculateConfidence(text);
+    expect(result.score).toBe(75);
+    expect(result.breakdown.total).toBe(4);
+    expect(result.highConfidenceCount).toBe(3);
+    expect(result.lowConfidenceCount).toBe(1);
+  });
+
+  it('accepts [Assumed] as a synonym for [Assumption]', () => {
+    const text = 'Growth rate [Assumed] is 20%.';
+    const result = calculateConfidence(text);
+    expect(result.breakdown.assumption).toBe(1);
+    expect(result.score).toBe(0);
+  });
+
+  it('accepts extended tag forms with extra content', () => {
+    const text = 'Revenue [Document-Backed — see annual report p.12] grew 18%.';
+    const result = calculateConfidence(text);
+    expect(result.breakdown.documentBacked).toBe(1);
+    expect(result.score).toBe(100);
+  });
+
+  it('excludes tags inside the justification block from scoring', () => {
+    // The justification block itself contains tag text — it should not inflate scores.
+    const text =
+      'Revenue [Document-Backed] is strong.\n\n## [JUSTIFICATION]\n### Confidence Overview\nSome overview.\n#### 1. [Inferred] Some risk\n- **Claim**: "A claim"\n- **Why inferred**: Partial data.\n[END JUSTIFICATION]';
+    const result = calculateConfidence(text);
+    // Only the [Document-Backed] in the content should be counted, not the [Inferred] in the block.
+    expect(result.breakdown.documentBacked).toBe(1);
+    expect(result.breakdown.inferred).toBe(0);
+    expect(result.score).toBe(100);
+  });
+
+  it('provides noTagsReason with a helpful message when output is short', () => {
+    const result = calculateConfidence('Short output.');
+    expect(result.noTagsReason).toContain('too short');
+  });
+
+  it('provides noTagsReason citing skill prompt when output is long but has no tags', () => {
+    const longText = 'Word '.repeat(60); // > 50 words, no tags
+    const result = calculateConfidence(longText);
+    expect(result.noTagsReason).toBeTruthy();
+    expect(result.noTagsReason).not.toContain('too short');
+  });
+
+  it('sets needsReview true for scores below 76', () => {
+    const text = 'A [Inferred] B [Inferred] C [Document-Backed]'; // 1/3 = 33%
+    const result = calculateConfidence(text);
+    expect(result.needsReview).toBe(true);
+  });
+
+  it('sets needsReview false for scores >= 76', () => {
+    const text = '[Document-Backed] [Document-Backed] [Document-Backed] [Inferred]'; // 3/4 = 75%... wait that's < 76
+    // Use 4 high 1 low = 80%
+    const text2 = '[Document-Backed] [Document-Backed] [Document-Backed] [Document-Backed] [Inferred]';
+    const result = calculateConfidence(text2);
+    expect(result.score).toBe(80);
+    expect(result.needsReview).toBe(false);
+  });
+});

@@ -145,7 +145,9 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
   const high  = documentBacked + formStated;
   const low   = inferred + assumption;
   const total = high + low;
-  const score = total === 0 ? 50 : Math.round((high / total) * 100);
+  // Zero tags means the skill prompt was not followed at all — treat as Red (0),
+  // not a neutral 50. The noTagsReason field explains this to the consultant.
+  const score = total === 0 ? 0 : Math.round((high / total) * 100);
 
   // Try to parse the structured justification block first
   const { overview, entries } = parseJustificationBlock(stepOutput);

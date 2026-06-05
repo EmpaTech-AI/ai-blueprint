@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CheckIcon, ArrowLeftIcon } from '@/components/ui/icons';
+import { CheckIcon, ArrowLeftIcon, ArrowRightIcon } from '@/components/ui/icons';
 
 function ConfirmationContent() {
   const params = useSearchParams();
@@ -98,6 +98,30 @@ function ConfirmationContent() {
                   </li>
                 ))}
               </ol>
+            </div>
+
+            {/* Dashboard access prompt */}
+            <div
+              className="rounded-xl p-5 mb-7"
+              style={{
+                background: 'rgba(34,197,94,0.07)',
+                border: '1px solid rgba(34,197,94,0.2)',
+              }}
+            >
+              <p className="text-sm font-semibold mb-2" style={{ color: '#86efac' }}>
+                Track your Blueprint status
+              </p>
+              <p className="text-xs mb-4 leading-relaxed" style={{ color: 'rgba(134,239,172,0.75)' }}>
+                Log in at any time using the email and password you just set to check your audit progress and download your Blueprint once it&apos;s ready.
+              </p>
+              <Link
+                href="/login"
+                className="btn-primary inline-flex"
+                style={{ padding: '9px 20px', fontSize: '0.85rem' }}
+              >
+                Go to My Dashboard
+                <ArrowRightIcon className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
             {/* Reference ID */}

@@ -69,6 +69,25 @@ export interface ConfidenceResult {
   scoreContext?: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: 'admin' | 'client';
+  name: string;
+  createdAt: string;
+}
+
+export interface ClientUpload {
+  id: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  storagePath: string;
+  fileData?: string;
+  uploadedAt: string;
+}
+
 export interface PipelineJob {
   jobId: string;
   clientName: string;
@@ -92,4 +111,16 @@ export interface PipelineJob {
   outputPdfData?: string;
   outputTxtData?: string;
   errorLog?: string[];
+  truncationMeta?: TruncationMeta;
+  userId?: string;
+  approvedByName?: string;
+  reuploadAllowed?: boolean;
+  clientUploads?: ClientUpload[];
+}
+
+export interface TruncationMeta {
+  field: 'opportunities';
+  originalLength: number;
+  truncatedLength: number;
+  truncatedText: string;
 }

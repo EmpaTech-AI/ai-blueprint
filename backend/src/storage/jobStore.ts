@@ -1,20 +1,6 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-import { PipelineJob } from '../types/pipeline';
+import { db } from './db';
+import { PipelineJob, TruncationMeta, ClientUpload } from '../types/pipeline';
 import { log } from '../utils/logger';
-
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../../data/jobs.db');
-
-// Ensure data directory exists
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-
-const db = new Database(DB_PATH);
-
-// WAL mode: allows concurrent readers + one writer without "database is locked" errors.
-// busy_timeout: if a write collides, retry for up to 10 s before throwing.
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 10000');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS jobs (
@@ -44,24 +30,30 @@ db.exec(`
 `);
 
 // Safe migrations for columns added after initial schema
-try { db.exec('ALTER TABLE jobs ADD COLUMN outputDocxData TEXT'); } catch { /* already exists */ }
-try { db.exec('ALTER TABLE jobs ADD COLUMN outputPdfData TEXT'); }  catch { /* already exists */ }
-try { db.exec('ALTER TABLE jobs ADD COLUMN outputTxtData TEXT'); }  catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputDocxData TEXT'); }    catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputPdfData TEXT'); }     catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputTxtData TEXT'); }     catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN truncationMeta TEXT'); }    catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN userId TEXT'); }            catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN approvedByName TEXT'); }   catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN reuploadAllowed INTEGER DEFAULT 0'); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE jobs ADD COLUMN clientUploads TEXT DEFAULT '[]'"); }   catch { /* already exists */ }
 
 export function createJob(job: PipelineJob): void {
   const stmt = db.prepare(`
     INSERT INTO jobs (
       jobId, clientName, clientEmail, status, currentStep, startedAt,
-      formAnswers, uploadedFiles
+      formAnswers, uploadedFiles, userId
     ) VALUES (
       @jobId, @clientName, @clientEmail, @status, @currentStep, @startedAt,
-      @formAnswers, @uploadedFiles
+      @formAnswers, @uploadedFiles, @userId
     )
   `);
   stmt.run({
     ...job,
     formAnswers: JSON.stringify(job.formAnswers),
     uploadedFiles: JSON.stringify(job.uploadedFiles),
+    userId: job.userId ?? null,
   });
   log('info', `Job created: ${job.jobId}`);
 }
@@ -136,6 +128,11 @@ export function getAllJobs(): PipelineJob[] {
   return rows.map(deserializeJob);
 }
 
+export function getJobsByUserId(userId: string): PipelineJob[] {
+  const rows = db.prepare('SELECT * FROM jobs WHERE userId = ? ORDER BY startedAt DESC').all(userId) as Record<string, unknown>[];
+  return rows.map(deserializeJob);
+}
+
 export function saveDocxData(jobId: string, base64: string): void {
   db.prepare('UPDATE jobs SET outputDocxData = ? WHERE jobId = ?').run(base64, jobId);
 }
@@ -148,12 +145,33 @@ export function saveTxtData(jobId: string, txt: string): void {
   db.prepare('UPDATE jobs SET outputTxtData = ? WHERE jobId = ?').run(txt, jobId);
 }
 
-export function approveJob(jobId: string): void {
-  db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
+export function approveJob(jobId: string, approvedByName?: string): void {
+  if (approvedByName) {
+    db.prepare("UPDATE jobs SET status = 'approved', approvedByName = ? WHERE jobId = ?").run(approvedByName, jobId);
+  } else {
+    db.prepare("UPDATE jobs SET status = 'approved' WHERE jobId = ?").run(jobId);
+  }
 }
 
 export function deleteJob(jobId: string): void {
   db.prepare('DELETE FROM jobs WHERE jobId = ?').run(jobId);
+}
+
+export function saveTruncationMeta(jobId: string, meta: TruncationMeta): void {
+  db.prepare('UPDATE jobs SET truncationMeta = ? WHERE jobId = ?').run(JSON.stringify(meta), jobId);
+}
+
+export function getTruncationMeta(jobId: string): TruncationMeta | undefined {
+  const row = db.prepare('SELECT truncationMeta FROM jobs WHERE jobId = ?').get(jobId) as { truncationMeta?: string } | undefined;
+  if (!row?.truncationMeta) return undefined;
+  return safeJsonParse<TruncationMeta>(row.truncationMeta, undefined as unknown as TruncationMeta);
+}
+
+export function resetRunningJobs(): number {
+  const result = db
+    .prepare("UPDATE jobs SET status = 'failed', completedAt = ? WHERE status = 'running'")
+    .run(new Date().toISOString());
+  return result.changes;
 }
 
 export function resetJobForRetry(jobId: string): void {
@@ -179,6 +197,21 @@ export function resetJobForRetry(jobId: string): void {
   `).run(jobId);
 }
 
+export function setJobUserId(jobId: string, userId: string): void {
+  db.prepare('UPDATE jobs SET userId = ? WHERE jobId = ?').run(userId, jobId);
+}
+
+export function toggleReupload(jobId: string, allowed: boolean): void {
+  db.prepare('UPDATE jobs SET reuploadAllowed = ? WHERE jobId = ?').run(allowed ? 1 : 0, jobId);
+}
+
+export function addClientUpload(jobId: string, upload: ClientUpload): void {
+  const job = loadJob(jobId);
+  const existing = job.clientUploads || [];
+  existing.push(upload);
+  db.prepare('UPDATE jobs SET clientUploads = ? WHERE jobId = ?').run(JSON.stringify(existing), jobId);
+}
+
 function deserializeJob(row: Record<string, unknown>): PipelineJob {
   return {
     ...(row as unknown as PipelineJob),
@@ -187,6 +220,9 @@ function deserializeJob(row: Record<string, unknown>): PipelineJob {
     confidenceScores: row.confidenceScores ? safeJsonParse(row.confidenceScores as string, {}) : undefined,
     reviewerFlags: row.reviewerFlags ? safeJsonParse(row.reviewerFlags as string, []) : undefined,
     errorLog: row.errorLog ? safeJsonParse(row.errorLog as string, []) : undefined,
+    truncationMeta: row.truncationMeta ? safeJsonParse(row.truncationMeta as string, undefined as unknown as TruncationMeta) : undefined,
+    reuploadAllowed: row.reuploadAllowed ? Boolean(row.reuploadAllowed) : false,
+    clientUploads: row.clientUploads ? safeJsonParse(row.clientUploads as string, []) : [],
   };
 }
 
