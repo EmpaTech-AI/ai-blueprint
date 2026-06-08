@@ -36,6 +36,70 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; 
   failed:       { bg: 'rgba(239,68,68,0.08)',    border: 'rgba(239,68,68,0.22)',   text: '#fca5a5', dot: '#ef4444' },
 };
 
+const PIPELINE_STEPS = [
+  { stage: 'Pre-Processing', label: 'Document Parsing',    desc: 'All uploaded files are parsed and converted into a searchable text corpus.' },
+  { stage: 'Stage 1',        label: 'Intake Analysis',     desc: 'Your form responses and documents are compressed into a structured client dossier.' },
+  { stage: 'Stage 2',        label: 'Maturity Scoring',    desc: 'Your organisation is scored for AI readiness across 6 strategic dimensions on a 0–100 scale.' },
+  { stage: 'Stage 3',        label: 'Opportunity Mapping', desc: '5–7 prioritised AI use cases are identified and ranked by business value and feasibility.' },
+  { stage: 'Stage 4',        label: 'Action Roadmap',      desc: 'The opportunities are sequenced into a phased 12-month implementation plan.' },
+  { stage: 'Stage 5',        label: 'Document Assembly',   desc: 'All outputs are compiled into your boardroom-ready AI Value Blueprint document.' },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: 'What is an AI Value Blueprint?',
+    a: 'An AI Value Blueprint is a personalised, evidence-based assessment that maps exactly where AI can create measurable value in your specific business. Using your company data, operational context, and strategic goals, we produce a 12–18 page boardroom-ready document — not generic advice.',
+  },
+  {
+    q: 'What does the Blueprint include?',
+    a: 'Your Blueprint includes: a company profile and strategic context summary, an AI readiness score across 6 dimensions (0–100), 5–7 prioritised AI use cases specific to your business, a phased 12-month implementation roadmap, investment estimates and expected ROI indicators, and practical guidance on risks and implementation steps.',
+  },
+  {
+    q: 'What documents should I upload?',
+    a: 'The more context you provide, the more specific and actionable your Blueprint. We recommend uploading: a financial summary (P&L or annual report), an organisational chart, sales pipeline data, process documentation, marketing analytics, a technology inventory, strategic plans or board presentations, and any previous AI or digital transformation reports. Accepted formats: PDF, DOCX, XLSX, and CSV.',
+  },
+  {
+    q: 'How long does the analysis take?',
+    a: 'After you submit your intake form and documents, our AI pipeline completes the initial analysis within 15–30 minutes. Our senior consultants then review the output for accuracy and quality, typically within 3–5 business days. You will see real-time status updates here and receive an email when your Blueprint is ready.',
+  },
+  {
+    q: 'What do the status labels mean?',
+    a: 'Pending: your submission is queued and will begin processing shortly. Running: the AI pipeline is actively analysing your data. Ready for Review: analysis is complete and our consultants are reviewing the output. Approved: your Blueprint is ready — download it from the button on your job card. Failed: something went wrong; our team has been notified and will reach out to you.',
+  },
+  {
+    q: 'Is my information secure and confidential?',
+    a: 'Yes. All data is encrypted in transit (TLS) and at rest. Your documents are used solely to generate your Blueprint and are not shared with third parties. Access is restricted to the AI Assist BG consultants assigned to your engagement.',
+  },
+  {
+    q: 'Can I submit additional documents after the initial submission?',
+    a: 'Yes. If our team needs supplementary information to strengthen the analysis, you will see an "Additional files requested" section appear on your job card. You can upload further files at any time when this option is active.',
+  },
+  {
+    q: 'What happens after I receive my Blueprint?',
+    a: 'Your Blueprint is delivered as a downloadable DOCX file. We recommend sharing it with your leadership team as a starting point for strategic AI investment discussions. If you have questions about the findings or would like to explore implementation options, reach out to us at hello@aiassist.bg.',
+  },
+];
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '12px', overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: '12px' }}
+      >
+        <span style={{ color: 'rgba(255,255,255,0.80)', fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4 }}>{q}</span>
+        <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.75rem', flexShrink: 0, display: 'inline-block', transition: 'transform 200ms', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 18px 16px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.85rem', lineHeight: 1.65, paddingTop: '12px', margin: 0 }}>{a}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const router   = useRouter();
   const [user,   setUser]   = useState<AuthUser | null>(null);
@@ -337,6 +401,50 @@ export default function DashboardPage() {
             <RefreshIcon className="w-3.5 h-3.5" />
             Refresh status
           </button>
+        </div>
+
+        {/* ── How it works + FAQ ──────────────────────────────────────── */}
+        <div style={{ marginTop: '56px', paddingTop: '48px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+
+          {/* Pipeline process */}
+          <div className="mb-12">
+            <h2 className="text-lg font-bold text-white mb-1">How your Blueprint is created</h2>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              A 5-stage AI pipeline analyses your data. Our senior consultants then review and approve the output before it reaches you.
+            </p>
+            <div className="space-y-2">
+              {PIPELINE_STEPS.map((s, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.30)', color: '#a5b4fc' }}>{i + 1}</div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(165,180,252,0.55)' }}>{s.stage}</p>
+                    <p className="text-sm font-semibold text-white leading-none mb-1">{s.label}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* FAQ accordion */}
+          <div>
+            <h2 className="text-lg font-bold text-white mb-1">Frequently asked questions</h2>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Everything you need to know about the AI Value Blueprint process.
+            </p>
+            <div className="space-y-2">
+              {FAQ_ITEMS.map((item, i) => (
+                <FaqItem key={i} q={item.q} a={item.a} />
+              ))}
+            </div>
+            <p className="text-xs mt-8 text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Still have questions?{' '}
+              <a href="mailto:hello@aiassist.bg" style={{ color: 'rgba(165,180,252,0.6)', textDecoration: 'none' }}>
+                hello@aiassist.bg
+              </a>
+            </p>
+          </div>
+
         </div>
       </main>
     </div>

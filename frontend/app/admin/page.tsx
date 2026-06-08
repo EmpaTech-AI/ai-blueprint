@@ -167,6 +167,90 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
   );
 }
 
+function StageNotes({ jobId, step, currentUser }: { jobId: string; step: string; currentUser: AuthUser | null }) {
+  const storageKey = `admin-notes-${jobId}-${step}`;
+  const [notes, setNotes] = useState<StageNote[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setNotes(JSON.parse(raw) as StageNote[]);
+    } catch { /* noop */ }
+  }, [storageKey]);
+
+  function post() {
+    const text = draft.trim();
+    if (!text || !currentUser) return;
+    const note: StageNote = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      text,
+      authorName: currentUser.name,
+      authorEmail: currentUser.email,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [note, ...notes];
+    setNotes(updated);
+    try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch { /* noop */ }
+    setDraft('');
+    setAdding(false);
+  }
+
+  function removeNote(id: string) {
+    const updated = notes.filter(n => n.id !== id);
+    setNotes(updated);
+    try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch { /* noop */ }
+  }
+
+  return (
+    <div style={{ marginBottom: notes.length > 0 || adding ? '10px' : '6px' }}>
+      {notes.length > 0 && (
+        <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          {notes.map(note => (
+            <div key={note.id} style={{ background: 'rgba(99,102,241,0.09)', border: '1px solid rgba(99,102,241,0.22)', borderRadius: '7px', padding: '7px 9px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '3px' }}>
+                <div>
+                  <span style={{ color: '#a5b4fc', fontSize: '0.65rem', fontWeight: 700 }}>{note.authorName} </span>
+                  <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.6rem' }}>
+                    {new Date(note.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <button onClick={() => removeNote(note.id)} style={{ color: 'rgba(252,165,165,0.4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.58rem', lineHeight: 1, padding: '1px 3px', flexShrink: 0 }} title="Delete note">✕</button>
+              </div>
+              <p style={{ color: 'rgba(255,255,255,0.80)', fontSize: '0.7rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{note.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', padding: '7px 8px' }}>
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) post(); }}
+            placeholder="Leave a note for this stage…"
+            rows={2}
+            autoFocus
+            style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'rgba(255,255,255,0.88)', fontSize: '0.7rem', lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit', padding: 0 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '5px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.6rem' }}>as {currentUser?.name} · Ctrl+Enter</span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button onClick={() => { setAdding(false); setDraft(''); }} style={{ padding: '2px 7px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: '4px', color: 'rgba(255,255,255,0.45)', fontSize: '0.62rem', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={post} disabled={!draft.trim()} style={{ padding: '2px 9px', background: draft.trim() ? 'rgba(99,102,241,0.28)' : 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.38)', borderRadius: '4px', color: draft.trim() ? '#a5b4fc' : 'rgba(165,180,252,0.4)', fontSize: '0.62rem', fontWeight: 700, cursor: draft.trim() ? 'pointer' : 'default' }}>Post</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', color: 'rgba(255,255,255,0.30)', fontSize: '0.62rem', fontWeight: 600, cursor: 'pointer' }}>
+          + note
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SkeletonCard() {
   return <div className="glass-card p-6 space-y-4"><div className="flex items-center gap-3"><div className="skeleton h-5 w-40 rounded" /><div className="skeleton h-5 w-24 rounded-full" /></div><div className="skeleton h-4 w-52 rounded" /><div className="skeleton h-2 w-full rounded-full" /></div>;
 }
@@ -826,6 +910,7 @@ export default function AdminPage() {
                                   const isOpen  = openDropdownKey === dropKey;
                                   return (
                                     <div key={step} title={info.description} style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '10px 12px' }}>
+                                      <StageNotes jobId={job.jobId} step={step} currentUser={currentUser} />
                                       <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>{info.stage}</span>
                                       <span style={{ color: '#a5b4fc', fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '8px', lineHeight: 1.3 }}>{info.label}</span>
                                       <div style={{ display: 'flex', gap: '4px' }}>
