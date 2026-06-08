@@ -60,8 +60,6 @@ export function GlassKit() {
       if (bound.has(card)) return;
       bound.add(card);
 
-      card.style.transformStyle = 'preserve-3d';
-
       card.addEventListener('mousemove', (evt) => {
         const rect = card.getBoundingClientRect();
         const dx   = (evt.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2);
