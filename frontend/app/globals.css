@@ -36,8 +36,8 @@
 /* ─── Base ───────────────────────────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
-  /* Fallback colour — shows in scrollbar gutter and if WebGL unavailable */
-  background-color: #0A0A0F;
+  /* Fallback colour — matches shader's dark navy base (vec3(.05,.1,.2)) */
+  background-color: #0d1a33;
 }
 
 body {
