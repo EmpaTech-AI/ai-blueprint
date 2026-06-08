@@ -243,11 +243,11 @@ export default function DashboardPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white mb-1">
+        <div className="mb-8" style={{ background: 'rgba(5,12,30,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '16px', padding: '22px 24px', boxShadow: '0 6px 32px rgba(0,0,0,0.36)' }}>
+          <h1 className="text-2xl font-bold text-white mb-1" style={{ textShadow: '0 1px 10px rgba(0,0,0,0.6)' }}>
             Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
             Track the progress of your AI Value Blueprint audit request.
           </p>
         </div>
@@ -405,8 +405,8 @@ export default function DashboardPage() {
         <div className="mt-8 text-center">
           <button
             onClick={() => { const t = getClientToken(); if (t) fetchJobs(t); }}
-            className="btn-ghost text-sm"
-            style={{ padding: '8px 18px' }}
+            className="inline-flex items-center gap-2 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px"
+            style={{ padding: '9px 22px', background: 'rgba(5,12,30,0.58)', border: '1px solid rgba(255,255,255,0.14)', borderTopColor: 'rgba(255,255,255,0.24)', color: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px) saturate(140%)', WebkitBackdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 4px 18px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.08)' }}
           >
             <RefreshIcon className="w-3.5 h-3.5" />
             Refresh status
@@ -418,10 +418,12 @@ export default function DashboardPage() {
 
           {/* Process phases */}
           <div className="mb-12">
-            <h2 className="text-lg font-bold text-white mb-1">How your Blueprint is created</h2>
-            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Over 14 days, our consultants meticulously work through your intake responses and documents to produce a Blueprint that reflects your specific business — not a template.
-            </p>
+            <div style={{ background: 'rgba(5,12,30,0.42)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '14px', padding: '18px 22px', marginBottom: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.30)' }}>
+              <h2 className="text-lg font-bold text-white mb-1" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>How your Blueprint is created</h2>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.62)', margin: 0 }}>
+                Over 14 days, our consultants meticulously work through your intake responses and documents to produce a Blueprint that reflects your specific business — not a template.
+              </p>
+            </div>
             <div className="space-y-3">
               {PROCESS_PHASES.map((s, i) => (
                 <div key={i} className="glass-card p-5">
@@ -440,21 +442,25 @@ export default function DashboardPage() {
 
           {/* FAQ accordion */}
           <div>
-            <h2 className="text-lg font-bold text-white mb-1">Frequently asked questions</h2>
-            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Everything you need to know about the AI Value Blueprint process.
-            </p>
+            <div style={{ background: 'rgba(5,12,30,0.42)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '14px', padding: '18px 22px', marginBottom: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.30)' }}>
+              <h2 className="text-lg font-bold text-white mb-1" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>Frequently asked questions</h2>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.62)', margin: 0 }}>
+                Everything you need to know about the AI Value Blueprint process.
+              </p>
+            </div>
             <div className="space-y-2">
               {FAQ_ITEMS.map((item, i) => (
                 <FaqItem key={i} q={item.q} a={item.a} />
               ))}
             </div>
-            <p className="text-xs mt-8 text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
-              Still have questions?{' '}
-              <a href="mailto:hello@aiassist.bg" style={{ color: 'rgba(165,180,252,0.6)', textDecoration: 'none' }}>
-                hello@aiassist.bg
-              </a>
-            </p>
+            <div className="text-center mt-8">
+              <p className="text-xs inline-block" style={{ color: 'rgba(255,255,255,0.62)', background: 'rgba(5,12,30,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: '24px', padding: '8px 20px', boxShadow: '0 2px 14px rgba(0,0,0,0.28)' }}>
+                Still have questions?{' '}
+                <a href="mailto:info@aiassist.bg" style={{ color: 'rgba(165,180,252,0.90)', textDecoration: 'none', fontWeight: 600 }}>
+                  info@aiassist.bg
+                </a>
+              </p>
+            </div>
           </div>
 
         </div>
