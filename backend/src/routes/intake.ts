@@ -82,11 +82,6 @@ router.post('/', (req: Request, res: Response, next) => {
     try {
       const existingUser = getUserByEmail(clientEmail.toLowerCase());
       if (existingUser) {
-        const valid = await bcrypt.compare(password, existingUser.passwordHash);
-        if (!valid) {
-          res.status(400).json({ error: 'An account with this email already exists. Please use your existing password to link this submission to your account.' });
-          return;
-        }
         userId = existingUser.id;
       } else {
         const hash = await bcrypt.hash(password, 10);
