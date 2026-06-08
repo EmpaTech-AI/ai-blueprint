@@ -642,13 +642,15 @@ export default function AdminPage() {
 
       {/* Tab bar */}
       <div className="max-w-6xl mx-auto px-4 pt-6">
-        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'rgba(5,12,30,0.68)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(20px) saturate(160%)', WebkitBackdropFilter: 'blur(20px) saturate(160%)' }}>
           {(['jobs', 'users'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={cn('flex items-center gap-2 font-semibold text-sm rounded-lg px-4 py-2 transition-all duration-150', activeTab === tab ? 'text-white' : '')}
-              style={activeTab === tab ? { background: 'rgba(99,102,241,0.25)', color: '#a5b4fc' } : { color: 'rgba(255,255,255,0.4)' }}
+              className={cn('flex items-center gap-2 font-semibold text-sm rounded-lg px-4 py-2 transition-all duration-150')}
+              style={activeTab === tab
+                ? { background: 'rgba(99,102,241,0.30)', border: '1px solid rgba(99,102,241,0.40)', borderTopColor: 'rgba(129,140,248,0.55)', color: '#c7d2fe', boxShadow: '0 2px 10px rgba(99,102,241,0.22), inset 0 1px 0 rgba(255,255,255,0.12)' }
+                : { color: 'rgba(255,255,255,0.45)', border: '1px solid transparent' }}
             >
               {tab === 'jobs' ? <><ClipboardListIcon className="w-4 h-4" /> Jobs</> : <><UsersIcon className="w-4 h-4" /> Users</>}
               {tab === 'jobs' && jobs.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>{jobs.length}</span>}
