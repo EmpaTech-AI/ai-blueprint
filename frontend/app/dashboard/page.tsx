@@ -35,6 +35,11 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; 
   ready:        { bg: 'rgba(34,197,94,0.08)',   border: 'rgba(34,197,94,0.22)',   text: '#86efac', dot: '#22c55e' },
 };
 
+const STEP_ORDER = ['received', 'in_progress', 'under_review', 'ready'];
+const STEP_LABELS: Record<string, string> = {
+  received: 'Received', in_progress: 'In Progress', under_review: 'Under Review', ready: 'Complete',
+};
+
 const PROCESS_PHASES = [
   {
     days: 'Days 1–3',
@@ -94,7 +99,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What happens after I receive my Blueprint?',
-    a: 'Your Blueprint is delivered as a downloadable DOCX file. We recommend sharing it with your leadership team as a starting point for strategic AI investment discussions. If you have questions about the findings or would like to explore implementation options, reach out to us at hello@aiassist.bg.',
+    a: 'Your Blueprint is delivered as a downloadable DOCX file. We recommend sharing it with your leadership team as a starting point for strategic AI investment discussions. If you have questions about the findings or would like to explore implementation options, reach out to us at info@aiassist.bg.',
   },
 ];
 
@@ -215,17 +220,20 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <SpinnerIcon className="w-8 h-8 animate-spin" style={{ color: '#818CF8' } as React.CSSProperties} />
+        <SpinnerIcon className="w-8 h-8 animate-spin" style={{ color: '#818CF8' }} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen">
-      {/* Navbar */}
+
+      {/* ── Navbar ─────────────────────────────────────────────────────────── */}
       <div className="sticky top-4 z-50 px-4">
-        <header className="glass-card max-w-3xl mx-auto px-6 py-3.5 flex items-center justify-between"
-          style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}>
+        <header
+          className="glass-card max-w-3xl mx-auto px-6 py-3.5 flex items-center justify-between"
+          style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)' }}
+        >
           <Link href="/" className="flex items-center gap-3 group" aria-label="AI Assist BG home">
             <Image src="/logo.png" alt="AI Assist BG" width={36} height={36} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-105" />
             <span className="font-bold text-white text-[15px] tracking-tight">AI Assist BG</span>
@@ -243,7 +251,12 @@ export default function DashboardPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 py-10">
-        <div className="mb-8" style={{ background: 'rgba(5,12,30,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '16px', padding: '22px 24px', boxShadow: '0 6px 32px rgba(0,0,0,0.36)' }}>
+
+        {/* ── Welcome halo ───────────────────────────────────────────────────── */}
+        <div
+          className="mb-8"
+          style={{ background: 'rgba(5,12,30,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '16px', padding: '22px 24px', boxShadow: '0 6px 32px rgba(0,0,0,0.36)' }}
+        >
           <h1 className="text-2xl font-bold text-white mb-1" style={{ textShadow: '0 1px 10px rgba(0,0,0,0.6)' }}>
             Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
@@ -267,44 +280,91 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── Job cards ──────────────────────────────────────────────────────── */}
         <div className="space-y-4">
           {jobs.map((job) => {
-            const colors = STATUS_COLORS[job.status] ?? STATUS_COLORS.pending;
+            const colors      = STATUS_COLORS[job.status] ?? STATUS_COLORS.received;
+            const currentStep = STEP_ORDER.indexOf(job.status);
             const isUploading = uploadingId === job.jobId;
+
             return (
               <div key={job.jobId} className="glass-card overflow-hidden">
-                {/* Status header */}
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: colors.dot, boxShadow: `0 0 4px ${colors.dot}` }} />
-                          {job.statusLabel}
-                        </span>
-                      </div>
 
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                {/* ── Progress stepper ─────────────────────────────────────── */}
+                <div className="px-6 pt-5 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-start">
+                    {STEP_ORDER.flatMap((step, i) => {
+                      const done   = i < currentStep;
+                      const active = i === currentStep;
+                      const items = [
+                        <div
+                          key={`node-${step}`}
+                          className="flex flex-col items-center flex-shrink-0"
+                          style={{ minWidth: '52px' }}
+                        >
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.72rem', fontWeight: 700,
+                            background: done   ? 'rgba(34,197,94,0.20)'   : active ? 'rgba(99,102,241,0.28)' : 'rgba(255,255,255,0.05)',
+                            border:     `2px solid ${done ? 'rgba(34,197,94,0.48)' : active ? 'rgba(99,102,241,0.60)' : 'rgba(255,255,255,0.10)'}`,
+                            color:      done   ? '#86efac'                 : active ? '#a5b4fc'               : 'rgba(255,255,255,0.20)',
+                            boxShadow:  active ? '0 0 16px rgba(99,102,241,0.32)' : 'none',
+                            transition: 'all 300ms ease',
+                          }}>
+                            {done ? '✓' : i + 1}
+                          </div>
+                          <span style={{
+                            fontSize: '0.58rem', fontWeight: 600, marginTop: 5, textAlign: 'center', lineHeight: 1.2,
+                            color: active ? '#a5b4fc' : done ? 'rgba(134,239,172,0.65)' : 'rgba(255,255,255,0.20)',
+                          }}>
+                            {STEP_LABELS[step]}
+                          </span>
+                        </div>,
+                      ];
+                      if (i < STEP_ORDER.length - 1) {
+                        items.push(
+                          <div key={`line-${i}`} style={{
+                            flex: 1, height: 2, marginTop: '15px', flexShrink: 1, borderRadius: 2,
+                            background: done ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.07)',
+                            transition: 'background 300ms ease',
+                          }} />,
+                        );
+                      }
+                      return items;
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Status body ──────────────────────────────────────────── */}
+                <div className="p-6">
+
+                  {/* Status headline row */}
+                  <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ background: colors.dot, boxShadow: `0 0 8px ${colors.dot}` }}
+                        />
+                        <span className="text-base font-bold" style={{ color: colors.text }}>{job.statusLabel}</span>
+                      </div>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.30)' }}>
                         Submitted {new Date(job.startedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         {job.completedAt && (
                           <> · Completed {new Date(job.completedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</>
                         )}
                       </p>
-
-                      <p className="text-xs mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                      <p className="text-xs mt-0.5 font-mono" style={{ color: 'rgba(255,255,255,0.15)' }}>
                         Ref: {job.jobId.slice(0, 8)}
                       </p>
                     </div>
 
-                    {/* Download button */}
                     {job.canDownload && (
                       <button
                         onClick={() => handleDownload(job.jobId)}
                         className="inline-flex items-center gap-1.5 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px flex-shrink-0"
-                        style={{ padding: '8px 18px', background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.35)', color: '#86efac' }}
+                        style={{ padding: '9px 20px', background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.38)', color: '#86efac', boxShadow: '0 0 16px rgba(34,197,94,0.18)' }}
                       >
                         <DownloadIcon className="w-3.5 h-3.5" />
                         Download Blueprint
@@ -312,30 +372,30 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Contextual message — driven by admin-set clientVisibleStatus */}
+                  {/* Contextual message */}
                   {job.status === 'received' && (
-                    <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)' }}>
+                    <div className="p-3.5 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)' }}>
                       <p style={{ color: 'rgba(165,180,252,0.85)' }}>
                         We have received your intake form and supporting documents. Our team has been assigned and will begin the review process shortly.
                       </p>
                     </div>
                   )}
                   {job.status === 'in_progress' && (
-                    <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
+                    <div className="p-3.5 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
                       <p style={{ color: 'rgba(147,197,253,0.85)' }}>
                         Our consultants are actively working through your form responses and documents. This phase typically takes several business days as we build a complete picture of your business.
                       </p>
                     </div>
                   )}
                   {job.status === 'under_review' && (
-                    <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                    <div className="p-3.5 rounded-xl text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
                       <p style={{ color: 'rgba(252,211,77,0.85)' }}>
                         Your AI Value Blueprint is nearing completion and is currently going through our internal quality review. We will notify you as soon as it is ready for you.
                       </p>
                     </div>
                   )}
                   {job.status === 'ready' && (
-                    <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                    <div className="p-3.5 rounded-xl text-xs" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.18)' }}>
                       <p className="flex items-center gap-1.5" style={{ color: 'rgba(134,239,172,0.9)' }}>
                         <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
                         Your Blueprint is complete and ready to download. Click the button above to receive your personalised AI Value Blueprint.
@@ -344,7 +404,7 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* Client re-upload section */}
+                {/* ── Re-upload section ─────────────────────────────────────── */}
                 {job.reuploadAllowed && (
                   <div className="px-6 pb-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="mt-5 p-4 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.22)' }}>
@@ -402,7 +462,8 @@ export default function DashboardPage() {
           })}
         </div>
 
-        <div className="mt-8 text-center">
+        {/* ── Refresh button ─────────────────────────────────────────────────── */}
+        <div className="mt-6 text-center">
           <button
             onClick={() => { const t = getClientToken(); if (t) fetchJobs(t); }}
             className="inline-flex items-center gap-2 font-semibold text-sm rounded-full transition-all duration-200 hover:-translate-y-px"
@@ -413,48 +474,79 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ── How it works + FAQ ──────────────────────────────────────── */}
-        <div style={{ marginTop: '56px', paddingTop: '48px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* ── How it works + FAQ ─────────────────────────────────────────────── */}
+        <div style={{ marginTop: '64px', paddingTop: '52px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
 
-          {/* Process phases */}
-          <div className="mb-12">
-            <div style={{ background: 'rgba(5,12,30,0.42)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '14px', padding: '18px 22px', marginBottom: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.30)' }}>
+          {/* Process timeline */}
+          <div className="mb-16">
+
+            {/* Section header halo */}
+            <div style={{ background: 'rgba(5,12,30,0.42)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '14px', padding: '18px 22px', marginBottom: '28px', boxShadow: '0 4px 24px rgba(0,0,0,0.30)' }}>
               <h2 className="text-lg font-bold text-white mb-1" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>How your Blueprint is created</h2>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.62)', margin: 0 }}>
                 Over 14 days, our consultants meticulously work through your intake responses and documents to produce a Blueprint that reflects your specific business — not a template.
               </p>
             </div>
-            <div className="space-y-3">
-              {PROCESS_PHASES.map((s, i) => (
-                <div key={i} className="glass-card p-5">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.22)', border: '1px solid rgba(99,102,241,0.38)', color: '#a5b4fc' }}>{i + 1}</div>
-                      <span className="text-sm font-bold text-white">{s.title}</span>
+
+            {/* Vertical timeline */}
+            <div className="relative" style={{ paddingLeft: '2.5rem' }}>
+              {/* Connecting line */}
+              <div
+                className="absolute"
+                style={{ left: '13px', top: '16px', bottom: '16px', width: '2px', background: 'linear-gradient(to bottom, rgba(99,102,241,0.40) 0%, rgba(99,102,241,0.06) 100%)', borderRadius: '2px' }}
+              />
+
+              <div className="space-y-4">
+                {PROCESS_PHASES.map((s, i) => (
+                  <div key={i} className="relative">
+                    {/* Node */}
+                    <div
+                      className="absolute flex items-center justify-center text-xs font-bold"
+                      style={{ left: '-2.5rem', top: '14px', width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(5,12,30,0.75)', border: '1px solid rgba(99,102,241,0.42)', color: '#a5b4fc', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', zIndex: 1, boxShadow: '0 0 12px rgba(99,102,241,0.18)' }}
+                    >
+                      {i + 1}
                     </div>
-                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'rgba(165,180,252,0.75)', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.28)', borderRadius: '20px', padding: '2px 10px' }}>{s.days}</span>
+
+                    {/* Card */}
+                    <div className="glass-card p-5">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <span className="text-sm font-bold text-white">{s.title}</span>
+                        <span
+                          className="text-xs font-semibold flex-shrink-0"
+                          style={{ color: 'rgba(165,180,252,0.75)', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.28)', borderRadius: '20px', padding: '2px 10px' }}
+                        >
+                          {s.days}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.60)' }}>{s.desc}</p>
+                    </div>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.60)', paddingLeft: '2.5rem' }}>{s.desc}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* FAQ accordion */}
+          {/* FAQ */}
           <div>
+            {/* Section header halo */}
             <div style={{ background: 'rgba(5,12,30,0.42)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: '14px', padding: '18px 22px', marginBottom: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.30)' }}>
               <h2 className="text-lg font-bold text-white mb-1" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>Frequently asked questions</h2>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.62)', margin: 0 }}>
                 Everything you need to know about the AI Value Blueprint process.
               </p>
             </div>
+
             <div className="space-y-2">
               {FAQ_ITEMS.map((item, i) => (
                 <FaqItem key={i} q={item.q} a={item.a} />
               ))}
             </div>
+
             <div className="text-center mt-8">
-              <p className="text-xs inline-block" style={{ color: 'rgba(255,255,255,0.62)', background: 'rgba(5,12,30,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: '24px', padding: '8px 20px', boxShadow: '0 2px 14px rgba(0,0,0,0.28)' }}>
+              <p
+                className="text-xs inline-block"
+                style={{ color: 'rgba(255,255,255,0.62)', background: 'rgba(5,12,30,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: '24px', padding: '8px 20px', boxShadow: '0 2px 14px rgba(0,0,0,0.28)' }}
+              >
                 Still have questions?{' '}
                 <a href="mailto:info@aiassist.bg" style={{ color: 'rgba(165,180,252,0.90)', textDecoration: 'none', fontWeight: 600 }}>
                   info@aiassist.bg
