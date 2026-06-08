@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import {
   loadJob, getAllJobs, approveJob, resetJobForRetry, deleteJob,
-  getTruncationMeta, toggleReupload,
+  getTruncationMeta, toggleReupload, setClientVisibleStatus,
 } from '../storage/jobStore';
 import { runPipeline } from '../pipeline/orchestrator';
 import { callClaude } from '../utils/claudeClient';
@@ -59,6 +59,7 @@ router.get('/', requireAdmin, (_req: Request, res: Response) => {
     approvedByName: j.approvedByName ?? null,
     reuploadAllowed: j.reuploadAllowed || false,
     clientUploadCount: (j.clientUploads || []).length,
+    clientVisibleStatus: j.clientVisibleStatus ?? null,
   })));
 });
 
@@ -87,6 +88,23 @@ router.post('/:jobId/approve', requireAdmin, (req: Request, res: Response) => {
   const adminName = (req as AuthRequest).user?.name;
   try {
     approveJob(req.params.jobId, adminName);
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Admin: set the status the client sees (completely separate from pipeline status)
+router.post('/:jobId/client-status', requireAdmin, (req: Request, res: Response) => {
+  const { status } = req.body as { status?: string };
+  const valid = ['received', 'in_progress', 'under_review', 'ready'] as const;
+  if (!status || !(valid as readonly string[]).includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${valid.join(', ')}` });
+    return;
+  }
+  try {
+    loadJob(req.params.jobId);
+    setClientVisibleStatus(req.params.jobId, status as typeof valid[number]);
     res.json({ success: true });
   } catch {
     res.status(404).json({ error: 'Job not found' });

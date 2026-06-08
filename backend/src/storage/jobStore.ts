@@ -38,6 +38,7 @@ try { db.exec('ALTER TABLE jobs ADD COLUMN userId TEXT'); }            catch { /
 try { db.exec('ALTER TABLE jobs ADD COLUMN approvedByName TEXT'); }   catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN reuploadAllowed INTEGER DEFAULT 0'); } catch { /* already exists */ }
 try { db.exec("ALTER TABLE jobs ADD COLUMN clientUploads TEXT DEFAULT '[]'"); }   catch { /* already exists */ }
+try { db.exec("ALTER TABLE jobs ADD COLUMN clientVisibleStatus TEXT"); }          catch { /* already exists */ }
 
 export function createJob(job: PipelineJob): void {
   const stmt = db.prepare(`
@@ -203,6 +204,10 @@ export function resetJobForRetry(jobId: string): void {
 
 export function setJobUserId(jobId: string, userId: string): void {
   db.prepare('UPDATE jobs SET userId = ? WHERE jobId = ?').run(userId, jobId);
+}
+
+export function setClientVisibleStatus(jobId: string, status: 'received' | 'in_progress' | 'under_review' | 'ready'): void {
+  db.prepare('UPDATE jobs SET clientVisibleStatus = ? WHERE jobId = ?').run(status, jobId);
 }
 
 export function toggleReupload(jobId: string, allowed: boolean): void {

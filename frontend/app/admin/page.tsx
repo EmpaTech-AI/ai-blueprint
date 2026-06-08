@@ -28,6 +28,7 @@ interface JobSummary {
   approvedByName?: string | null;
   reuploadAllowed: boolean;
   clientUploadCount: number;
+  clientVisibleStatus?: 'received' | 'in_progress' | 'under_review' | 'ready' | null;
 }
 
 interface UserSummary { id: string; email: string; role: 'admin' | 'client'; name: string; createdAt: string }
@@ -290,6 +291,7 @@ export default function AdminPage() {
   const [riskSummaries,    setRiskSummaries]    = useState<Record<string, string>>({});
   const [summaryLoadingId, setSummaryLoadingId] = useState<string | null>(null);
   const [reuploadTogglingId, setReuploadTogglingId] = useState<string | null>(null);
+  const [updatingClientStatus, setUpdatingClientStatus] = useState<string | null>(null);
   const [intakeDataMap,    setIntakeDataMap]    = useState<Record<string, IntakeData>>({});
   const [loadingIntakeId,  setLoadingIntakeId]  = useState<string | null>(null);
   // Users management
@@ -427,6 +429,20 @@ export default function AdminPage() {
       if (!res.ok) throw new Error('Failed to approve');
       await fetchJobs(authToken);
     } catch { setError('Failed to approve job'); } finally { setApprovingId(null); }
+  };
+
+  const handleClientStatusUpdate = async (jobId: string, status: string) => {
+    setUpdatingClientStatus(jobId);
+    // Optimistic update
+    setJobs(prev => prev.map(j => j.jobId === jobId ? { ...j, clientVisibleStatus: status as JobSummary['clientVisibleStatus'] } : j));
+    try {
+      const res = await fetch(`${apiUrl}/api/status/${jobId}/client-status`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+    } catch { setError('Failed to update client status'); await fetchJobs(authToken); } finally { setUpdatingClientStatus(null); }
   };
 
   const handleToggleReupload = async (jobId: string, currentlyAllowed: boolean) => {
@@ -668,6 +684,30 @@ export default function AdminPage() {
                   const isLoadingID = loadingIntakeId === job.jobId;
                   return (
                     <div key={job.jobId} className="glass-card overflow-hidden transition-all duration-200 hover:shadow-glass-hover">
+                      {/* Client-visible status control */}
+                      <div className="flex items-center gap-3 px-5 py-2.5" style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }}>Client sees:</span>
+                        <select
+                          value={job.clientVisibleStatus || ''}
+                          onChange={e => handleClientStatusUpdate(job.jobId, e.target.value)}
+                          disabled={updatingClientStatus === job.jobId}
+                          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', color: 'rgba(255,255,255,0.78)', fontSize: '0.78rem', padding: '4px 28px 4px 9px', cursor: 'pointer', outline: 'none', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                        >
+                          <option value="" disabled style={{ background: '#13131f', color: 'rgba(255,255,255,0.4)' }}>— not set —</option>
+                          <option value="received"     style={{ background: '#13131f' }}>Received</option>
+                          <option value="in_progress"  style={{ background: '#13131f' }}>In Progress</option>
+                          <option value="under_review" style={{ background: '#13131f' }}>Under Review</option>
+                          <option value="ready"        style={{ background: '#13131f' }}>Ready</option>
+                        </select>
+                        {updatingClientStatus === job.jobId && <SpinnerIcon className="w-3 h-3 animate-spin" style={{ color: '#a5b4fc' } as React.CSSProperties} />}
+                        {job.clientVisibleStatus && (
+                          <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                            · client sees &ldquo;{
+                              { received: 'We have received your submission', in_progress: 'Our consultants are working on your Blueprint', under_review: 'Your Blueprint is in final review', ready: 'Your Blueprint is ready to download' }[job.clientVisibleStatus] ?? job.clientVisibleStatus
+                            }&rdquo;
+                          </span>
+                        )}
+                      </div>
                       {/* Header */}
                       <div className="flex items-start justify-between flex-wrap gap-4 p-5 cursor-pointer select-none" onClick={() => toggleExpanded(job.jobId)}>
                         <div className="min-w-0">

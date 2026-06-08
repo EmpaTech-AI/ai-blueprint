@@ -29,20 +29,38 @@ interface AuthUser {
 }
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  pending:      { bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.22)',  text: '#a5b4fc', dot: '#818CF8' },
-  running:      { bg: 'rgba(59,130,246,0.08)',   border: 'rgba(59,130,246,0.22)',  text: '#93c5fd', dot: '#60a5fa' },
-  review_ready: { bg: 'rgba(245,158,11,0.08)',   border: 'rgba(245,158,11,0.22)',  text: '#fcd34d', dot: '#f59e0b' },
-  approved:     { bg: 'rgba(34,197,94,0.08)',    border: 'rgba(34,197,94,0.22)',   text: '#86efac', dot: '#22c55e' },
-  failed:       { bg: 'rgba(239,68,68,0.08)',    border: 'rgba(239,68,68,0.22)',   text: '#fca5a5', dot: '#ef4444' },
+  received:     { bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.22)',  text: '#a5b4fc', dot: '#818CF8' },
+  in_progress:  { bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.22)',  text: '#93c5fd', dot: '#60a5fa' },
+  under_review: { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.22)',  text: '#fcd34d', dot: '#f59e0b' },
+  ready:        { bg: 'rgba(34,197,94,0.08)',   border: 'rgba(34,197,94,0.22)',   text: '#86efac', dot: '#22c55e' },
 };
 
-const PIPELINE_STEPS = [
-  { stage: 'Pre-Processing', label: 'Document Parsing',    desc: 'All uploaded files are parsed and converted into a searchable text corpus.' },
-  { stage: 'Stage 1',        label: 'Intake Analysis',     desc: 'Your form responses and documents are compressed into a structured client dossier.' },
-  { stage: 'Stage 2',        label: 'Maturity Scoring',    desc: 'Your organisation is scored for AI readiness across 6 strategic dimensions on a 0–100 scale.' },
-  { stage: 'Stage 3',        label: 'Opportunity Mapping', desc: '5–7 prioritised AI use cases are identified and ranked by business value and feasibility.' },
-  { stage: 'Stage 4',        label: 'Action Roadmap',      desc: 'The opportunities are sequenced into a phased 12-month implementation plan.' },
-  { stage: 'Stage 5',        label: 'Document Assembly',   desc: 'All outputs are compiled into your boardroom-ready AI Value Blueprint document.' },
+const PROCESS_PHASES = [
+  {
+    days: 'Days 1–3',
+    title: 'Document & Data Review',
+    desc: 'Our consultants begin with a thorough review of your completed intake form and every document you have submitted. From financial summaries and org charts to sales data and strategic plans, each piece of information is carefully read and catalogued to build a complete, accurate picture of your business — ensuring nothing is overlooked before the deeper analysis begins.',
+  },
+  {
+    days: 'Days 3–6',
+    title: 'Business Context Analysis',
+    desc: 'We map your strategic context in depth — your current challenges, growth objectives, competitive environment, and the areas of your operations where friction is highest. This phase ensures the Blueprint reflects your specific business reality rather than generic industry assumptions, and forms the analytical foundation that everything else is built upon.',
+  },
+  {
+    days: 'Days 6–9',
+    title: 'AI Readiness Assessment',
+    desc: 'Your organisation is evaluated across six strategic dimensions: data maturity, technology infrastructure, process standardisation, talent and culture, leadership alignment, and strategic fit. Each dimension is scored and contextualised against your unique business profile, producing a personalised AI Readiness Profile that honestly reflects where you stand today and where the meaningful gaps lie.',
+  },
+  {
+    days: 'Days 9–11',
+    title: 'Opportunity Identification & Prioritisation',
+    desc: 'Using everything gathered in the preceding phases, our consultants identify and prioritise the AI opportunities most relevant to your business. Each opportunity is assessed for expected business value, implementation feasibility given your current readiness, and strategic alignment with your goals. The result is a curated shortlist of 5–7 high-impact, actionable use cases — specific to your company, not a recycled list.',
+  },
+  {
+    days: 'Days 11–14',
+    title: 'Blueprint Authoring & Quality Review',
+    desc: 'Our consultants author your personalised AI Value Blueprint — a boardroom-ready document that brings all findings together into a clear 12-month action plan, complete with investment estimates, risk considerations, and a prioritised implementation sequence. Before it reaches you, every recommendation goes through an internal quality review to ensure it is grounded in your data and genuinely actionable for your organisation.',
+  },
 ];
 
 const FAQ_ITEMS = [
@@ -294,41 +312,33 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  {/* What happens next — contextual message */}
-                  {job.status === 'pending' && (
+                  {/* Contextual message — driven by admin-set clientVisibleStatus */}
+                  {job.status === 'received' && (
                     <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)' }}>
                       <p style={{ color: 'rgba(165,180,252,0.85)' }}>
-                        Your intake has been received and is queued for processing. Our AI pipeline will start shortly.
+                        We have received your intake form and supporting documents. Our team has been assigned and will begin the review process shortly.
                       </p>
                     </div>
                   )}
-                  {job.status === 'running' && (
+                  {job.status === 'in_progress' && (
                     <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
                       <p style={{ color: 'rgba(147,197,253,0.85)' }}>
-                        Our AI pipeline is currently analysing your data across 5 strategic dimensions. This typically takes 15–30 minutes.
+                        Our consultants are actively working through your form responses and documents. This phase typically takes several business days as we build a complete picture of your business.
                       </p>
                     </div>
                   )}
-                  {job.status === 'review_ready' && (
+                  {job.status === 'under_review' && (
                     <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
                       <p style={{ color: 'rgba(252,211,77,0.85)' }}>
-                        Your AI Value Blueprint has been generated and is currently under review by our senior consultants. We will notify you once it&apos;s ready.
+                        Your AI Value Blueprint is nearing completion and is currently going through our internal quality review. We will notify you as soon as it is ready for you.
                       </p>
                     </div>
                   )}
-                  {job.status === 'approved' && (
+                  {job.status === 'ready' && (
                     <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.18)' }}>
                       <p className="flex items-center gap-1.5" style={{ color: 'rgba(134,239,172,0.9)' }}>
                         <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        Your Blueprint has been approved and is ready to download. Click the button above to get your personalised AI Value Blueprint.
-                      </p>
-                    </div>
-                  )}
-                  {job.status === 'failed' && (
-                    <div className="mt-4 p-3.5 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-                      <p className="flex items-center gap-1.5" style={{ color: 'rgba(252,165,165,0.9)' }}>
-                        <AlertTriangleIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        There was an issue processing your request. Our team has been notified and will reach out to you shortly.
+                        Your Blueprint is complete and ready to download. Click the button above to receive your personalised AI Value Blueprint.
                       </p>
                     </div>
                   )}
@@ -406,21 +416,23 @@ export default function DashboardPage() {
         {/* ── How it works + FAQ ──────────────────────────────────────── */}
         <div style={{ marginTop: '56px', paddingTop: '48px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
 
-          {/* Pipeline process */}
+          {/* Process phases */}
           <div className="mb-12">
             <h2 className="text-lg font-bold text-white mb-1">How your Blueprint is created</h2>
             <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              A 5-stage AI pipeline analyses your data. Our senior consultants then review and approve the output before it reaches you.
+              Over 14 days, our consultants meticulously work through your intake responses and documents to produce a Blueprint that reflects your specific business — not a template.
             </p>
-            <div className="space-y-2">
-              {PIPELINE_STEPS.map((s, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.30)', color: '#a5b4fc' }}>{i + 1}</div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(165,180,252,0.55)' }}>{s.stage}</p>
-                    <p className="text-sm font-semibold text-white leading-none mb-1">{s.label}</p>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.desc}</p>
+            <div className="space-y-3">
+              {PROCESS_PHASES.map((s, i) => (
+                <div key={i} className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.30)', color: '#a5b4fc' }}>{i + 1}</div>
+                      <span className="text-sm font-bold text-white">{s.title}</span>
+                    </div>
+                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'rgba(165,180,252,0.60)', background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.20)', borderRadius: '20px', padding: '2px 10px' }}>{s.days}</span>
                   </div>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)', paddingLeft: '2.5rem' }}>{s.desc}</p>
                 </div>
               ))}
             </div>

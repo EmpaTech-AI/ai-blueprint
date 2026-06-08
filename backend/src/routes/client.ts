@@ -35,29 +35,35 @@ const upload = multer({
   },
 });
 
-const CLIENT_STATUS_LABELS: Record<string, string> = {
-  pending:      'Your request has been received',
-  running:      'We are analysing your data',
-  review_ready: 'Under consultant review',
-  approved:     'Your Blueprint is ready',
-  failed:       'Processing issue — our team has been notified',
+const CLIENT_VISIBLE_STATUS_LABELS: Record<string, string> = {
+  received:     'We have received your submission',
+  in_progress:  'Our consultants are working on your Blueprint',
+  under_review: 'Your Blueprint is in final review',
+  ready:        'Your Blueprint is ready to download',
 };
 
+function clientJobView(j: import('../types/pipeline').PipelineJob) {
+  const cvs = j.clientVisibleStatus || 'received';
+  return {
+    jobId: j.jobId,
+    status: cvs,
+    statusLabel: CLIENT_VISIBLE_STATUS_LABELS[cvs] ?? 'In progress',
+    startedAt: j.startedAt,
+    completedAt: j.completedAt,
+    reuploadAllowed: j.reuploadAllowed || false,
+    clientUploadCount: (j.clientUploads || []).length,
+    canDownload: j.status === 'approved',
+  };
+}
+
+// Returns only the most recent job for this user — clients see a single card
 router.get('/jobs', requireClient, (req: Request, res: Response) => {
   const { user } = req as AuthRequest;
   if (!user) { res.status(401).json({ error: 'Unauthorized' }); return; }
   try {
-    const jobs = getJobsByUserId(user.userId);
-    res.json(jobs.map((j) => ({
-      jobId: j.jobId,
-      status: j.status,
-      statusLabel: CLIENT_STATUS_LABELS[j.status] ?? j.status,
-      startedAt: j.startedAt,
-      completedAt: j.completedAt,
-      reuploadAllowed: j.reuploadAllowed || false,
-      clientUploadCount: (j.clientUploads || []).length,
-      canDownload: j.status === 'approved',
-    })));
+    const jobs = getJobsByUserId(user.userId); // ordered startedAt DESC
+    if (jobs.length === 0) { res.json([]); return; }
+    res.json([clientJobView(jobs[0])]);
   } catch (err) {
     log('error', 'Client jobs fetch error', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ error: 'Internal server error' });
@@ -71,19 +77,13 @@ router.get('/jobs/:jobId', requireClient, (req: Request, res: Response) => {
     const job = loadJob(req.params.jobId);
     if (job.userId !== user.userId) { res.status(403).json({ error: 'Access denied' }); return; }
     res.json({
-      jobId: job.jobId,
-      status: job.status,
-      statusLabel: CLIENT_STATUS_LABELS[job.status] ?? job.status,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-      reuploadAllowed: job.reuploadAllowed || false,
+      ...clientJobView(job),
       clientUploads: (job.clientUploads || []).map((u) => ({
         id: u.id,
         filename: u.filename,
         size: u.size,
         uploadedAt: u.uploadedAt,
       })),
-      canDownload: job.status === 'approved',
     });
   } catch {
     res.status(404).json({ error: 'Job not found' });

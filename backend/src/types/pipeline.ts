@@ -116,6 +116,7 @@ export interface PipelineJob {
   approvedByName?: string;
   reuploadAllowed?: boolean;
   clientUploads?: ClientUpload[];
+  clientVisibleStatus?: 'received' | 'in_progress' | 'under_review' | 'ready';
 }
 
 export interface TruncationMeta {
