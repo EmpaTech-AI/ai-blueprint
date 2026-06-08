@@ -101,17 +101,17 @@ const FAQ_ITEMS = [
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '12px', overflow: 'hidden' }}>
+    <div className="glass-card" style={{ padding: 0 }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: '12px' }}
       >
-        <span style={{ color: 'rgba(255,255,255,0.80)', fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4 }}>{q}</span>
-        <span style={{ color: 'rgba(165,180,252,0.6)', fontSize: '0.75rem', flexShrink: 0, display: 'inline-block', transition: 'transform 200ms', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+        <span style={{ color: 'rgba(255,255,255,0.87)', fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4 }}>{q}</span>
+        <span style={{ color: 'rgba(165,180,252,0.7)', fontSize: '0.75rem', flexShrink: 0, display: 'inline-block', transition: 'transform 200ms', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
       </button>
       {open && (
-        <div style={{ padding: '0 18px 16px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.85rem', lineHeight: 1.65, paddingTop: '12px', margin: 0 }}>{a}</p>
+        <div style={{ padding: '0 18px 16px', borderTop: '1px solid rgba(255,255,255,0.09)' }}>
+          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.85rem', lineHeight: 1.65, paddingTop: '12px', margin: 0 }}>{a}</p>
         </div>
       )}
     </div>
@@ -424,15 +424,15 @@ export default function DashboardPage() {
             </p>
             <div className="space-y-3">
               {PROCESS_PHASES.map((s, i) => (
-                <div key={i} className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div key={i} className="glass-card p-5">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.30)', color: '#a5b4fc' }}>{i + 1}</div>
+                      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(99,102,241,0.22)', border: '1px solid rgba(99,102,241,0.38)', color: '#a5b4fc' }}>{i + 1}</div>
                       <span className="text-sm font-bold text-white">{s.title}</span>
                     </div>
-                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'rgba(165,180,252,0.60)', background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.20)', borderRadius: '20px', padding: '2px 10px' }}>{s.days}</span>
+                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'rgba(165,180,252,0.75)', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.28)', borderRadius: '20px', padding: '2px 10px' }}>{s.days}</span>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.50)', paddingLeft: '2.5rem' }}>{s.desc}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.60)', paddingLeft: '2.5rem' }}>{s.desc}</p>
                 </div>
               ))}
             </div>
