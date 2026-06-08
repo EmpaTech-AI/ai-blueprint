@@ -51,39 +51,6 @@ export function GlassKit() {
 
     document.addEventListener('click', onDocClick);
 
-    /* ── Parallax tilt ──────────────────────────────────────────────────── */
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const touch   = window.matchMedia('(hover: none)').matches;
-    const bound   = new WeakSet<HTMLElement>();
-
-    function bindTilt(card: HTMLElement) {
-      if (bound.has(card)) return;
-      bound.add(card);
-
-      card.addEventListener('mousemove', (evt) => {
-        const rect = card.getBoundingClientRect();
-        const dx   = (evt.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2);
-        const dy   = (evt.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2);
-        card.style.transform  = `translateY(-5px) scale(1.01) rotateX(${-dy * 3}deg) rotateY(${dx * 3}deg)`;
-        card.style.transition = 'none';
-      });
-
-      card.addEventListener('mouseleave', () => {
-        card.style.transform  = '';
-        card.style.transition = '';
-      });
-    }
-
-    function initTilt() {
-      if (reduced || touch) return;
-      document.querySelectorAll<HTMLElement>('.glass-card, .glass').forEach(bindTilt);
-    }
-
-    initTilt();
-
-    const observer = new MutationObserver(initTilt);
-    observer.observe(document.body, { childList: true, subtree: true });
-
     /* ── Theme toggle ───────────────────────────────────────────────────── */
     const themeBtn = document.getElementById('theme-toggle');
     const THEME_KEY = 'glass-theme';
@@ -100,7 +67,6 @@ export function GlassKit() {
 
     return () => {
       document.removeEventListener('click', onDocClick);
-      observer.disconnect();
       themeBtn?.removeEventListener('click', onThemeClick);
     };
   }, []);
