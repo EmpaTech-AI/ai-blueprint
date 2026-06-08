@@ -53,6 +53,63 @@ The seven defects identified during the TEST 1 vs TEST 2 audit:
 
 ---
 
+## [1.1.0] — June 2026
+
+v10 batch validation work: People-fix closure, selection-fork closure, justification-layer fix,
+profile-relative validation, regulatory regime neutralisation, contrasting-archetype fixture.
+
+### Added
+
+- **`harness/check_stability.py`** — new cross-run stability harness; checks hypothesis set,
+  pain point set, and JUSTIFICATION floor-set stability across multiple runs of the same
+  engagement; candidate pool emitted as observability metric; `--strict` promotes WARNs to FAIL
+- **`harness/validate_intake.py`** — manufacturing archetype defaults; generic fallback archetype;
+  size-band modifiers (micro/small/mid/large); richness-tier modifiers (sparse/standard/heavy);
+  `--size-band` and `--richness` CLI flags; mandatory header field detection with warnings
+- **`archetypes/INDEX.md`** — validator key column; manufacturing status updated to PENDING VALIDATION
+- **`fixtures/smoke_test_manufacturing_input.md`** — Veritas Pressings Ltd contrasting-archetype
+  smoke test fixture (manufacturing, mid, sparse, Non-EU); targets: People=Developing,
+  Governance=Early, no GDPR references, no false count failures
+- **`references/confidence_thresholds.md §1C`** — Obligatory-Tag Floor: five floor categories
+  (F-1 through F-5), floor marker protocol (`[floor]` suffix + `Floor category:` line),
+  floor vs discretionary distinction for cross-run stability
+- **`docs/validation_record.md`** — v10 validation batch summary and size × sector × richness
+  × regime cross-matrix roadmap
+
+### Changed
+
+- **`blueprint-maturity/SKILL.md`** — Evidenced-Absence rule codified with Meridian illustration;
+  regulatory-regime instruction added to Governance scoring
+- **`blueprint-intake/SKILL.md`** — mandatory header fields (Industry Archetype, Company Size Band,
+  Document Richness, Regulatory Regime) with operator-declared vs auto-detected resolution logic;
+  archetype routing table updated; JUSTIFICATION entry format updated with floor-marker rule
+- **`archetypes/recruitment.md`** — PP-RT-07 and H-RT-07 renamed to regime-neutral language
+  ("data protection compliance risk/foundation" replacing "GDPR risk/foundation")
+- **`references/algorithms/hypothesis_selection.md`** — worked example updated to match renamed H-RT-07
+- **`references/algorithms/pain_point_selection.md`** — worked example updated to match renamed PP-RT-07
+- **`references/algorithms/ordering.md`** — explanatory enabler example updated to regime-neutral language
+- **`harness/check_stability.py`** JUSTIFICATION check — now gates on floor-subset stability only;
+  discretionary band logged as WARN; pre-v10 dossiers without `[floor]` markers fall back to
+  full-set check with a warning
+
+### Validation Status
+
+- v10 Meridian batch (n=4): People fix confirmed end-to-end (trigger encountered and defeated);
+  hypothesis selected-set stable (H6 = "Candidate Database Revival" all 4 runs);
+  pain point selected-set stable; schema counts 8/7 held
+- Justification residual diagnosed: 8/7/7/7 pattern is downstream of ~20% LC-tagging CV;
+  floor-subset fix implemented; post-fix Meridian batch and Veritas run pending (business-side)
+- `check_stability.py` instrument ready; V10 batch run pending (dossier files on business side)
+
+### Known Gaps (carried to next iteration)
+
+- Post-fix Meridian batch run (AC4): requires executing the pipeline on Meridian materials
+- Veritas contrasting-archetype run (AC5): requires executing the pipeline on the Veritas fixture
+- Manufacturing Golden Output: archetype is PENDING VALIDATION; no validated Golden Output yet
+- Cross-matrix validation beyond Meridian/small/standard/EU: logged as roadmap in validation_record.md
+
+---
+
 ## Future Versions (Planned)
 
 ### [1.1.0] — Manufacturing archetype

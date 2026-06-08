@@ -100,7 +100,7 @@ The result: the same input set always produces the same 8 pain points in the sam
 | # | Title | Sev | Evid | Strat | Score |
 |---|---|---|---|---|---|
 | E-1 | RPO Product Does Not Exist | 4 | 4 | 5 | 25 |
-| E-2 | Ungoverned AI Use / Live GDPR Risk | 5 | 5 | 5 | 30 |
+| E-2 | Ungoverned AI Use / Live Data Protection Compliance Risk | 5 | 5 | 5 | 30 |
 | E-3 | No Real-Time Pipeline Visibility | 4 | 5 | 3 | 25 |
 | E-4 | Executive Search Practice Operates Semi-Independently | 3 | 3 | 4 | 19 |
 | E-5 | 35% Researcher Turnover | 3 | 3 | 2 | 17 |
@@ -130,7 +130,7 @@ Reordered per canonical algorithm:
 | 2 | Unusable Candidate Database | High | Cost/Time/Strategic |
 | 3 | CV Formatting Consuming Consultant Time | High | Cost/Time/Revenue |
 | 4 | Client Communication Inconsistency | High | Customer/Revenue |
-| 5 | Ungoverned AI Use Creating GDPR Risk | High | Compliance/Risk |
+| 5 | Ungoverned AI use creating data protection compliance risk | High | Compliance/Risk |
 | 6 | RPO Product Does Not Exist | High | Strategic/Revenue |
 | 7 | No Real-Time Pipeline Visibility | Medium-High | Risk/Time |
 | 8 | Interview & Offer Coordination Friction | Medium | Time/Customer |

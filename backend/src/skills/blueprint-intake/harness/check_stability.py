@@ -7,7 +7,16 @@ Checks that multiple dossier outputs from the same engagement (same inputs, diff
 runs) are content-identical on the sections that must be deterministic:
   - Selected hypothesis title set (Section D)
   - Selected pain point title set (Section C)
-  - JUSTIFICATION item title set
+  - JUSTIFICATION floor-item set (obligatory-tag floor only — see confidence_thresholds.md §1C)
+
+JUSTIFICATION check design (v10 floor-subset approach):
+  - Floor items: justification entries whose title ends with "[floor]" — these correspond to
+    obligatory-tag floor categories (F-1 through F-5) and MUST be set-stable across runs.
+  - Discretionary items: all other justification entries — these may vary run-to-run due to
+    the ~20% low-confidence tagging CV. Discretionary divergence is logged as an observability
+    metric (WARN) but does NOT gate.
+  - The retired FW-08 global count band is NOT re-introduced here. See §4 of the v10
+    Closure Feedback Report for the cardinal regression trap this avoids.
 
 Also emits a candidate-pool observability metric: logs the full scored hypothesis list
 (titles + scores) from each run so pool divergence is visible even when the top-7 set
@@ -16,11 +25,11 @@ is stable.
 Usage:
     python check_stability.py dossier_run1.md dossier_run2.md [dossier_run3.md ...]
     python check_stability.py dossier_run*.md --json
-    python check_stability.py dossier_run*.md --strict  # treat WARN as FAIL
+    python check_stability.py dossier_run*.md --strict  # treat all WARNs as FAIL
 
 Exit codes:
-    0 — PASS (all checked sets identical across all runs)
-    1 — FAIL (set divergence detected)
+    0 — PASS (all gated sets identical across all runs)
+    1 — FAIL (set divergence detected in a gated set)
     2 — ERROR (fewer than 2 files provided, or file unreadable)
 """
 
@@ -58,6 +67,22 @@ def extract_pain_point_titles(text: str) -> list:
 
 def extract_justification_titles(text: str) -> list:
     return [normalise_title(m.group(1)) for m in _JUSTIFICATION_ITEM_RE.finditer(text)]
+
+
+_FLOOR_SUFFIX = "[floor]"
+
+
+def split_justification_by_tier(titles: list) -> tuple:
+    """Split justification item titles into floor and discretionary sets.
+
+    Floor items have normalised titles ending with '[floor]' — the skill marks these
+    per confidence_thresholds.md §Obligatory-Tag Floor. Discretionary items are all others.
+
+    Returns (floor_titles, discretionary_titles).
+    """
+    floor = [t for t in titles if t.endswith(_FLOOR_SUFFIX)]
+    discretionary = [t for t in titles if not t.endswith(_FLOOR_SUFFIX)]
+    return floor, discretionary
 
 
 def extract_candidate_pool(text: str) -> list:
@@ -150,6 +175,11 @@ def check_pool_divergence(pools_by_run: list) -> list:
 def run_stability_check(paths: list, strict: bool = False) -> dict:
     """Run all stability checks across the provided dossier files.
 
+    JUSTIFICATION check uses floor-subset gating (v10):
+      - FAIL on floor-item set divergence (obligatory-tag floor categories F-1..F-5)
+      - WARN on discretionary-item divergence (expected ~20% LC-tagging CV)
+      - No global justification count band (retired FW-08 pattern avoided)
+
     Returns a result dict with keys: passed, fail_issues, warn_issues, per_run.
     """
     per_run = []
@@ -158,11 +188,15 @@ def run_stability_check(paths: list, strict: bool = False) -> dict:
             text = p.read_text(encoding="utf-8")
         except Exception as e:
             return {"error": f"Cannot read {p}: {e}"}
+        all_titles = extract_justification_titles(text)
+        floor_titles, discretionary_titles = split_justification_by_tier(all_titles)
         per_run.append({
             "file": str(p),
             "hypothesis_titles": extract_hypothesis_titles(text),
             "pain_point_titles": extract_pain_point_titles(text),
-            "justification_titles": extract_justification_titles(text),
+            "justification_titles": all_titles,
+            "justification_floor": floor_titles,
+            "justification_discretionary": discretionary_titles,
             "candidate_pool": extract_candidate_pool(text),
         })
 
@@ -176,9 +210,44 @@ def run_stability_check(paths: list, strict: bool = False) -> dict:
     fail_issues.extend(check_set_stability(
         [r["pain_point_titles"] for r in per_run], "Pain point selected set"
     ))
-    fail_issues.extend(check_set_stability(
-        [r["justification_titles"] for r in per_run], "JUSTIFICATION item set"
-    ))
+
+    # JUSTIFICATION: gate on floor subset only (v10 floor-subset approach)
+    floor_counts = [len(r["justification_floor"]) for r in per_run]
+    if all(c == 0 for c in floor_counts):
+        # No floor items found — either pre-v10 dossiers or floor markers missing
+        warn_issues.append(
+            "No [floor]-marked JUSTIFICATION items found in any run. "
+            "Floor-subset stability cannot be checked. "
+            "Ensure the skill is writing floor markers per confidence_thresholds.md §1C. "
+            "Falling back to full-set check for this batch."
+        )
+        # Fallback: full-set check (pre-v10 behaviour) so old dossiers still gate
+        fail_issues.extend(check_set_stability(
+            [r["justification_titles"] for r in per_run], "JUSTIFICATION full set (floor fallback)"
+        ))
+    else:
+        # Normal path: gate on floor subset, observe discretionary band
+        fail_issues.extend(check_set_stability(
+            [r["justification_floor"] for r in per_run], "JUSTIFICATION floor set"
+        ))
+        # Discretionary band: warn if it differs (expected, not a defect)
+        disc_sets = [frozenset(r["justification_discretionary"]) for r in per_run]
+        ref = disc_sets[0]
+        disc_divergences = []
+        for i, s in enumerate(disc_sets[1:], start=2):
+            if s != ref:
+                added = sorted(s - ref)
+                removed = sorted(ref - s)
+                lines = [f"Discretionary band differs between run 1 and run {i} (WARN — expected variance):"]
+                if removed:
+                    lines.append(f"  In run 1 but not run {i}: {removed}")
+                if added:
+                    lines.append(f"  In run {i} but not run 1: {added}")
+                disc_divergences.append("\n".join(lines))
+        if strict:
+            fail_issues.extend(disc_divergences)
+        else:
+            warn_issues.extend(disc_divergences)
 
     # WARN checks — pool divergence is observability, not a gate failure
     pool_issues = check_pool_divergence([r["candidate_pool"] for r in per_run])
@@ -233,7 +302,10 @@ def format_human_report(result: dict, paths: list) -> str:
         lines.append(f"  {Path(r['file']).name}:")
         lines.append(f"    Pain points selected:    {len(r['pain_point_titles'])}")
         lines.append(f"    Hypotheses selected:     {len(r['hypothesis_titles'])}")
-        lines.append(f"    Justification items:     {len(r['justification_titles'])}")
+        floor_count = len(r.get("justification_floor", []))
+        disc_count = len(r.get("justification_discretionary", []))
+        total_just = len(r["justification_titles"])
+        lines.append(f"    Justification items:     {total_just}  (floor: {floor_count}  discretionary: {disc_count})")
         pool_scored = sum(1 for e in r["candidate_pool"] if e["product"] is not None)
         lines.append(f"    Candidate pool (scored): {pool_scored}")
         if r["candidate_pool"]:
@@ -278,6 +350,8 @@ def main():
                 "pain_points": len(r["pain_point_titles"]),
                 "hypotheses": len(r["hypothesis_titles"]),
                 "justification_items": len(r["justification_titles"]),
+                "justification_floor": len(r.get("justification_floor", [])),
+                "justification_discretionary": len(r.get("justification_discretionary", [])),
                 "candidate_pool_scored": sum(1 for e in r["candidate_pool"] if e["product"] is not None),
             }
             for r in result["per_run"]

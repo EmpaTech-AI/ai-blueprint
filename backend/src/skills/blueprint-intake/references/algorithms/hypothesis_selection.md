@@ -177,7 +177,7 @@ Each hypothesis is classified by Feasibility × Phase Dependency:
 |---|---|
 | **Quick Win** | Feasibility ≥ 4 AND no dependency on incomplete foundational work AND addresses a top-4 pain point |
 | **Foundation Builder** | Feasibility ≥ 3 AND is itself a prerequisite for one or more other hypotheses, OR addresses a structural gap |
-| **Foundation Builder (enabler)** | Same as Foundation Builder, AND is a hard prerequisite for ≥1 other selected hypothesis (e.g., GDPR sprint before any model trained on personal data). Enabler status is declared explicitly so presentation ordering places it before non-enabler Foundation Builders. |
+| **Foundation Builder (enabler)** | Same as Foundation Builder, AND is a hard prerequisite for ≥1 other selected hypothesis (e.g., a data protection compliance sprint before any model trained on personal data). Enabler status is declared explicitly so presentation ordering places it before non-enabler Foundation Builders. |
 | **Big Bet** | Impact ≥ 4 AND requires both Foundation Builders AND multiple Quick Wins to be live before execution |
 
 A hypothesis cannot be both Quick Win and Big Bet. If criteria conflict, the more conservative classification wins (Foundation Builder > Quick Win, Big Bet > Foundation Builder).
@@ -196,7 +196,7 @@ A hypothesis cannot be both Quick Win and Big Bet. If criteria conflict, the mor
 | H-4 | Candidate Database Revival + Governance | 4 | 3 | 4 | 48 | Foundation Builder |
 | H-5 | Interview Scheduling Standardisation (Calendly) | 3 | 5 | 4 | 60 | Quick Win |
 | H-6 | Pipeline Visibility Dashboard | 4 | 3 | 3 | 36 | Foundation Builder |
-| H-7 | GDPR Compliance Foundation (Sprint 0) | 3 | 4 | 5 | 60 | Foundation Builder (enabler) |
+| H-7 | Data Protection Compliance Foundation (Sprint 0) | 3 | 4 | 5 | 60 | Foundation Builder (enabler) |
 | H-8 | RPO Product Infrastructure | 5 | 2 | 5 | 50 | Big Bet |
 | H-9 | Executive Search Workflow Intelligence | 4 | 2 | 4 | 32 | Big Bet |
 | H-10 | BD Proposal Automation | 3 | 3 | 2 | 18 | (eliminated) |
@@ -232,7 +232,7 @@ H-9 (score 32) and H-6 (score 36) are both excluded. H-9 is the only candidate c
 | 1 | H-2 | AI-Powered CV Formatting | Quick Win |
 | 2 | H-3 | ATS-Driven Client Status Updates | Quick Win (post-cutover) |
 | 3 | H-5 | Interview Scheduling Standardisation | Quick Win |
-| 4 | H-7 | GDPR Compliance Foundation | Foundation Builder (enabler) |
+| 4 | H-7 | Data Protection Compliance Foundation | Foundation Builder (enabler) |
 | 5 | H-1 | AI-Assisted Specialist Sourcing | Foundation Builder |
 | 6 | H-4 | Candidate Database Revival + Governance | Foundation Builder |
 | 7 | H-8 | RPO Product Infrastructure | Big Bet |

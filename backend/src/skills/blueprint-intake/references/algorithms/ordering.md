@@ -59,7 +59,7 @@ Per `hypothesis_selection.md` Stage 5. Full ordering:
    - **Tier 2:** Plain `Foundation Builder` entries next — sorted by Strategic Value Score DESC among themselves
 3. Big Bets — sorted by Strategic Value Score DESC within this group
 
-**Enabler definition:** A hypothesis is an enabler if its Classification field reads `Foundation Builder (enabler)`. It must be a prerequisite for one or more other hypotheses (e.g., a GDPR compliance sprint required before any AI model trained on personal data can proceed). Enabler status reflects execution dependency, not score superiority.
+**Enabler definition:** A hypothesis is an enabler if its Classification field reads `Foundation Builder (enabler)`. It must be a prerequisite for one or more other hypotheses (e.g., a data protection compliance sprint required before any AI model trained on personal data can proceed). Enabler status reflects execution dependency, not score superiority.
 
 **Within-cluster and within-tier tie-breaking — applies to ALL three clusters. Apply in order when two hypotheses in the same cluster or tier have equal scores:**
 1. Higher Impact component wins

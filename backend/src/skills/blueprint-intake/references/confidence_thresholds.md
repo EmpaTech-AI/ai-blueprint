@@ -92,6 +92,58 @@ The `lc_raw_count` metric is still tracked for observability but no longer gates
 
 **Cross-run stability (1B):** A separate cross-run check — `check_justification_item_stability()` in `test_cross_run_regression.py` — enforces that the **set** of claims tagged low-confidence is identical across runs, not merely the count. This is the grounding analog of the QA-02 hypothesis/pain-point selection-identity check. A CV within the old 8% tolerance is not sufficient if different claims are being tagged on each run.
 
+## Obligatory-Tag Floor (1C — v10)
+
+**Purpose:** Separates claims that MUST always carry a low-confidence tag (deterministic floor)
+from claims where the model's tagging judgement may vary run-to-run (discretionary band). The
+cross-run stability check gates on floor-item stability only; discretionary variance is logged
+as an observability metric and does not gate.
+
+### Floor Category Definitions
+
+The following claim types MUST always carry a low-confidence tag and MUST always produce a
+corresponding JUSTIFICATION appendix entry. These are non-negotiable regardless of archetype,
+sector, size band, or regulatory regime:
+
+| ID | Floor Category | Required Tag | Trigger condition |
+|---|---|---|---|
+| F-1 | Quantified estimate without a cited source | `[Assumption]` | Any numerical figure not directly stated in a PDF or intake form |
+| F-2 | Cross-document calculation | `[Inferred]` | Any value derived by arithmetic combining ≥2 source values (e.g. revenue ÷ FTE count) |
+| F-3 | Capability claim from a single form field | `[Assumption]` | Any organisational maturity or capability statement supported only by one form response with no document corroboration |
+| F-4 | Causal assertion | `[Inferred]` | Any statement attributing one observed condition as the direct cause of another (e.g. "X is the primary reason for Y") |
+| F-5 | Industry benchmark or external comparison | `[Assumption]` | Any figure representing an industry norm, external benchmark, or comparative metric with no client-specific source |
+
+### Floor Marker Protocol
+
+When writing a JUSTIFICATION appendix entry for a floor-category claim, append `[floor]` to the
+end of the item title, inside the bold formatting:
+
+```markdown
+**Item 3 — Revenue per delivery FTE estimate [floor]**
+Claim: "Revenue per delivery FTE is estimated at £103,000"
+Class: Inferred
+Floor category: F-2 (cross-document calculation — revenue ÷ FTE count)
+Why not higher: No single document states this figure; derived by calculation
+What resolves: Confirm total revenue and FTE count are from the same reporting period
+Confidence: High
+```
+
+- The `[floor]` marker is machine-read by `check_stability.py` to separate gated from observed items.
+- A `Floor category:` line is required for floor items (use the ID and short description as shown).
+- Items without `[floor]` are **discretionary** — the model tagged a borderline claim at its
+  judgement. Discretionary items may vary across runs; the stability check logs but does not gate.
+
+### What the floor does NOT cover
+
+- Whether to tag a borderline claim as `[Inferred]` vs leave it as connective tissue
+- Stylistic variation in how derivation chains are worded
+- Whether to include a data-quality caveat in a given section
+
+These are discretionary. The `lc_raw_count` metric tracks the full discretionary band for
+observability; `check_stability.py` enforces only floor-subset identity.
+
+---
+
 ## Forbidden Patterns
 
 The following are NOT acceptable tag uses:

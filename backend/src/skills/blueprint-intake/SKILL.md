@@ -290,13 +290,30 @@ JUSTIFICATION block heading (H2 — do NOT use bold or triple-hyphens):
 
 JUSTIFICATION entry format:
 ```markdown
-Item 1 — Revenue per delivery FTE estimate
+**Item 1 — Revenue per delivery FTE estimate [floor]**
 Claim: "Revenue per delivery FTE is estimated at £103,000"
 Class: Inferred
+Floor category: F-2 (cross-document calculation — revenue ÷ FTE count)
 Why not higher: No single document states this figure; derived by calculation
 What resolves: Confirm total revenue and FTE count are both from the same reporting period
 Confidence: High
+
+**Item 2 — Analyst severity framing**
+Claim: "This bottleneck is the primary driver of the 28-day TTF gap"
+Class: Inferred
+Why not higher: Causal chain inferred from SOP and pipeline data — not stated directly
+What resolves: Confirm with Operations Director in discovery session
+Confidence: Medium
 ```
+
+**Floor-marker rule (v10):** For items that fall into one of the five obligatory-tag floor
+categories (F-1 through F-5 in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
+append `[floor]` to the end of the item title and add a `Floor category:` line. Item 1 above
+(a cross-document calculation) is a floor item. Item 2 (an analyst causal framing) may or may
+not be floor depending on whether it is a direct cross-document inference with a clear derivation
+chain — if borderline, omit `[floor]` and leave it as discretionary. The `[floor]` marker
+is machine-read by `check_stability.py`; discretionary items may vary across runs without failing
+the stability gate.
 3. End with the Final marker:
 
 ```markdown
@@ -487,7 +504,12 @@ This is not an apology for the algorithm's decision — it is a demonstration of
 ### [JUSTIFICATION] Block
 
 Mandatory. One numbered entry per [Inferred] and [Assumption] tag used in the body. Each entry:
-Claim (verbatim) / Class / Why not higher / What resolves / Confidence.
+Claim (verbatim) / Class / Floor category (if applicable) / Why not higher / What resolves / Confidence.
+
+For floor-category claims (F-1 through F-5, defined in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
+append `[floor]` to the item title and include a `Floor category:` line. This enables
+`check_stability.py` to gate on floor-subset stability without penalising the expected
+~20% run-to-run variance in discretionary tagging.
 
 ## Confidence Tagging — Critical Rules
 

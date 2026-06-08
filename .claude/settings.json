@@ -76,7 +76,10 @@
       "Read(//c/Users/Bozhidar/.claude/**)",
       "Bash(~/.claude/skills/gstack/bin/gstack-relink --help)",
       "Bash(~/.claude/skills/gstack/bin/gstack-relink)",
-      "Read(//c/Users/Bozhidar/.gstack/projects/empathysales-AI-Blueprint/**)"
+      "Read(//c/Users/Bozhidar/.gstack/projects/empathysales-AI-Blueprint/**)",
+      "Bash(git show *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(python -c ' *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"
