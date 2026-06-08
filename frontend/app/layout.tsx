@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { GlassKit } from '@/components/ui/GlassKit';
+import { ShaderBackground } from '@/components/ui/ShaderBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -18,7 +20,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen">
-        {children}
+        {/* Fixed WebGL background — z-index 0, behind all page content */}
+        <ShaderBackground />
+
+        {/* Page content — z-index 1, floats above the shader canvas */}
+        <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+          {children}
+        </div>
+
+        {/* Liquid Glass interactive effects + toast region */}
+        <GlassKit />
       </body>
     </html>
   );

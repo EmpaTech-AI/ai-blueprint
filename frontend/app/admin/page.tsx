@@ -38,6 +38,8 @@ interface IntakeData {
   clientUploads: Array<{ id: string; filename: string; size: number; mimeType: string; uploadedAt: string }>;
 }
 
+interface StageNote { id: string; text: string; authorName: string; authorEmail: string; createdAt: string; }
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const STEP_INFO: Record<string, { stage: string; label: string; description: string }> = {

@@ -79,7 +79,9 @@
       "Read(//c/Users/Bozhidar/.gstack/projects/empathysales-AI-Blueprint/**)",
       "Bash(git show *)",
       "Bash(grep -v \"^$\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" -Directory)",
+      "Bash(Select-Object Name)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

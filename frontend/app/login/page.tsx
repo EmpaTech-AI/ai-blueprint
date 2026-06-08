@@ -88,8 +88,8 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <div className="p-px rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(6,182,212,0.3) 100%)' }}>
-          <div className="rounded-2xl p-8" style={{ background: 'rgba(13,13,25,0.95)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+        <div className="gradient-border-wrap">
+          <div className="glass-card p-8">
             <div className="flex items-center gap-3 mb-7">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
                 <ShieldIcon className="w-5 h-5" />
