@@ -101,14 +101,33 @@ actively resisted with no offsetting capability signal" — this is evidenced ab
 downgrade applies. When a dimension carries present, characterised positive signals and the
 only negative is an unrecorded item, hold at the higher level and note the gap.
 
-*Meridian Talent Partners illustration (not the rule — the rule is dimension-general):*
+*People illustration (Meridian Talent Partners):*
 The T3 run read "does not record any leadership commitment to AI" as evidenced absence and
 dropped People to Early. The correct classification under this rule: the missing commitment
 record is absence of record, not evidence that leadership commitment is absent — Meridian's
 named internal AI champion and documented organic tool adoption are present positive signals.
 People holds at Developing; the missing commitment record is logged as a Key Constraint and
-Open Question. The same principle protects any dimension in any sector from the same
-conflation.
+Open Question.
+
+*Processes illustration (Meridian Talent Partners — v12):*
+One run read "SOPs exist but are not consistently followed by senior staff" as a downgrade
+signal and scored Processes as Early. The correct classification: a documented SOP that is not
+universally adopted is a Developing process landscape — the SOP's existence is a positive
+capability signal; non-execution by senior staff is a logged constraint (Key Constraint or
+Open Question), not evidenced absence of process capability. Processes holds at Developing;
+the execution gap is surfaced as a constraint, not a scoring input.
+
+**Applies to all six dimensions.** The rule is not People-specific or sector-specific. For
+each dimension, use this test:
+
+| Dimension | Presence signals that hold at Developing (do not downgrade from these alone) | Evidenced absence (warranted downgrade) |
+|---|---|---|
+| Strategy | Named AI goal, board conversation, or strategic plan mention | No AI mention in any document AND form explicitly denies strategic interest |
+| Data | Named data source, structured reporting, or data lake referenced | Client confirms zero structured data; no named sources across all inputs |
+| Technology | Named tools in use, licences, or technology investment documented | Zero technology spend confirmed; no tools named across all inputs |
+| People | Named AI champion, organic tool adoption, or awareness training | Documented resistance with zero capability; explicit refusal on record |
+| Processes | Documented SOP (even partial or unadopted), standardization effort, or measurement culture present | Client confirms no SOPs exist; active rejection of process discipline on record |
+| Governance | Named data policy, compliance awareness, or data-handling procedure present | Explicitly ungoverned on record; client confirms no policies and no intent |
 
 ## Operating Procedure
 

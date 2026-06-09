@@ -92,6 +92,87 @@ on model prose titles, which are legitimately allowed to vary.
 
 ---
 
+## v12 Validation Batch Summary
+
+### Engagement: Meridian Talent Partners (primary archetype — v12 stability analysis)
+
+| Axis | Value |
+|---|---|
+| Archetype | Recruitment & Talent Solutions |
+| Size band | Small (68 employees) |
+| Runs | 4 (v12_t1, v12_t2, v12_t3, v12_t4) |
+
+#### Results
+
+| Check | Result | Notes |
+|---|---|---|
+| Selected-hypothesis-set stability | **CLOSED** | v11 canonical-ID fix holds. Selected set identical across all 4 runs. |
+| Schema counts | **HELD** | 7 hypotheses / 8 pain points in all 4 v12 runs |
+| Justification floor stability (B2) | **RED — instrument defect** | `Floor category:` line itself proved unreliable: same claim received F-3 in one run and F-4 in another; a standalone F-2 calculation appeared in 1 of 4 runs only. Both patterns survive B2 classification. |
+| Processes maturity reproducibility | **RED — regression** | v12_t1: Processes = Early; v12_t2/t3/t4: Processes = Developing. Correct level is Developing — documented SOP that is not universally adopted is a Developing signal; non-execution is a Key Constraint. |
+
+#### v12 Instrument Defects Diagnosed
+
+**Gap B2 → B3 (floor classification):** The `Floor category:` line emitted by the model carries
+the same CV as the `[floor]` title suffix it replaced. Two distinct failure modes observed:
+
+- **Semantic variance (source a):** The Calendly scheduling claim was classified F-3 in three runs
+  and F-4 in one run. These are semantically adjacent categories — the model's labelling is not
+  mechanically grounded.
+- **Standalone-claim volatility (source c):** A Vincere integration calculation appeared as a
+  JUSTIFICATION entry with F-2 in one run only. No Element: anchor linked it to a required
+  output element — it was a volunteered standalone claim, present only when the model chose to
+  include it. B2's `Floor category:` gate made this entry volatile; B3's Element: anchor
+  closes the source by classifying unanchored claims as discretionary by construction.
+
+**Processes regression:** `blueprint-maturity/SKILL.md` Evidenced-Absence rule covered People
+by name but did not provide explicit Processes guidance. The v12_t1 run conflated an unrecorded
+execution gap with evidenced absence of process capability. Fix: extend the rule to all 6
+dimensions with explicit per-dimension guidance.
+
+---
+
+## v12 Instrument Rebuild (development — June 2026)
+
+### Gap B3 fix — AC2 (structural floor classification)
+
+**Problem:** `split_justification_by_tier()` keyed floor membership on the model-emitted
+`Floor category: F-N` line. The v12 batch showed this line has the same CV as the retired
+`[floor]` title suffix — semantically adjacent categories (F-3 vs F-4) varied across runs,
+and standalone calculations without required-element anchors appeared in only 1 of 4 runs.
+
+**Fix implemented (B3 — structural detection):**
+- `check_stability.py` updated:
+  - New regex constants: `_ELEMENT_RE`, `_CLASS_ASSUMPTION_RE`, `_CLASS_INFERRED_RE`,
+    `_F2_ARITHMETIC_RE`.
+  - `split_justification_by_tier()` rewritten: floor eligibility requires BOTH (1) `Element:
+    H-RT-XX` or `Element: PP-RT-XX` anchor in body, AND (2) structural F-1 or F-2 detection.
+    - F-1: `Class: Assumption` + numeric digit in claim text.
+    - F-2: `Class: Inferred` + arithmetic/calculation signature in body.
+  - Entries with `Element:` but no F-1/F-2 structure → semantic F-3/F-4/F-5 range → WARN only.
+  - Entries without `Element:` → standalone/volunteered → discretionary (no WARN on variance).
+  - `Floor category:` line and `[floor]` title tag demoted to advisory observability.
+- `SKILL.md` updated:
+  - JUSTIFICATION entry format: `Element: H-RT-XX` field added after `Class:`.
+  - Floor-marker rule rewritten from B2 to B3: `Element:` + structural signature is the gate;
+    `Floor category:` and `[floor]` are advisory.
+  - `[JUSTIFICATION] Block` description updated to list `Element:` field.
+
+### Processes fix — Evidenced-Absence extension
+
+**Problem:** `blueprint-maturity/SKILL.md` Evidenced-Absence rule named People in its
+illustration but did not explicitly cover Processes or the other four dimensions.
+The v12_t1 run downgraded Processes to Early on an unrecorded execution gap.
+
+**Fix implemented:**
+- `blueprint-maturity/SKILL.md` updated:
+  - Added Processes illustration (parallel to People): documented SOP holds Developing;
+    non-execution is a logged constraint, not evidenced absence.
+  - Added explicit per-dimension table: what "presence signals" hold at Developing vs what
+    constitutes evidenced absence warranting a downgrade, for all 6 dimensions.
+
+---
+
 ## v11 Instrument Rebuild (development — June 2026)
 
 Two instrument defects identified in the v11 batch were fixed on the development side before
@@ -226,7 +307,10 @@ These items must not degrade across any new run, regardless of archetype or prof
 | No global count band re-introduced for justification | Inspect `check_stability.py` — must not gate on justification count range |
 | Selection cutoff (0/12) unchanged | Any run; confirm cutoff behaviour in hypothesis selection |
 | Genuine fork still FAILs after A2/A1 alias fix | Run synthetic genuine-fork fixture; confirm FAIL |
-| Floor-set gate keys on Floor category: line, not [floor] title tag | Inspect `check_stability.py split_justification_by_tier` — must use _FLOOR_CATEGORY_RE |
+| Floor-set gate uses structural F-1/F-2 detection + Element: anchor (B3) | Inspect `check_stability.py split_justification_by_tier` — must use _ELEMENT_RE + _CLASS_ASSUMPTION_RE/_CLASS_INFERRED_RE/_F2_ARITHMETIC_RE; Floor category: line is advisory only |
+| Standalone JUSTIFICATION claims (no Element:) are discretionary — no gate failure on variance | Run v12 batch; confirm floor set stable while standalone calc varies run-to-run without FAIL |
+| Processes holds at Developing when documented SOP present (even if not universally adopted) | Re-run Meridian; confirm Processes = Developing; non-execution logged as Key Constraint |
+| Evidenced-Absence rule covers all 6 dimensions | Inspect `blueprint-maturity/SKILL.md` — must have per-dimension table and Processes illustration |
 
 ---
 

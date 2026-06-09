@@ -19,15 +19,21 @@ SELECTED-SET CHECK design (v11 canonical-ID approach — AC1):
   - A genuine selection fork (different hypothesis chosen) still FAILs — distinct items
     must carry distinct IDs, so the alias layer can never silently merge a real fork.
 
-JUSTIFICATION check design (v11 harness-derived floor — AC2 / B2):
-  - Floor membership is derived from the structural 'Floor category: F-N' line in each
-    JUSTIFICATION entry. The model-emitted [floor] title marker is advisory only.
-  - A WARN is emitted when the model's tag disagrees with the harness classification
-    (under-tagged or over-tagged) — this is an observability signal for skill tuning,
-    not a gate failure.
-  - Floor set comparison keys on normalised claim text (the 'Claim:' line), which is a
-    verbatim quote more stable than item titles.
-  - Discretionary items (no Floor category: line) may vary run-to-run. Variance is WARN.
+JUSTIFICATION check design (v12 structural floor — AC2 / B3):
+  - v12 batch proved that the model's 'Floor category: F-N' line is ALSO unreliable: the
+    same claim received different F-categories across runs (e.g. Calendly F-3 vs F-4), and
+    a standalone F-2 calculation appeared in one run only.  Both patterns persist in B2.
+  - v12 fix-form (B3): gate on STRUCTURAL detection of F-1/F-2, not on any model-emitted
+    label. F-3/F-4/F-5 are semantic and cannot be structurally gated; they become advisory.
+  - Required-element anchor (Element: field): a JUSTIFICATION entry is only floor-eligible
+    if its body declares 'Element: H-RT-XX' or 'Element: PP-RT-XX'. Standalone volunteered
+    claims (no Element:) are discretionary by construction — this closes source (c) where
+    a standalone F-2 calculation surfaced in only 1 of 4 runs.
+  - F-1 structural detection: Class: Assumption AND claim text contains a numeric figure.
+  - F-2 structural detection: Class: Inferred AND arithmetic/calculation signature in body.
+  - Floor set comparison keys on normalised Claim: text (verbatim quote).
+  - Discretionary items may vary run-to-run. Variance is WARN.
+  - [floor] title marker and Floor category: line are advisory observability only.
   - The retired FW-08 global count band is NOT re-introduced. See §4 of the v10 Closure
     Feedback Report for the cardinal regression trap this avoids.
 
@@ -214,10 +220,25 @@ _SCORE_COMMENT_RE = re.compile(
 # pain point canonical ID comment
 _PP_ID_COMMENT_RE = re.compile(r"<!--\s*pp-id:\s*([\w-]+)\s*-->", re.MULTILINE)
 
-# floor classification (B2): structural Floor category: line
+# floor classification (B3 advisory — kept for WARN observability only)
 _FLOOR_CATEGORY_RE = re.compile(r"^\s*Floor category:\s*F-\d+", re.MULTILINE)
+_FLOOR_CATEGORY_SEMANTIC_RE = re.compile(r"^\s*Floor category:\s*F-[345]", re.MULTILINE)
 # claim text for stable cross-run identity of floor items
 _CLAIM_RE = re.compile(r'^Claim:\s*["\']?(.+?)["\']?\s*$', re.MULTILINE)
+
+# B3: structural F-1/F-2 detection (v12)
+_ELEMENT_RE = re.compile(r"^\s*Element:\s*([A-Z]+-[A-Z]+-\d+)", re.MULTILINE)
+_CLASS_ASSUMPTION_RE = re.compile(r"^\s*Class:\s*Assumption", re.MULTILINE)
+_CLASS_INFERRED_RE = re.compile(r"^\s*Class:\s*Inferred", re.MULTILINE)
+# F-2 arithmetic signature: division/multiplication operators, "calculation", "per X FTE",
+# "combining N source", or explicit arithmetic notation combining two named values
+_F2_ARITHMETIC_RE = re.compile(
+    r"(÷|×|divided by|multiplied by|\bcalculation\b|\bcalculated\b"
+    r"|arithmetic|combining\s+\d*\s*source"
+    r"|per\s+\w+\s+FTE|per delivery FTE|revenue\s+per\s"
+    r"|\d[\d,.]*\s*÷\s*\d|\d[\d,.]*\s*×\s*\d)",
+    re.IGNORECASE,
+)
 
 
 def normalise_title(title: str) -> str:
@@ -310,46 +331,88 @@ def extract_justification_entries(text: str) -> list:
 
 
 def split_justification_by_tier(entries: list) -> tuple:
-    """B2: Classify floor membership from claim structure, not the model's [floor] tag.
+    """B3: Classify floor via structural detection, not model-emitted labels.
 
-    A JUSTIFICATION entry is floor if its body contains a 'Floor category: F-N' line.
-    The model's [floor] title suffix is advisory — mismatches generate WARN messages
-    for skill-tuning observability.
+    An entry is floor-eligible only if BOTH conditions hold:
+      1. Its body contains an 'Element: H-RT-XX' or 'Element: PP-RT-XX' anchor
+         (scopes the claim to a required output element; standalone volunteered
+         claims without Element: are discretionary by construction).
+      2. It structurally qualifies as F-1 or F-2:
+           F-1: Class: Assumption AND claim text contains a numeric figure
+           F-2: Class: Inferred AND arithmetic/calculation signature in body text
 
-    Floor set comparison keys on normalised Claim: text (verbatim quote, more stable
-    than item titles which are analyst prose).
+    Entries with Element: present but no F-1/F-2 structural signature are in the
+    semantic F-3/F-4/F-5 range — harness cannot gate them deterministically, so they
+    become advisory (WARN, not gated).
+
+    The model's [floor] title tag and Floor category: line are kept for advisory
+    observability only — mismatches with harness classification emit WARN for
+    skill-tuning purposes but do not affect the gate result.
 
     Returns:
-        floor_claims    — list of normalised claim texts for floor items
-        disc_claims     — list of normalised claim texts for discretionary items
-        tag_warn_msgs   — advisory mismatch messages (model tag vs harness classification)
+        floor_claims    — list of normalised claim texts for structural-floor items
+        disc_claims     — list of normalised claim texts for non-floor items
+        tag_warn_msgs   — advisory WARN messages (model tag vs harness, semantic floor)
     """
     floor_claims = []
     disc_claims = []
     tag_warn_msgs = []
 
     for title, body in entries:
-        is_harness_floor = bool(_FLOOR_CATEGORY_RE.search(body))
         is_model_tagged = normalise_title(title).endswith("[floor]")
 
+        # B3 gate 1: Element: anchor scopes claim to a required output element
+        has_element = bool(_ELEMENT_RE.search(body))
+
+        # Claim text: F-1 numeric check and stable cross-run comparison key
         claim_m = _CLAIM_RE.search(body)
-        claim_key = normalise_title(claim_m.group(1)) if claim_m else normalise_title(title)
+        claim_text = claim_m.group(1).strip() if claim_m else ""
+        claim_key = normalise_title(claim_text) if claim_text else normalise_title(title)
 
-        if is_harness_floor:
+        # B3 gate 2: structural F-1 / F-2 detection
+        is_assumption = bool(_CLASS_ASSUMPTION_RE.search(body))
+        is_inferred = bool(_CLASS_INFERRED_RE.search(body))
+        claim_has_numeric = bool(re.search(r"\d", claim_text))
+        body_has_arithmetic = bool(_F2_ARITHMETIC_RE.search(body))
+
+        is_f1 = is_assumption and claim_has_numeric
+        is_f2 = is_inferred and body_has_arithmetic
+
+        # Classify
+        if has_element and (is_f1 or is_f2):
             floor_claims.append(claim_key)
-        else:
-            disc_claims.append(claim_key)
-
-        # Advisory cross-check: emit WARN when model tag disagrees with harness
-        if is_harness_floor and not is_model_tagged:
-            tag_warn_msgs.append(
-                f"Under-tagged: item '{title[:70]}' has 'Floor category:' line but no "
-                f"[floor] title marker — harness classifies as floor (model missed the tag)"
+            harness_is_floor = True
+        elif has_element:
+            # Element: present but no F-1/F-2 structure → semantic F-3/F-4/F-5 range
+            floor_tier = (
+                "(F-1 candidate — no numeric in claim)"
+                if is_assumption
+                else "(F-2 candidate — no arithmetic in body)"
+                if is_inferred
+                else "(Class unclear)"
             )
-        elif not is_harness_floor and is_model_tagged:
             tag_warn_msgs.append(
-                f"Over-tagged: item '{title[:70]}' has [floor] title marker but no "
-                f"'Floor category:' line — harness classifies as discretionary (model over-tagged)"
+                f"Semantic floor (advisory, not gated): item '{title[:70]}' has Element: "
+                f"anchor {floor_tier} — harness cannot structurally classify F-3/F-4/F-5"
+            )
+            disc_claims.append(claim_key)
+            harness_is_floor = False
+        else:
+            # No Element: → standalone volunteered claim → discretionary
+            disc_claims.append(claim_key)
+            harness_is_floor = False
+
+        # Model-tag observability: [floor] title suffix vs harness result
+        if harness_is_floor and not is_model_tagged:
+            f_label = "F-1" if is_f1 else "F-2"
+            tag_warn_msgs.append(
+                f"Under-tagged: item '{title[:70]}' is harness-floor ({f_label}) "
+                f"but has no [floor] title marker"
+            )
+        elif not harness_is_floor and is_model_tagged:
+            tag_warn_msgs.append(
+                f"Over-tagged: item '{title[:70]}' has [floor] title marker but is "
+                f"harness-discretionary (no Element: anchor or no F-1/F-2 structure)"
             )
 
     return floor_claims, disc_claims, tag_warn_msgs
@@ -447,9 +510,10 @@ def run_stability_check(paths: list, strict: bool = False,
       - Keys on id= from score comments when present
       - Falls back to alias-normalised title for pre-v11 dossiers
 
-    JUSTIFICATION check uses harness-derived floor classification (AC2 / B2):
-      - FAIL on floor-item set divergence (items with 'Floor category: F-N' lines)
+    JUSTIFICATION check uses structural floor classification (AC2 / B3):
+      - FAIL on floor-item set divergence (items with Element: anchor + F-1/F-2 structure)
       - WARN on model [floor] tag / harness classification mismatches (observability)
+      - WARN on semantic F-3/F-4/F-5 range items (Element: present, no F-1/F-2 structure)
       - WARN on discretionary-item divergence (expected ~20% LC-tagging CV)
       - No global justification count band (retired FW-08 pattern avoided)
 
@@ -492,13 +556,14 @@ def run_stability_check(paths: list, strict: bool = False,
         [r["pain_point_ids"] for r in per_run], "Pain point selected set"
     ))
 
-    # JUSTIFICATION: gate on floor subset only (B2 harness-derived)
+    # JUSTIFICATION: gate on structural floor subset only (B3)
     floor_counts = [len(r["justification_floor"]) for r in per_run]
     if all(c == 0 for c in floor_counts):
-        # No Floor category: lines found — either pre-v10 dossiers or missing structure
+        # No structural F-1/F-2 items found — either pre-v12 dossiers or missing fields
         warn_issues.append(
-            "No harness-derived floor items found in any run (no 'Floor category: F-N' lines). "
-            "Cannot apply B2 floor-subset gate. "
+            "No harness-derived floor items found in any run "
+            "(no Element: + structural F-1/F-2 entries). "
+            "Cannot apply B3 floor-subset gate. "
             "Checking [floor] title markers as legacy fallback."
         )
         # Legacy fallback: use [floor] title suffix (pre-B2 behaviour)

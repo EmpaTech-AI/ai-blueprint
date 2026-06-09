@@ -305,6 +305,7 @@ JUSTIFICATION entry format:
 **Item 1 — Revenue per delivery FTE estimate [floor]**
 Claim: "Revenue per delivery FTE is estimated at £103,000"
 Class: Inferred
+Element: H-RT-02
 Floor category: F-2 (cross-document calculation — revenue ÷ FTE count)
 Why not higher: No single document states this figure; derived by calculation
 What resolves: Confirm total revenue and FTE count are both from the same reporting period
@@ -318,22 +319,34 @@ What resolves: Confirm with Operations Director in discovery session
 Confidence: Medium
 ```
 
-**Floor-marker rule (v11 — AC2 / B2):** For items that fall into one of the five obligatory-tag
-floor categories (F-1 through F-5 in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
-you MUST include a `Floor category:` line in the entry body. This line is the **primary structural
-gate** — `check_stability.py` derives floor membership from the presence of this line, not from
-the `[floor]` title suffix.
+**Floor-marker rule (v12 — AC2 / B3):** `check_stability.py` derives floor membership from two
+structural signals, not from any model-emitted label. The `Floor category:` line and `[floor]`
+title suffix are now **advisory observability only** — they affect WARNs but not the gate result.
 
-- The `Floor category:` line is **mandatory** for all floor items. Without it the harness will
-  classify the item as discretionary and a WARN is emitted (under-tagged observability signal).
-- The `[floor]` title suffix is **advisory**: also append it for human readability, but it no
-  longer controls gating. An item with `[floor]` but no `Floor category:` line is treated as
-  discretionary by the harness and a WARN is emitted (over-tagged).
-- Item 1 above (a cross-document calculation, F-2) is a floor item — it MUST have a
-  `Floor category:` line and SHOULD have `[floor]` in the title.
-- Item 2 (an analyst causal framing) may or may not be floor: if it is a direct F-4 causal
-  assertion, add the `Floor category: F-4` line. If borderline, omit both and leave it
-  discretionary.
+**Two conditions are required for an item to be harness-floor:**
+
+1. **`Element:` field present** — identifies the required output element the claim scopes to
+   (e.g. `Element: H-RT-02` or `Element: PP-RT-07`). This anchors the claim to a specific
+   hypothesis or pain point in the required output. Standalone volunteered claims with no
+   `Element:` field are **discretionary by construction** — they may vary run-to-run without
+   triggering a gate failure.
+
+2. **Structural F-1 or F-2 signature:**
+   - **F-1:** `Class: Assumption` AND the Claim text contains a numeric figure
+   - **F-2:** `Class: Inferred` AND the body contains an arithmetic/calculation signature
+     (÷, ×, "divided by", "calculation", "per FTE", "combining N sources", etc.)
+
+Items with `Element:` present but no F-1/F-2 structural signature fall in the semantic
+F-3/F-4/F-5 range — the harness emits a WARN but does not gate them (semantic claims cannot
+be structurally verified run-to-run).
+
+**Practical guidance:**
+- Item 1 above (F-2 cross-document calculation scoped to H-RT-02) MUST carry `Element: H-RT-02`
+  and SHOULD also carry `Floor category: F-2` + `[floor]` title suffix for human readability.
+- Item 2 (a causal framing with no required-element anchor) has no `Element:` — it is
+  discretionary and does not require floor markers.
+- When you volunteer an extra Inferred/Assumption claim not tied to a specific hypothesis or
+  pain point in the required output, omit `Element:` — the harness will treat it as discretionary.
 3. End with the Final marker:
 
 ```markdown
@@ -524,12 +537,13 @@ This is not an apology for the algorithm's decision — it is a demonstration of
 ### [JUSTIFICATION] Block
 
 Mandatory. One numbered entry per [Inferred] and [Assumption] tag used in the body. Each entry:
-Claim (verbatim) / Class / Floor category (if applicable) / Why not higher / What resolves / Confidence.
+Claim (verbatim) / Class / Element (if scoped to a required output element) /
+Floor category (advisory) / Why not higher / What resolves / Confidence.
 
-For floor-category claims (F-1 through F-5, defined in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
-append `[floor]` to the item title and include a `Floor category:` line. This enables
-`check_stability.py` to gate on floor-subset stability without penalising the expected
-~20% run-to-run variance in discretionary tagging.
+For claims that are structurally floor-eligible (F-1 or F-2 with an `Element:` anchor), also
+append `[floor]` to the item title and include `Floor category:` for human readability. The
+harness derives floor membership from `Element:` + structural class detection (B3) — these
+advisory markers do not control gating but improve traceability.
 
 ## Confidence Tagging — Critical Rules
 
