@@ -211,10 +211,16 @@ The 3-chunk workflow is the default and only supported mode:
 
 **Chunk 2 mandatory formats — copy these exactly:**
 
-Pain Point heading (H3 + em-dash — do NOT use bold or triple-hyphens):
+Pain Point heading (H3 + em-dash — do NOT use bold or triple-hyphens) + mandatory ID comment:
 ```markdown
 ### Pain Point 1 — Manual Candidate Sourcing Bottleneck
+<!-- pp-id: PP-RT-01 -->
 ```
+
+The `<!-- pp-id: PP-RT-XX -->` comment must appear on the line immediately after the heading.
+Use the exact canonical ID from the archetype's Pain Point Library table. This is the primary
+key `check_stability.py` uses for cross-run pain point set comparison. Omitting it causes the
+harness to fall back to alias-normalised title matching.
 
 Hypothesis heading (H3 + em-dash — do NOT use bold or triple-hyphens):
 ```markdown
@@ -233,12 +239,18 @@ Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3
 Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
-<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
 ```
 
-The HTML comment is invisible in rendered output but allows downstream skills to parse scores
-without regex-matching the human-readable prose line. `class` values: `QuickWin`,
-`FoundationBuilder`, `BigBet` (no spaces).
+The HTML comment is invisible in rendered output. It allows downstream skills and the stability
+harness to parse scores without regex-matching the human-readable prose line. Fields:
+- `id` — canonical archetype library ID (e.g. `H-RT-02`). Use the exact ID from the matched
+  archetype's Hypothesis Library table. This is the **primary key** `check_stability.py` uses
+  for cross-run selected-set comparison — it is immune to all title paraphrase variation.
+- `class` values: `QuickWin`, `FoundationBuilder`, `BigBet` (no spaces).
+
+**`id=` is mandatory for all new dossiers.** Omitting it forces the stability harness to fall
+back to alias-normalised title matching, which is less reliable.
 
 **Chunk 2 checkpoint block format (mandatory — your Chunk 2 response MUST end with this exact block, verbatim structure, no exceptions):**
 
@@ -306,14 +318,22 @@ What resolves: Confirm with Operations Director in discovery session
 Confidence: Medium
 ```
 
-**Floor-marker rule (v10):** For items that fall into one of the five obligatory-tag floor
-categories (F-1 through F-5 in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
-append `[floor]` to the end of the item title and add a `Floor category:` line. Item 1 above
-(a cross-document calculation) is a floor item. Item 2 (an analyst causal framing) may or may
-not be floor depending on whether it is a direct cross-document inference with a clear derivation
-chain — if borderline, omit `[floor]` and leave it as discretionary. The `[floor]` marker
-is machine-read by `check_stability.py`; discretionary items may vary across runs without failing
-the stability gate.
+**Floor-marker rule (v11 — AC2 / B2):** For items that fall into one of the five obligatory-tag
+floor categories (F-1 through F-5 in `references/confidence_thresholds.md §Obligatory-Tag Floor`),
+you MUST include a `Floor category:` line in the entry body. This line is the **primary structural
+gate** — `check_stability.py` derives floor membership from the presence of this line, not from
+the `[floor]` title suffix.
+
+- The `Floor category:` line is **mandatory** for all floor items. Without it the harness will
+  classify the item as discretionary and a WARN is emitted (under-tagged observability signal).
+- The `[floor]` title suffix is **advisory**: also append it for human readability, but it no
+  longer controls gating. An item with `[floor]` but no `Floor category:` line is treated as
+  discretionary by the harness and a WARN is emitted (over-tagged).
+- Item 1 above (a cross-document calculation, F-2) is a floor item — it MUST have a
+  `Floor category:` line and SHOULD have `[floor]` in the title.
+- Item 2 (an analyst causal framing) may or may not be floor: if it is a direct F-4 causal
+  assertion, add the `Floor category: F-4` line. If borderline, omit both and leave it
+  discretionary.
 3. End with the Final marker:
 
 ```markdown
@@ -544,6 +564,10 @@ Before finalising the dossier, scan for and remove (per `references/preflight.md
 - Pipeline-stage acknowledgements (`I have confirmed receipt`, `Step 1 (Intake)`, etc.)
 - Methodology meta-references in body prose (`per the methodology`, `this skill produces`, etc.)
 - Malformed confidence tags (per the forbidden tag forms above)
+- **JUSTIFICATION section reasoning preambles** — any text appearing between `## [JUSTIFICATION]`
+  and `**Item 1 —` that reads as internal reasoning (`Re-reading Checkpoint 2…`, `Producing
+  [JUSTIFICATION] first…`, `Let me review…`, etc.). The appendix must open directly with
+  `**Item 1`. This was the v11_t1 defect class.
 
 These patterns disqualify a dossier from client or pipeline use.
 

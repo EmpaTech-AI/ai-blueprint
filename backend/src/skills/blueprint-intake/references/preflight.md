@@ -121,6 +121,35 @@ The pipeline runs these steps **in order** before the dossier is presented:
 
 After all sanitization, run the full validator (`harness/validate_intake.py`). Any failure aborts assembly.
 
+### Pattern Set 6 — Reasoning Preambles Inside the JUSTIFICATION Section
+
+The `## [JUSTIFICATION]` block must open directly with `**Item 1 —`. Any reasoning or
+stage-acknowledgement text appearing between the section heading and the first `**Item 1`
+line fails pre-flight. This closes the v11_t1 defect class (leaked preamble inside the
+appendix section).
+
+The following patterns are forbidden anywhere between `## [JUSTIFICATION]` and `**Item 1`:
+
+```regex
+^Re-reading (Checkpoint|chunk|section)   e.g. "Re-reading Checkpoint 2 to confirm…"
+^Producing \[JUSTIFICATION\]             e.g. "Producing [JUSTIFICATION] first…"
+^I (will|am|have|need)                   e.g. "I will now enumerate…"
+^Let me                                   e.g. "Let me review the Inferred tags…"
+^Now (I|let|producing)                   e.g. "Now I'll produce the appendix…"
+^(Reviewing|Checking|Confirming)         e.g. "Reviewing the Inferred items…"
+^(First|Next|Finally),?\s+(I|let|we)     e.g. "First, I'll list…"
+```
+
+**Harness enforcement:** After locating `## [JUSTIFICATION]`, scan forward to the first
+`**Item 1 —` line. If any non-blank, non-heading line is found before `**Item 1 —` that
+matches Pattern Set 6 (or Pattern Set 2), fail validation with:
+`"JUSTIFICATION preamble detected — section must open directly with **Item 1. Regenerate chunk 3."`
+
+Unlike Pattern Set 3 (body contamination), JUSTIFICATION preambles are recoverable by
+stripping the offending lines. However, a preamble indicates the model is reasoning mid-output
+rather than producing the appendix from Checkpoint 2's committed list — this is a generation
+discipline issue that should trigger regeneration, not patching.
+
 ## Operator Override
 
 Pre-flight failures can be overridden only by explicit operator decision documented in a sidecar file `<dossier>.override.md` with:

@@ -2,7 +2,7 @@
 
 **Schema:** `intake_v1.0`
 **Maintained by:** AI Assist BG · Blueprint Practice
-**Last updated:** June 2026 (v10 batch)
+**Last updated:** June 2026 (v11 batch + instrument rebuild)
 
 This document records what has been validated, what has been confirmed as a known-gap, and the
 cross-matrix roadmap for expanding validation coverage beyond the primary archetype.
@@ -41,16 +41,137 @@ now the gate; discretionary variance is observed, not blocked. Post-fix confirma
 
 ---
 
+## v11 Validation Batch Summary
+
+### Engagement: Meridian Talent Partners (primary archetype — post-fix confirmation batch)
+
+| Axis | Value |
+|---|---|
+| Archetype | Recruitment & Talent Solutions |
+| Size band | Small (68 employees) |
+| Document richness | Standard |
+| Regulatory regime | EU / GDPR |
+| Runs | 4 (v11_t1, v11_t2, v11_t3, v11_t4) |
+
+#### Results
+
+| Check | Result | Notes |
+|---|---|---|
+| People maturity reproducibility | **CLOSED — STRENGTHENED** | 4/4 v11 runs: People = Developing. Combined with v10's 4/4 = 8/8 across two version lines. Mechanism holds. |
+| Selected-hypothesis-set stability | **STABLE (semantically)** | All 4 v11 runs select identical 7 hypotheses including H6 "Candidate Database Revival". V9 fork does not recur. |
+| Schema counts | **HELD** | 7 hypotheses / 8 pain points in all 4 v11 runs |
+| v9 confidence-propagation contract | **INTACT** | [CONFIDENCE_PROPAGATION] + [END CONFIDENCE_PROPAGATION] present; Overall grounding: Partial; all 4 runs |
+| Obligatory-tag floor emission | **EMITTING (not deterministic)** | [floor] markers emit in all 4 runs (5/6/2/4 per run). Floor-marker fix is wired end-to-end. |
+| Justification total count | **IMPROVED** | 8/8/8/8 (vs v10's 8/7/7/7). Tightest full-count CV recorded. |
+| Justification floor stability | **RED — instrument defect** | check_stability.py false-FAILs: gates on model-emitted [floor] tag which varies 5/6/2/4 (Gap B). Fixed by v11 instrument rebuild — see below. |
+| Selected-set instrument check | **RED — instrument defect** | check_stability.py false-FAILs: gates on prose title, paraphrase causes divergence (Gap A). Fixed by v11 instrument rebuild — see below. |
+
+#### v11_t1 pre-flight miss
+
+v11_t1's `[JUSTIFICATION]` section opened with a leaked reasoning preamble
+("Re-reading Checkpoint 2 to confirm the 8 Inferred/Assumption items. Producing [JUSTIFICATION] first…").
+This is a pipeline-stage acknowledgement that `preflight.md` Pattern Set 2 forbids. One run
+only — a generation-hygiene miss. Fixed in this instrument rebuild (Pattern Set 6 — see below).
+
+#### False-FAIL adjudication
+
+The live `check_stability.py` run on the v10 batch returned selected-set FAIL. Verbatim
+adjudication against the v10 Closure Report's own table shows the selection IS semantically
+identical across all 4 runs — divergences are pure title paraphrase:
+
+| Hypothesis (semantic) | v10 title variants observed |
+|---|---|
+| ATS client status updates | "…client status updates" vs "…client status updates via Vincere" |
+| Interview scheduling | "…via Calendly" vs "…via Calendly company-wide rollout" vs "…via full Calendly rollout" |
+| GDPR foundation | "GDPR Compliance Foundation (Sprint 0 enabler)" vs "…sprint (enabler for all AI initiatives)" |
+| RPO service design | "AI delivery infrastructure" vs "AI-enabled delivery infrastructure" |
+
+**Verdict: the v10 instrument false-FAILed a semantically stable selection.** The selection is
+deterministic at the level that matters (which hypotheses are chosen). The instrument was gating
+on model prose titles, which are legitimately allowed to vary.
+
+---
+
+## v11 Instrument Rebuild (development — June 2026)
+
+Two instrument defects identified in the v11 batch were fixed on the development side before
+returning the batch to the business for re-run.
+
+### Gap A fix — AC1 (canonical ID selected-set comparison)
+
+**Problem:** `check_stability.py` keyed the selected-set comparison on normalised prose titles.
+Title paraphrase caused false FAILs even when the same hypothesis was selected every run.
+
+**Fix implemented:**
+- `SKILL.md` updated: hypotheses now emit `id=H-RT-XX` as the first field in the
+  `<!-- score: ... -->` comment. Pain points now emit `<!-- pp-id: PP-RT-XX -->` on the line
+  immediately after the heading.
+- `check_stability.py` updated:
+  - `extract_hypothesis_ids()` resolves IDs from `id=` field first, then falls back to the
+    alias registry (`_HYPOTHESIS_ALIAS_REGISTRY`), then falls back to normalised title.
+  - `extract_pain_point_ids()` resolves IDs from `<!-- pp-id: -->` comments first, then alias
+    registry, then normalised title.
+  - `run_stability_check()` calls the new ID extractors for FAIL-gated set comparison.
+  - Per-run title lists are still extracted separately for human-readable reporting.
+  - Per-archetype alias registry seeded for recruitment (`H-RT-01` through `H-RT-13`,
+    `PP-RT-01` through `PP-RT-15`) covering all v11-observed paraphrase variants.
+  - `--archetype` CLI flag added to select the registry for other archetypes.
+
+**Guard:** Distinct hypotheses must carry distinct IDs. The alias layer cannot silently merge
+a real fork — a genuine divergence (different hypothesis chosen) will still FAIL because the
+IDs will differ.
+
+**Expected effect on v10 batch:** `check_stability.py` run on the v10 batch should now return
+selected-set PASS (semantic identity confirmed by adjudication). A synthetic genuine-fork fixture
+(where a different hypothesis IS chosen) must still FAIL.
+
+### Gap B fix — AC2 (harness-derived floor classification)
+
+**Problem:** `split_justification_by_tier()` keyed floor membership on the model-emitted
+`[floor]` title suffix. The model applied `[floor]` inconsistently (5/6/2/4 across v11 runs),
+making the floor gate non-deterministic.
+
+**Fix implemented (B2 — harness-derived floor):**
+- `check_stability.py` updated:
+  - `extract_justification_entries()` extracts `(title, body)` pairs from the JUSTIFICATION
+    block, scoped after `## [JUSTIFICATION]` to avoid false matches in Section D.
+  - `split_justification_by_tier()` rewritten to classify floor membership from the structural
+    `Floor category: F-N` line in the entry body. The model's `[floor]` suffix is advisory only.
+  - When model tag disagrees with harness classification (under-tagged or over-tagged), a WARN
+    is emitted for skill-tuning observability — not a gate failure.
+  - Floor set comparison keys on normalised `Claim:` text (verbatim quote — more stable across
+    runs than item title prose).
+  - Discretionary items remain WARN (expected variance), not gated.
+  - No global count band introduced (cardinal regression trap avoided — retired FW-08).
+- `SKILL.md` floor-marker rule updated to make `Floor category:` line the primary structural
+  gate authority. The `[floor]` title suffix is described as advisory complement.
+- `confidence_thresholds.md §1C` language unchanged — the `Floor category:` requirement was
+  already stated; this fix enforces it as the gate, not the title suffix.
+
+### AC4 fix — JUSTIFICATION section reasoning preambles
+
+**Problem:** v11_t1's `[JUSTIFICATION]` section opened with a reasoning preamble that no existing
+Pattern Set caught, because existing patterns only checked the document's opening paragraphs.
+
+**Fix implemented:**
+- `preflight.md` updated: **Pattern Set 6** added. Specifies forbidden patterns between
+  `## [JUSTIFICATION]` and the first `**Item 1 —` line. Includes `Re-reading Checkpoint`,
+  `Producing [JUSTIFICATION]`, `Let me`, `I will/am/have`, `Reviewing`, `Checking`, etc.
+- `SKILL.md` pre-flight sanitization section updated to list JUSTIFICATION preambles as a
+  forbidden pattern with a reference to Pattern Set 6.
+
+---
+
 ## Post-Fix Runs Required (Business Side)
 
-The following runs are not yet executed. They require pipeline execution against real or
-synthetic engagement inputs and cannot be completed from the development side alone.
+The following runs require pipeline execution against real or synthetic engagement inputs.
 
 | # | Run | Purpose | Expected result | Dependency |
 |---|---|---|---|---|
-| 1 | `check_stability.py` on v10 Meridian batch | Confirm instrument detects expected PASS (hypothesis, PP) and FAIL (justification full-set) on pre-fix dossiers | selected-set PASS, justification FAIL | v10 dossier files (vik_t1, vik_t2, ivan_t1, ivan_t2) |
-| 2 | Post-fix Meridian batch (small, standard, EU) | Confirm justification floor stable after fix; People 4/4 Developing; no regression | Floor stable; People Developing; schema 8/7; propagation present | Execute pipeline on Meridian materials with v10 fixes active |
-| 3 | Veritas Pressings Ltd run | Contrasting-archetype: manufacturing, mid, sparse, Non-EU | People=Developing (Evidenced-Absence holds); Governance=Early (evidenced absence fires); no GDPR references; no false count failures | Execute pipeline on `fixtures/smoke_test_manufacturing_input.md` |
+| 1 | `check_stability.py` on v10 Meridian batch (4 dossiers) | Confirm rebuilt instrument returns selected-set **PASS** on the semantically stable v10 batch | Selected-set PASS (H and PP); floor check WARN or PASS; no false FAILs | v10 dossier files (vik_t1, vik_t2, ivan_t1, ivan_t2) |
+| 2 | Synthetic genuine-fork fixture | Confirm a real selection divergence (different hypothesis chosen) still FAILs | FAIL on hypothesis selected set | Produce two dossiers where one selects H-RT-06 and the other selects H-RT-11 in the 7th slot |
+| 3 | Post-fix Meridian batch (v11 re-run, 4 runs) | Confirm selected-set PASS; floor-set PASS or named real divergence; People 4/4 Developing; schema 7/8; propagation present | All ACs 1–4 met | Execute pipeline on Meridian materials with v11 skill fixes active (id= + pp-id: comments emitted) |
+| 4 | Veritas Pressings Ltd run | Contrasting-archetype: manufacturing, mid, sparse, Non-EU | People=Developing (Evidenced-Absence holds); Governance=Early; no GDPR references; no false count failures | Execute pipeline on `fixtures/smoke_test_manufacturing_input.md` |
 
 ---
 
@@ -104,6 +225,8 @@ These items must not degrade across any new run, regardless of archetype or prof
 | No GDPR references in Non-EU engagement output | Run Veritas; grep output for "GDPR" |
 | No global count band re-introduced for justification | Inspect `check_stability.py` — must not gate on justification count range |
 | Selection cutoff (0/12) unchanged | Any run; confirm cutoff behaviour in hypothesis selection |
+| Genuine fork still FAILs after A2/A1 alias fix | Run synthetic genuine-fork fixture; confirm FAIL |
+| Floor-set gate keys on Floor category: line, not [floor] title tag | Inspect `check_stability.py split_justification_by_tier` — must use _FLOOR_CATEGORY_RE |
 
 ---
 
@@ -116,4 +239,4 @@ subsection below this line with:
 - Full stability check output (JSON or human report)
 - Any anomalies and their resolution
 
-*No post-fix run records yet — this section will be populated after the business-side runs complete.*
+*Post-fix re-run records will be populated here after the business-side runs complete (see §Post-Fix Runs Required).*
