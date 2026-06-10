@@ -293,6 +293,7 @@ export default function AdminPage() {
   const [reuploadTogglingId, setReuploadTogglingId] = useState<string | null>(null);
   const [updatingClientStatus, setUpdatingClientStatus] = useState<string | null>(null);
   const [formAnswersOpenIds, setFormAnswersOpenIds] = useState<Set<string>>(new Set());
+  const [uploadedFilesOpenIds, setUploadedFilesOpenIds] = useState<Set<string>>(new Set());
   const [intakeDataMap,    setIntakeDataMap]    = useState<Record<string, IntakeData>>({});
   const [loadingIntakeId,  setLoadingIntakeId]  = useState<string | null>(null);
   // Users management
@@ -907,22 +908,33 @@ export default function AdminPage() {
                                 {/* Original uploaded files */}
                                 {Object.keys(intakeData.uploadedFiles).length > 0 && (
                                   <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.09)' }}>
-                                    <div className="px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                    <button
+                                      className="w-full px-3 py-2 flex items-center justify-between transition-colors"
+                                      style={{ background: 'rgba(255,255,255,0.04)' }}
+                                      onClick={() => setUploadedFilesOpenIds(prev => {
+                                        const next = new Set(prev);
+                                        next.has(job.jobId) ? next.delete(job.jobId) : next.add(job.jobId);
+                                        return next;
+                                      })}
+                                    >
                                       <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.55)' }}>Uploaded Files</p>
-                                    </div>
-                                    <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                                      {Object.entries(intakeData.uploadedFiles).map(([fileKey, info]) => (
-                                        <div key={fileKey} className="px-3 py-2 flex items-center justify-between gap-3">
-                                          <div className="min-w-0">
-                                            <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{info.filename}</p>
-                                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{formatAnswerKey(fileKey)} · {formatBytes(info.size)}</p>
+                                      <span className="text-xs transition-transform" style={{ color: 'rgba(255,255,255,0.3)', transform: uploadedFilesOpenIds.has(job.jobId) ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+                                    </button>
+                                    {uploadedFilesOpenIds.has(job.jobId) && (
+                                      <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                                        {Object.entries(intakeData.uploadedFiles).map(([fileKey, info]) => (
+                                          <div key={fileKey} className="px-3 py-2 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                              <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{info.filename}</p>
+                                              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{formatAnswerKey(fileKey)} · {formatBytes(info.size)}</p>
+                                            </div>
+                                            <a href={fileDownloadUrl(job.jobId, fileKey)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-xs rounded-full flex-shrink-0 transition-all hover:-translate-y-px" style={{ padding: '4px 12px', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc', textDecoration: 'none' }}>
+                                              <DownloadIcon className="w-3 h-3" /> Download
+                                            </a>
                                           </div>
-                                          <a href={fileDownloadUrl(job.jobId, fileKey)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-xs rounded-full flex-shrink-0 transition-all hover:-translate-y-px" style={{ padding: '4px 12px', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc', textDecoration: 'none' }}>
-                                            <DownloadIcon className="w-3 h-3" /> Download
-                                          </a>
-                                        </div>
-                                      ))}
-                                    </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
