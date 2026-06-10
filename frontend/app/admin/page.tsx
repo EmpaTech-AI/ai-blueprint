@@ -292,6 +292,7 @@ export default function AdminPage() {
   const [summaryLoadingId, setSummaryLoadingId] = useState<string | null>(null);
   const [reuploadTogglingId, setReuploadTogglingId] = useState<string | null>(null);
   const [updatingClientStatus, setUpdatingClientStatus] = useState<string | null>(null);
+  const [formAnswersOpenIds, setFormAnswersOpenIds] = useState<Set<string>>(new Set());
   const [intakeDataMap,    setIntakeDataMap]    = useState<Record<string, IntakeData>>({});
   const [loadingIntakeId,  setLoadingIntakeId]  = useState<string | null>(null);
   // Users management
@@ -874,21 +875,32 @@ export default function AdminPage() {
                                 {/* Form answers */}
                                 {Object.keys(intakeData.formAnswers).length > 0 && (
                                   <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.09)' }}>
-                                    <div className="px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                    <button
+                                      className="w-full px-3 py-2 flex items-center justify-between transition-colors"
+                                      style={{ background: 'rgba(255,255,255,0.04)' }}
+                                      onClick={() => setFormAnswersOpenIds(prev => {
+                                        const next = new Set(prev);
+                                        next.has(job.jobId) ? next.delete(job.jobId) : next.add(job.jobId);
+                                        return next;
+                                      })}
+                                    >
                                       <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.55)' }}>Form Answers</p>
-                                    </div>
-                                    <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                                      {Object.entries(intakeData.formAnswers)
-                                        .filter(([k]) => !['clientName', 'clientEmail'].includes(k))
-                                        .map(([key, value]) => (
-                                          <div key={key} className="px-3 py-2 flex gap-3">
-                                            <span className="text-xs font-medium flex-shrink-0 w-36" style={{ color: 'rgba(255,255,255,0.4)' }}>{formatAnswerKey(key)}</span>
-                                            <span className="text-xs break-words" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                                              {Array.isArray(value) ? value.join(', ') : String(value) || '—'}
-                                            </span>
-                                          </div>
-                                        ))}
-                                    </div>
+                                      <span className="text-xs transition-transform" style={{ color: 'rgba(255,255,255,0.3)', transform: formAnswersOpenIds.has(job.jobId) ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+                                    </button>
+                                    {formAnswersOpenIds.has(job.jobId) && (
+                                      <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                                        {Object.entries(intakeData.formAnswers)
+                                          .filter(([k]) => !['clientName', 'clientEmail'].includes(k))
+                                          .map(([key, value]) => (
+                                            <div key={key} className="px-3 py-2 flex gap-3">
+                                              <span className="text-xs font-medium flex-shrink-0 w-36" style={{ color: 'rgba(255,255,255,0.4)' }}>{formatAnswerKey(key)}</span>
+                                              <span className="text-xs break-words" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                                                {Array.isArray(value) ? value.join(', ') : String(value) || '—'}
+                                              </span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
