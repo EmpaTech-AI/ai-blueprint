@@ -92,6 +92,52 @@ on model prose titles, which are legitimately allowed to vary.
 
 ---
 
+## v13 Validation Batch Summary
+
+### Engagement: Meridian Talent Partners (primary archetype — v13 stability analysis)
+
+| Axis | Value |
+|---|---|
+| Archetype | Recruitment & Talent Solutions |
+| Size band | Small (68 employees) |
+| Runs | 4 (v13_t1, v13_t2, v13_t3, v13_t4) |
+
+#### Results
+
+| Check | Result | Notes |
+|---|---|---|
+| Processes maturity reproducibility | **CLOSED** | 6/6 dimensions identical 4/4 runs; Evidenced-Absence trigger encountered and defeated in the run that previously scored Early |
+| Selected-set identity | **HELD** | Canonical H-ID + PP-ID set identical 4/4; H-RT-06 excluded 4/4 |
+| Schema counts | **HELD** | 7H / 8PP / canonical ID set 4/4 |
+| Standalone floor exclusion (v12 flag) | **RESOLVED** | Revenue/FTE item now emits `Element: NONE`; excluded by gate-condition-1 |
+| Justification floor (B3 optional-anchored) | **NEAR-CLOSED — one residual** | "AI scheduling assistant" item anchored to H-RT-05, Assumption + numeric → F-1 eligible; present 3/4 runs (t2/t3/t4); absent t1. Floor stable if classified discretionary; unstable if floor-eligible. |
+| Total-tag CV | **TRIPWIRE BREACH** | 74/61/69/63 → CV 7.7%, breaches 5% tripwire; t2=61 is probable outlier; diffuse LC noise, not systemic |
+| Confidence propagation | **INTACT** | Block + END present 4/4 |
+
+#### v13 Instrument Defect Diagnosed (B3 residual)
+
+The optional-anchored residual is the natural completion of the Element: anchor fix. B3's gate-condition-1 already excludes *unanchored* claims (the v12 standalone flag, resolved). The remaining sub-case: an optional elaboration that happens to anchor to a real hypothesis and pass F-1/F-2 detection still varies in presence. The fix: enforce one required claim per element — only the first F-1/F-2 claim anchored to each element ID enters the floor; second+ claims are optional elaborations and join the discretionary band.
+
+---
+
+## v13 Instrument Rebuild (development — June 2026)
+
+### Gate-condition-1 refinement (B3+) — optional-anchored elaboration closure
+
+**Problem:** A sub-elaboration of H-RT-05 ("AI scheduling assistant" implementation variant, Assumption + numeric → F-1) appeared in 3/4 v13 runs. It anchored to H-RT-05, passed B3's gate conditions 1 and 2, and was floor-eligible. Because it was optional content (the model sometimes included it, sometimes did not), the floor set diverged between t1 (absent) and t2/t3/t4 (present). B3's existing two-condition gate could not distinguish a required primary claim from an optional sub-elaboration that happened to anchor to the same element.
+
+**Fix implemented (B3+):**
+- `check_stability.py` updated:
+  - `split_justification_by_tier()`: added gate condition 3 — one required claim per element. A `seen_floor_elements` dict tracks which element IDs have already contributed a floor claim. The first F-1/F-2 claim anchored to an element enters the floor; all subsequent claims anchored to the same element are optional elaborations → discretionary + WARN.
+  - WARN message format: "Optional elaboration (discretionary): item '...' anchors to '{element_id}' which already has a required floor claim ('...') — classified as discretionary (one required claim per element)".
+  - `run_stability_check()` docstring updated to B3+.
+- `SKILL.md` updated:
+  - Practical guidance extended: "One primary claim per required element" — only the primary confidence-tagged claim for each hypothesis/pain point should carry `Element:`. Sub-elaborations and implementation variants should omit `Element:` to self-classify as discretionary. Harness deduplication is a safety net, not the primary enforcement mechanism.
+
+**Total-tag CV watch:** CV 7.7% (74/61/69/63) breaches the 5% tripwire. t2 at 61 is the probable outlier. No code change — confirm whether t2 is a documentable outlier before treating as systemic. The tripwire is a watch signal, not a gate failure.
+
+---
+
 ## v12 Validation Batch Summary
 
 ### Engagement: Meridian Talent Partners (primary archetype — v12 stability analysis)
@@ -309,6 +355,7 @@ These items must not degrade across any new run, regardless of archetype or prof
 | Genuine fork still FAILs after A2/A1 alias fix | Run synthetic genuine-fork fixture; confirm FAIL |
 | Floor-set gate uses structural F-1/F-2 detection + Element: anchor (B3) | Inspect `check_stability.py split_justification_by_tier` — must use _ELEMENT_RE + _CLASS_ASSUMPTION_RE/_CLASS_INFERRED_RE/_F2_ARITHMETIC_RE; Floor category: line is advisory only |
 | Standalone JUSTIFICATION claims (no Element:) are discretionary — no gate failure on variance | Run v12 batch; confirm floor set stable while standalone calc varies run-to-run without FAIL |
+| Optional elaborations (second+ F-1/F-2 claim per element) are discretionary — no gate failure | Inspect `split_justification_by_tier` — must use `seen_floor_elements` deduplication; second anchored claim → WARN not FAIL |
 | Processes holds at Developing when documented SOP present (even if not universally adopted) | Re-run Meridian; confirm Processes = Developing; non-execution logged as Key Constraint |
 | Evidenced-Absence rule covers all 6 dimensions | Inspect `blueprint-maturity/SKILL.md` — must have per-dimension table and Processes illustration |
 

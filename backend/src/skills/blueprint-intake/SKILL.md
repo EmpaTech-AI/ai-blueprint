@@ -347,6 +347,15 @@ be structurally verified run-to-run).
   discretionary and does not require floor markers.
 - When you volunteer an extra Inferred/Assumption claim not tied to a specific hypothesis or
   pain point in the required output, omit `Element:` — the harness will treat it as discretionary.
+- **One primary claim per required element.** Each hypothesis or pain point in the required
+  output may produce at most **one** floor-eligible JUSTIFICATION entry — the entry for the
+  primary confidence-tagged claim in that hypothesis's body. If you write a follow-on sub-detail
+  or phase-2 elaboration of the same hypothesis (e.g. an implementation variant of H-RT-05's
+  scheduling approach), **omit `Element:`** from that elaboration entry. Attaching `Element:`
+  to a sub-elaboration makes it floor-eligible, which causes the floor set to vary run-to-run
+  whenever the model includes or omits the elaboration. The harness enforces this with a
+  safety-net deduplication (second+ F-1/F-2 claim anchored to the same element → discretionary
+  + WARN), but the correct behaviour is not to anchor sub-elaborations in the first place.
 3. End with the Final marker:
 
 ```markdown

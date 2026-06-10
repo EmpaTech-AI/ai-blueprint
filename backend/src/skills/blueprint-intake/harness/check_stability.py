@@ -331,15 +331,25 @@ def extract_justification_entries(text: str) -> list:
 
 
 def split_justification_by_tier(entries: list) -> tuple:
-    """B3: Classify floor via structural detection, not model-emitted labels.
+    """B3+: Classify floor via structural detection with one-required-claim-per-element cap.
 
-    An entry is floor-eligible only if BOTH conditions hold:
+    An entry is floor-eligible only if ALL THREE conditions hold:
       1. Its body contains an 'Element: H-RT-XX' or 'Element: PP-RT-XX' anchor
          (scopes the claim to a required output element; standalone volunteered
          claims without Element: are discretionary by construction).
       2. It structurally qualifies as F-1 or F-2:
            F-1: Class: Assumption AND claim text contains a numeric figure
            F-2: Class: Inferred AND arithmetic/calculation signature in body text
+      3. No prior entry in this run has already claimed the floor slot for this
+         Element ID (one required claim per element — v13 gate-condition-1 refinement).
+         A second or later F-1/F-2 entry anchored to the same element is an optional
+         elaboration; it joins the discretionary band with an advisory WARN.
+
+    Rationale for condition 3: optional sub-elaborations of a hypothesis (e.g. an
+    implementation sub-detail of H-RT-05) may legitimately anchor to a required element
+    and pass F-1/F-2 detection, but they vary in presence run-to-run. The floor must
+    be grounded in the *mandatory* content only (the primary claim per element); optional
+    elaborations are discretionary regardless of their structural class.
 
     Entries with Element: present but no F-1/F-2 structural signature are in the
     semantic F-3/F-4/F-5 range — harness cannot gate them deterministically, so they
@@ -357,12 +367,16 @@ def split_justification_by_tier(entries: list) -> tuple:
     floor_claims = []
     disc_claims = []
     tag_warn_msgs = []
+    # Tracks which element IDs have already contributed one floor claim (condition 3)
+    seen_floor_elements: dict = {}  # element_id (lower) → claim_key of first floor claim
 
     for title, body in entries:
         is_model_tagged = normalise_title(title).endswith("[floor]")
 
         # B3 gate 1: Element: anchor scopes claim to a required output element
-        has_element = bool(_ELEMENT_RE.search(body))
+        element_m = _ELEMENT_RE.search(body)
+        has_element = bool(element_m)
+        element_id = element_m.group(1).lower() if element_m else None
 
         # Claim text: F-1 numeric check and stable cross-run comparison key
         claim_m = _CLAIM_RE.search(body)
@@ -380,8 +394,21 @@ def split_justification_by_tier(entries: list) -> tuple:
 
         # Classify
         if has_element and (is_f1 or is_f2):
-            floor_claims.append(claim_key)
-            harness_is_floor = True
+            if element_id not in seen_floor_elements:
+                # Gate condition 3 passes: first floor-eligible claim for this element
+                seen_floor_elements[element_id] = claim_key
+                floor_claims.append(claim_key)
+                harness_is_floor = True
+            else:
+                # Gate condition 3 fails: second+ claim for same element → optional elaboration
+                tag_warn_msgs.append(
+                    f"Optional elaboration (discretionary): item '{title[:70]}' anchors to "
+                    f"'{element_id}' which already has a required floor claim "
+                    f"('{seen_floor_elements[element_id][:50]}') — "
+                    f"classified as discretionary (one required claim per element)"
+                )
+                disc_claims.append(claim_key)
+                harness_is_floor = False
         elif has_element:
             # Element: present but no F-1/F-2 structure → semantic F-3/F-4/F-5 range
             floor_tier = (
@@ -510,8 +537,9 @@ def run_stability_check(paths: list, strict: bool = False,
       - Keys on id= from score comments when present
       - Falls back to alias-normalised title for pre-v11 dossiers
 
-    JUSTIFICATION check uses structural floor classification (AC2 / B3):
-      - FAIL on floor-item set divergence (items with Element: anchor + F-1/F-2 structure)
+    JUSTIFICATION check uses structural floor classification (AC2 / B3+):
+      - FAIL on floor-item set divergence (items with Element: anchor + F-1/F-2 + first per element)
+      - WARN on optional elaborations: second+ F-1/F-2 claim anchored to same element → discretionary
       - WARN on model [floor] tag / harness classification mismatches (observability)
       - WARN on semantic F-3/F-4/F-5 range items (Element: present, no F-1/F-2 structure)
       - WARN on discretionary-item divergence (expected ~20% LC-tagging CV)
