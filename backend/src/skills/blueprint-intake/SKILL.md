@@ -537,7 +537,23 @@ This is not an apology for the algorithm's decision — it is a demonstration of
 
 ### [JUSTIFICATION] Block
 
-Mandatory. One numbered entry per [Inferred] and [Assumption] tag used in the body. Each entry:
+Mandatory. Format defined in `../methodology-and-contracts/SKILL.md`. The block opens with a
+`### Confidence Overview` sentence followed by numbered entries.
+
+**Confidence Overview (Stage 1 format):** The overview must use element IDs (H-RT-XX / PP-RT-XX),
+not positional item numbers. Example:
+
+```
+### Confidence Overview
+Grounded: 18 of 22 tagged claims are high-confidence (82%). Low-confidence elements:
+H-RT-02 ([Inferred] — revenue per FTE derived, no time-tracking source), PP-RT-05 ([Assumption] — manual sourcing hours from form only).
+Primary driver: absence of time-tracking data.
+```
+
+The `### Confidence Overview` sentence itself must NOT carry any confidence tag — it is a
+meta-description, not a claim. See `references/preflight.md` Pattern Set 7.
+
+One numbered entry per [Inferred] and [Assumption] tag used in the body. Each entry:
 Claim (verbatim) / Class / Element (if scoped to a required output element) /
 Floor category (advisory) / Why not higher / What resolves / Confidence.
 

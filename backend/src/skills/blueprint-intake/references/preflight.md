@@ -150,6 +150,34 @@ stripping the offending lines. However, a preamble indicates the model is reason
 rather than producing the appendix from Checkpoint 2's committed list — this is a generation
 discipline issue that should trigger regeneration, not patching.
 
+### Pattern Set 7 — Self-Tagged Confidence Overview Sentence
+
+The `### Confidence Overview` line opens the JUSTIFICATION block. The sentence that follows
+it describes the output's confidence structure — it is a meta-description, not a verifiable
+claim. It must NOT carry any confidence tag.
+
+The following patterns are forbidden in the `### Confidence Overview` sentence:
+
+```
+[Document-Backed]  in the Confidence Overview sentence
+[Form-Stated]      in the Confidence Overview sentence
+[Inferred]         in the Confidence Overview sentence
+[Assumption]       in the Confidence Overview sentence
+```
+
+**Why:** A self-tagged Confidence Overview inflates the LC item count and creates a phantom
+span in the UI panel extractor (confirmed defect in v14 t1, t3). The UI extractor reads all
+confidence tags inside the JUSTIFICATION block; the meta-sentence must be tag-free.
+
+**Harness enforcement:** After locating `### Confidence Overview`, scan the immediately
+following non-blank line. If it matches any of the four canonical confidence tags, fail
+validation with:
+`"JUSTIFICATION Confidence Overview is self-tagged — meta-sentence must not carry confidence tags. Regenerate chunk 3."`
+
+Unlike JUSTIFICATION preambles (Pattern Set 6), self-tagged overviews are recoverable by
+stripping the tag. However, a self-tagged sentence indicates the model has confused a
+meta-description with a substantive claim — regeneration is preferred over patching.
+
 ## Operator Override
 
 Pre-flight failures can be overridden only by explicit operator decision documented in a sidecar file `<dossier>.override.md` with:

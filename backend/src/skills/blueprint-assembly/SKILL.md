@@ -217,6 +217,7 @@ and only supported mode.
 **Sections complete:** Key Findings ✓ | AI Opportunity Map ✓
 **Opportunities in map:** [N] ([QW] Quick Wins, [FB] Foundation Builders, [BB] Big Bets)
 **Inferred/Assumption tags used so far:** [N] — justification entries will be produced in Chunk 3
+**LC element summary:** [list H-RT-XX IDs with provenance, e.g. "H-RT-02 (S1), H-RT-05 (S3), H-RT-07 (S4)"]
 
 **Operator action:** Reply "continue to chunk 3" to produce Sections 5–8 and the [JUSTIFICATION] block.
 ```
@@ -282,6 +283,39 @@ block defined in the Shared Methodology Reference.
 (`[Document-Backed]`, `[Inferred]`, etc.) — those are stripped for the client. However, the
 assembly process itself introduces editorial judgement and synthesis, and those decisions must be
 accounted for in the justification block.
+
+**Element IDs for Stage 5:** Reuse H-RT-XX IDs from Stage 1. Include stage provenance in
+parentheses when the LC item is inherited from an upstream stage. Example:
+
+```
+**Item 1 — Sourcing time saving in executive summary [floor]**
+Claim: "AI could reduce sourcing time by 40–60%"
+Class: Assumption
+Element: H-RT-02 (S3)
+Inherited from: Stage 3 JUSTIFICATION item 1 (industry benchmark, no client baseline)
+Consultant action: Validate against client time-tracking before client delivery
+Confidence: Low
+```
+
+**Confidence Overview (Stage 5 format):** Use H-RT-XX IDs with stage provenance. The overview
+must cover every LC element appearing in the assembled document, not just new Stage 5 items.
+Example:
+
+```
+### Confidence Overview
+Grounded: 31 of 38 tagged claims are high-confidence (82%). Low-confidence elements:
+H-RT-02 (S3) ([Assumption] — sourcing time saving is industry benchmark, no client baseline),
+H-RT-05 (S2) ([Inferred] — Data maturity from Partial-grounded Stage 2 score),
+H-RT-07 (S4) ([Assumption] — 30-day procurement timeline assumed).
+Primary driver: inherited assumptions from Stage 3 impact estimates and Stage 2 maturity gaps.
+```
+
+The `### Confidence Overview` sentence itself must NOT carry any confidence tag. See
+`../blueprint-intake/references/preflight.md` Pattern Set 7.
+
+**Cross-stage LC roll-up:** The Checkpoint 2 block declares `LC element summary:` with all
+LC element IDs and their stage provenance. Use this list to populate the Confidence Overview
+in Chunk 3's JUSTIFICATION block — do not re-derive from scratch.
 
 Common sources of low-confidence items in Stage 5:
 - Executive Summary statements that synthesized across multiple low-confidence upstream items without flagging inherited uncertainty

@@ -90,7 +90,7 @@ Every `[Inferred]` and `[Assumption]` tag in the dossier body must reference a J
 
 The `lc_raw_count` metric is still tracked for observability but no longer gates the output.
 
-**Cross-run stability (1B):** A separate cross-run check — `check_justification_item_stability()` in `test_cross_run_regression.py` — enforces that the **set** of claims tagged low-confidence is identical across runs, not merely the count. This is the grounding analog of the QA-02 hypothesis/pain-point selection-identity check. A CV within the old 8% tolerance is not sufficient if different claims are being tagged on each run.
+**Cross-run stability (1B):** A separate cross-run check — `check_justification_item_stability()` in `test_cross_run_regression.py` — enforces that the **set of element IDs** covered in the JUSTIFICATION block is identical across runs, not merely the count. The gate criterion (B4 design): element ID presence in the `Element:` field, not per-item annotation signals. A count within any tolerance band is insufficient if different elements are covered on each run — "same count, different elements" is a grounding contract failure.
 
 ## Obligatory-Tag Floor (1C — v10)
 
@@ -122,16 +122,16 @@ end of the item title, inside the bold formatting:
 **Item 3 — Revenue per delivery FTE estimate [floor]**
 Claim: "Revenue per delivery FTE is estimated at £103,000"
 Class: Inferred
+Element: H-RT-02
 Floor category: F-2 (cross-document calculation — revenue ÷ FTE count)
 Why not higher: No single document states this figure; derived by calculation
 What resolves: Confirm total revenue and FTE count are from the same reporting period
 Confidence: High
 ```
 
-- The `[floor]` marker is machine-read by `check_stability.py` to separate gated from observed items.
-- A `Floor category:` line is required for floor items (use the ID and short description as shown).
-- Items without `[floor]` are **discretionary** — the model tagged a borderline claim at its
-  judgement. Discretionary items may vary across runs; the stability check logs but does not gate.
+- The gate criterion is `Element:` field presence (B4 design): `check_stability.py` derives the floor from the set of selected element IDs (H-RT-XX / PP-RT-XX) covered by at least one JUSTIFICATION entry whose `Element:` field names that ID. The `[floor]` marker and `Floor category:` are advisory observability only — they appear in WARNs but do not affect the gate result.
+- An `Element:` field is required for floor items — use the canonical element ID (e.g. `Element: H-RT-02`). The `Floor category:` line and `[floor]` title suffix are recommended for human readability.
+- Items without `Element:` are **discretionary** — the model tagged a borderline claim not scoped to a required element. Discretionary items may vary across runs; the stability check logs but does not gate on them.
 
 ### What the floor does NOT cover
 

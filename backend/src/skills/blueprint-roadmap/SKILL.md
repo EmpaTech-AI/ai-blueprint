@@ -190,6 +190,35 @@ After completing the Action Sequence, append the `## [JUSTIFICATION]` block defi
 Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
 numbered entry.
 
+**Element IDs for Stage 4:** Reuse the H-RT-XX IDs from Stage 1. Each sequencing decision
+maps to the hypothesis being sequenced. No new ID namespace is introduced at Stage 4.
+
+**JUSTIFICATION entry format for Stage 4 (example):**
+
+```
+**Item 1 — Now→Next demotion for H-RT-05 [floor]**
+Claim: "Placed in Next because Data maturity is Early [Inferred — Stage 2 Data score has Partial grounding]"
+Class: Inferred
+Element: H-RT-05
+Why not higher: The Stage 2 Data score was itself Partial-grounded — no data governance document provided
+What resolves: Validate data readiness level with client before committing to this timeline
+Confidence: Low
+```
+
+**Confidence Overview (Stage 4 format):** Use H-RT-XX element IDs, not opportunity or phase numbers.
+Reference the upstream stage when the LC item is inherited. Example:
+
+```
+### Confidence Overview
+Grounded: 10 of 14 tagged claims are high-confidence (71%). Low-confidence elements:
+H-RT-05 ([Inferred] — Now→Next demotion based on Partial-grounded Stage 2 Data score),
+H-RT-07 ([Assumption] — assumed 30-day procurement timeline, no project plan available).
+Primary driver: inherited uncertainty from Stage 2 Partial-grounded dimension scores.
+```
+
+The `### Confidence Overview` sentence itself must NOT carry any confidence tag. See
+`../blueprint-intake/references/preflight.md` Pattern Set 7.
+
 For Stage 4 specifically, common sources of low-confidence items are:
 - Phase placement decisions based on an assumed timeframe when no client capacity or resource data exists
 - "What unlocks this" statements that assumed dependencies between initiatives without explicit evidence
@@ -198,9 +227,9 @@ For Stage 4 specifically, common sources of low-confidence items are:
 - Bridge-to-audit recommendations phrased as facts rather than consultant judgement
 
 For each sequencing decision that depended on an inherited low-confidence score from Stage 2 or 3,
-the justification entry must name the upstream source: "Sequencing of Opportunity #X to Next phase
-depends on the Stage 2 Data maturity score which was itself [Inferred] — validate data readiness
-level before committing to this timeline."
+the justification entry must name the upstream source and the H-RT-XX element being sequenced:
+"Sequencing of H-RT-05 to Next phase depends on the Stage 2 Data maturity score which was itself
+[Inferred] — validate data readiness level before committing to this timeline."
 
 ## Pre-Flight Sanitization
 

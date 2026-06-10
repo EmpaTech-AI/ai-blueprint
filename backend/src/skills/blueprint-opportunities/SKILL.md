@@ -106,9 +106,12 @@ evaluation for the corresponding opportunity. Use them as a starting point but a
 **Readiness Adjustment Rule** (Step 4 below) — intake scores do not account for maturity.
 To extract them, look for HTML comment lines of the form:
 ```
-<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
 ```
-If the comment block is absent, score from scratch per Step 4.
+The `id=` field identifies which Stage 1 hypothesis this opportunity corresponds to. Use it to
+anchor the Stage 3 JUSTIFICATION entries to the same canonical element ID (e.g. `Element: H-RT-02`).
+If the `id=` field is absent, score from scratch per Step 4 and assign the H-RT-XX ID from the
+archetype's Hypothesis Library table.
 
 ### Step 4 — Score Each Opportunity
 
@@ -204,7 +207,7 @@ confidence tag — e.g. "Manual sourcing bottleneck (Dossier C.1) [Document-Back
 
 **Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5
 **Classification:** Quick Win / Foundation Builder / Big Bet
-<!-- score: impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} -->
+<!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} -->
 
 **Pilot suggestion:** (1–2 sentences — tag any assumptions about technology or process:
 e.g. "A pilot using an AI sourcing tool on 10 mandates would validate the time saving
@@ -252,6 +255,37 @@ For full scoring methodology and shared standards, read
 After completing the Opportunity Map, append the `## [JUSTIFICATION]` block defined in the
 Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
 numbered entry.
+
+**Element IDs for Stage 3:** Reuse the H-RT-XX IDs from Stage 1 — each opportunity
+corresponds to a Stage 1 hypothesis (linked via the `id=` field in the Stage 1 score comment).
+No new ID namespace is introduced at Stage 3.
+
+**JUSTIFICATION entry format for Stage 3 (example):**
+
+```
+**Item 1 — Sourcing automation impact estimate [floor]**
+Claim: "Automation could reduce sourcing time by 40–60%"
+Class: Assumption
+Element: H-RT-02
+Floor category: F-5 (industry benchmark — no client time-tracking data)
+Why not higher: No client-specific sourcing time study available
+What resolves: Request time-tracking log from operations team
+Confidence: Low
+```
+
+**Confidence Overview (Stage 3 format):** Use H-RT-XX element IDs, not opportunity numbers.
+Opportunity numbers may change if the set is reordered; canonical IDs do not. Example:
+
+```
+### Confidence Overview
+Grounded: 22 of 28 tagged claims are high-confidence (79%). Low-confidence elements:
+H-RT-02 ([Assumption] — sourcing time saving is industry benchmark, no client baseline),
+H-RT-05 ([Inferred] — feasibility reduced by Partial-grounded Data score from Stage 2).
+Primary driver: absence of client time-tracking and data readiness documentation.
+```
+
+The `### Confidence Overview` sentence itself must NOT carry any confidence tag. See
+`../blueprint-intake/references/preflight.md` Pattern Set 7.
 
 For Stage 3 specifically, common sources of low-confidence items are:
 - Impact estimates stated as ranges when no client-specific volume or cost data exists (e.g., "could save 10–20 hours/week" without a time-study or process log to confirm)

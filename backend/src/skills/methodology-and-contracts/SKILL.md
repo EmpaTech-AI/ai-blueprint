@@ -66,7 +66,16 @@ The block is machine-parsed by the pipeline dashboard to show consultants exactl
 ## [JUSTIFICATION]
 
 ### Confidence Overview
-{1–2 sentences: total number of [Inferred] and [Assumption] items used in this output and the primary drivers of low confidence}
+Grounded: {N} of {total} tagged claims are high-confidence ({grounded %}). Low-confidence elements: {element-id ([Class] — reason), element-id ([Class] — reason), ...}. Primary driver: {main source of low-confidence variance, e.g. "absence of data governance documentation"}.
+
+{This sentence is a meta-description of the output's confidence structure. It must NOT itself carry any confidence tag — [Document-Backed], [Inferred], [Assumption], or [Form-Stated]. Self-tagging this sentence inflates the LC item count and corrupts pipeline metrics. See preflight.md Pattern Set 7.}
+
+{Element IDs by stage:
+  Stage 1 — H-RT-XX / PP-RT-XX (selected hypotheses and pain points)
+  Stage 2 — dimension names: Strategy / Data / Technology / People / Processes / Governance
+  Stage 3 — H-RT-XX (opportunity corresponding to the upstream hypothesis, same namespace)
+  Stage 4 — H-RT-XX (sequencing decision for the upstream hypothesis)
+  Stage 5 — H-RT-XX (S1), H-RT-XX (S3), H-RT-XX (S4) with stage provenance in parentheses}
 
 ### Low-Confidence Items
 
@@ -74,12 +83,14 @@ The block is machine-parsed by the pipeline dashboard to show consultants exactl
 
 #### 1. [Inferred] {5–8 word label identifying the claim}
 - **Claim:** "{The exact sentence or phrase tagged [Inferred], copied verbatim from the output}"
+- **Element:** {H-RT-XX / PP-RT-XX / dimension name / "n/a" for cross-cutting claims}
 - **Why inferred:** {What partial evidence existed — signals that were present but not explicit enough to warrant [Document-Backed] or [Form-Stated]}
 - **Missing data:** {The specific document, section, or form field that would upgrade this to a high-confidence tag}
 - **Consultant action:** {One concrete, specific step — e.g. "Ask client to provide their IT systems inventory", "Check page 3 of financial summary for revenue breakdown", "Verify headcount figure in org chart"}
 
 #### 2. [Assumption] {5–8 word label}
 - **Claim:** "{The exact phrase tagged [Assumption], copied verbatim}"
+- **Element:** {H-RT-XX / PP-RT-XX / dimension name / "n/a"}
 - **Why assumed:** {No supporting data was present at all — explain what was entirely absent from documents and form}
 - **Missing data:** {What would completely resolve this assumption}
 - **Consultant action:** {Concrete next step to obtain or verify this information}
@@ -94,7 +105,9 @@ No low-confidence items. All data points in this output are backed by uploaded d
 - EVERY `[Inferred]` or `[Assumption]` tag used in the output above must have a numbered entry here
 - `[Document-Backed]` and `[Form-Stated]` items are NOT listed here — only low-confidence ones
 - Claims must be **quoted verbatim** from the output — do not paraphrase
-- Each "Consultant action" must be specific and actionable — "Review documents" is not acceptable; "Check page 2 of the uploaded sales report for pipeline volume" is
+- Every entry must declare its **Element** field (canonical ID the claim scopes to) — this is the cross-run stable key
+- The `### Confidence Overview` sentence itself must carry NO confidence tags — it is a meta-description, not a claim
+- Each "Consultant action" must be specific and actionable — "Review documents" is not acceptable
 - This block must be the absolute last thing in the output — nothing after `[END JUSTIFICATION]`
 - If unsure whether to tag something [Inferred] vs [Assumption]: [Inferred] = partial evidence existed, [Assumption] = no evidence at all
 
@@ -159,9 +172,10 @@ Used consistently across all Blueprint skills:
 
 | Handoff | What Must Be Present | Quality Gate |
 |---------|---------------------|-------------|
-| Intake → Maturity | Sections A–D complete; pain points (C) with severity; hypotheses (D) with evidence links; **confidence-propagation field** listing which claims are low-confidence | All sections present. Claims cited or tagged. Propagation field present and well-formed. |
-| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + **confidence annotations** on dimensions resting on inferred claims | No dimension scored without at least one supporting data point. Confidence annotations present where required. |
-| Opportunities → Roadmap | Scored opportunities with Impact/Feasibility/Alignment and classification | At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels |
+| Intake → Maturity | Sections A–D complete; pain points (C) with `<!-- pp-id: PP-RT-XX -->` comment; hypotheses (D) with `<!-- score: id=H-RT-XX ... -->` comment; ID-keyed `[JUSTIFICATION]` Confidence Overview (H-RT-XX / PP-RT-XX IDs, not item positions) | All sections present. H-RT-XX `id=` field present on all 7 hypotheses. Confidence Overview uses element IDs. |
+| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + `[CONFIDENCE_PROPAGATION]` field + **confidence annotations** on inferred-score dimensions | `[CONFIDENCE_PROPAGATION]` present and well-formed. All 6 dimensions present. Confidence annotations present. |
+| Opportunities → Roadmap | Scored opportunities with `<!-- score: id=H-RT-XX ... -->` comment on each card; ID-keyed `[JUSTIFICATION]` Confidence Overview using H-RT-XX IDs | `id=H-RT-XX` present on all opportunity score comments. At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels. |
+| Roadmap → Assembly | Phase assignments with H-RT-XX references in placement rationales; ID-keyed `[JUSTIFICATION]` Confidence Overview | All opportunities assigned to a phase. Inherited LC items reference upstream stage (e.g. `Element: H-RT-05 (S3)`). |
 
 ## Confidence Propagation Contract
 
@@ -174,9 +188,11 @@ Under compression, an untagged inference is treated as fact at the first stage b
 | Requirement | Stage | Enforced by |
 |-------------|-------|------------|
 | Every non-document assertion in B/C/D must carry `[Inferred]` or `[Assumption]` with an appendix item reference | 1 | `check_tagging_completeness()` |
-| The **set** of low-confidence claims must be stable across runs (not just the count) | 1 (cross-run) | `check_justification_item_stability()` |
+| The **set of element IDs** covered in the JUSTIFICATION block must be stable across runs (B4 — gate is `Element:` field presence, not per-item annotation) | 1 (cross-run) | `check_justification_item_stability()` |
+| All 7 hypotheses must carry `id=H-RT-XX` in their `<!-- score: -->` comment; all 8 pain points must carry `<!-- pp-id: PP-RT-XX -->` | 1 | `check_stability.py` (P1 spine) |
 | Dimensions resting on `[Inferred]` claims must carry a confidence annotation on the score | 2 | `check_confidence_annotation()` |
 | Stage 2 output must include a structured `[CONFIDENCE_PROPAGATION]` field for Stages 3–5 | 2 | `check_propagation_field()` |
+| `### Confidence Overview` sentence in every stage's JUSTIFICATION block must not carry a confidence tag | 1–5 | preflight.md Pattern Set 7 |
 
 ### What This Does NOT Mean
 

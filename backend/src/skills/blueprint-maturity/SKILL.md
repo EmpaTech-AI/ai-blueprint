@@ -250,6 +250,22 @@ After completing the Readiness Snapshot, append the `## [JUSTIFICATION]` block d
 Shared Methodology Reference. Every `[Inferred]` or `[Assumption]` tag used must have a
 numbered entry.
 
+**Confidence Overview (Stage 2 format):** Use dimension names as element IDs — these are the
+canonical IDs for the 6 maturity dimensions. Do not use item numbers. Example:
+
+```
+### Confidence Overview
+Grounded: 14 of 18 tagged claims are high-confidence (78%). Low-confidence elements:
+Data ([Inferred] — governance posture from form only, no data policy document), People ([Assumption] — AI champion role not formally defined in any document).
+Primary driver: absence of formal data governance and HR policy documentation.
+```
+
+The `### Confidence Overview` sentence itself must NOT carry any confidence tag. See
+`../blueprint-intake/references/preflight.md` Pattern Set 7.
+
+Each JUSTIFICATION entry for Stage 2 should include an `Element:` field naming the
+dimension it scopes to — e.g. `Element: Data` or `Element: People`.
+
 For Stage 2 specifically, common sources of low-confidence items are:
 - Maturity scores where only one data point exists (e.g., a single form answer about data governance)
 - Dimensions scored based on absence of evidence rather than explicit evidence of early maturity
