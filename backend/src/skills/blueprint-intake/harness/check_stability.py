@@ -19,23 +19,23 @@ SELECTED-SET CHECK design (v11 canonical-ID approach — AC1):
   - A genuine selection fork (different hypothesis chosen) still FAILs — distinct items
     must carry distinct IDs, so the alias layer can never silently merge a real fork.
 
-JUSTIFICATION check design (v12 structural floor — AC2 / B3):
-  - v12 batch proved that the model's 'Floor category: F-N' line is ALSO unreliable: the
-    same claim received different F-categories across runs (e.g. Calendly F-3 vs F-4), and
-    a standalone F-2 calculation appeared in one run only.  Both patterns persist in B2.
-  - v12 fix-form (B3): gate on STRUCTURAL detection of F-1/F-2, not on any model-emitted
-    label. F-3/F-4/F-5 are semantic and cannot be structurally gated; they become advisory.
-  - Required-element anchor (Element: field): a JUSTIFICATION entry is only floor-eligible
-    if its body declares 'Element: H-RT-XX' or 'Element: PP-RT-XX'. Standalone volunteered
-    claims (no Element:) are discretionary by construction — this closes source (c) where
-    a standalone F-2 calculation surfaced in only 1 of 4 runs.
-  - F-1 structural detection: Class: Assumption AND claim text contains a numeric figure.
-  - F-2 structural detection: Class: Inferred AND arithmetic/calculation signature in body.
-  - Floor set comparison keys on normalised Claim: text (verbatim quote).
-  - Discretionary items may vary run-to-run. Variance is WARN.
-  - [floor] title marker and Floor category: line are advisory observability only.
-  - The retired FW-08 global count band is NOT re-introduced. See §4 of the v10 Closure
-    Feedback Report for the cardinal regression trap this avoids.
+JUSTIFICATION check design (v14 spine-derived floor — AC2 / B4):
+  - v11–v14 batch history proved that every per-item annotation layer (title [floor] tag,
+    Floor category: line, Class: field, Element: anchor) carries ~20% LC-emission CV.
+    Each fix stabilised one annotation and exposed the next (v11→v14 whack-a-mole pattern).
+  - v14 fix-form (B4): derive the floor from the SELECTED-ELEMENT SPINE (P1), not from
+    per-item annotations.  The selected element ID set (7H + 8PP) is already proven stable
+    across all batches; the floor is defined as the subset of those IDs covered by at least
+    one JUSTIFICATION entry via the Element: field.
+  - Gate criterion (FAIL on cross-run divergence):
+      floor_element_ids = { element_id | JUSTIFICATION entry with Element: anchor to that ID }
+      This set must be identical across all runs.
+  - Schema-gap FAIL: if a selected element has NO JUSTIFICATION entry at all, that is a
+    schema violation emitted as FAIL for the affected run.
+  - F-category (F-1/F-2) is harness-computed from JUSTIFICATION entry bodies and emitted
+    as advisory WARN only.  F-cat flips and Element: re-anchoring no longer affect the gate.
+  - Unanchored JUSTIFICATION items (no Element: field) are discretionary; their variance
+    is WARN.  The FW-08 count-band guard is NOT re-introduced (no count gating anywhere).
 
 Also emits a candidate-pool observability metric: logs the full scored hypothesis list
 (titles + scores) from each run so pool divergence is visible even when the top-7 set
@@ -330,119 +330,104 @@ def extract_justification_entries(text: str) -> list:
     return entries
 
 
-def split_justification_by_tier(entries: list) -> tuple:
-    """B3+: Classify floor via structural detection with one-required-claim-per-element cap.
+def classify_justification_by_element(
+    entries: list,
+    selected_h_ids: list,
+    selected_pp_ids: list,
+) -> tuple:
+    """B4: Spine-derived floor — keyed on selected element IDs, not per-item annotations.
 
-    An entry is floor-eligible only if ALL THREE conditions hold:
-      1. Its body contains an 'Element: H-RT-XX' or 'Element: PP-RT-XX' anchor
-         (scopes the claim to a required output element; standalone volunteered
-         claims without Element: are discretionary by construction).
-      2. It structurally qualifies as F-1 or F-2:
-           F-1: Class: Assumption AND claim text contains a numeric figure
-           F-2: Class: Inferred AND arithmetic/calculation signature in body text
-      3. No prior entry in this run has already claimed the floor slot for this
-         Element ID (one required claim per element — v13 gate-condition-1 refinement).
-         A second or later F-1/F-2 entry anchored to the same element is an optional
-         elaboration; it joins the discretionary band with an advisory WARN.
+    The floor is the set of selected element IDs (from the stable P1 spine) that are
+    covered by at least one JUSTIFICATION entry via an 'Element: H-RT-XX / PP-RT-XX'
+    anchor.  Comparison key = element ID; per-item claim text and F-category are
+    advisory only and never used as gate criteria.
 
-    Rationale for condition 3: optional sub-elaborations of a hypothesis (e.g. an
-    implementation sub-detail of H-RT-05) may legitimately anchor to a required element
-    and pass F-1/F-2 detection, but they vary in presence run-to-run. The floor must
-    be grounded in the *mandatory* content only (the primary claim per element); optional
-    elaborations are discretionary regardless of their structural class.
+    This design is immune to:
+      - F-category flips (Class: field changing between runs) — F-cat is WARN only
+      - Element re-anchoring / partial drop — gate is element presence, not item count
+      - Optional-elaboration deduplication (B3+ concern) — all items for an element
+        are equivalent; any one anchoring it counts as coverage
 
-    Entries with Element: present but no F-1/F-2 structural signature are in the
-    semantic F-3/F-4/F-5 range — harness cannot gate them deterministically, so they
-    become advisory (WARN, not gated).
+    Gate trigger → FAIL (cross-run via check_set_stability):
+      covered_ids differs between runs (element present in one, absent in another).
 
-    The model's [floor] title tag and Floor category: line are kept for advisory
-    observability only — mismatches with harness classification emit WARN for
-    skill-tuning purposes but do not affect the gate result.
+    Schema-gap FAIL (per-run):
+      A selected element has no JUSTIFICATION entry at all.
+
+    Advisory WARN (not gated):
+      - F-category flip across runs (same element classified differently)
+      - Unanchored items (no Element: field) — discretionary
+      - JUSTIFICATION entries anchoring to non-selected element IDs
 
     Returns:
-        floor_claims    — list of normalised claim texts for structural-floor items
-        disc_claims     — list of normalised claim texts for non-floor items
-        tag_warn_msgs   — advisory WARN messages (model tag vs harness, semantic floor)
+        covered_ids   — frozenset of element IDs (lower) with ≥1 JUSTIFICATION anchor
+        uncovered_ids — sorted list of selected IDs absent from JUSTIFICATION
+        extra_ids     — sorted list of JUSTIFICATION-anchored IDs not in selected set
+        element_fcat  — {element_id: 'F-1'|'F-2'|'F-obs'} advisory harness F-cat map
+        warn_msgs     — advisory messages (not gate failures)
     """
-    floor_claims = []
-    disc_claims = []
-    tag_warn_msgs = []
-    # Tracks which element IDs have already contributed one floor claim (condition 3)
-    seen_floor_elements: dict = {}  # element_id (lower) → claim_key of first floor claim
+    selected_ids = frozenset(
+        sid.lower() for sid in (selected_h_ids + selected_pp_ids)
+    )
+
+    element_items: dict = {}  # element_id → list of per-item {is_f1, is_f2}
+    unanchored: list = []
+    warn_msgs: list = []
 
     for title, body in entries:
-        is_model_tagged = normalise_title(title).endswith("[floor]")
-
-        # B3 gate 1: Element: anchor scopes claim to a required output element
         element_m = _ELEMENT_RE.search(body)
-        has_element = bool(element_m)
-        element_id = element_m.group(1).lower() if element_m else None
+        if not element_m:
+            unanchored.append(normalise_title(title))
+            continue
 
-        # Claim text: F-1 numeric check and stable cross-run comparison key
+        element_id = element_m.group(1).lower()
+
+        # Harness F-cat detection — advisory only, never gated
         claim_m = _CLAIM_RE.search(body)
         claim_text = claim_m.group(1).strip() if claim_m else ""
-        claim_key = normalise_title(claim_text) if claim_text else normalise_title(title)
+        is_f1 = (
+            bool(_CLASS_ASSUMPTION_RE.search(body)) and bool(re.search(r"\d", claim_text))
+        )
+        is_f2 = (
+            bool(_CLASS_INFERRED_RE.search(body)) and bool(_F2_ARITHMETIC_RE.search(body))
+        )
 
-        # B3 gate 2: structural F-1 / F-2 detection
-        is_assumption = bool(_CLASS_ASSUMPTION_RE.search(body))
-        is_inferred = bool(_CLASS_INFERRED_RE.search(body))
-        claim_has_numeric = bool(re.search(r"\d", claim_text))
-        body_has_arithmetic = bool(_F2_ARITHMETIC_RE.search(body))
+        if element_id not in element_items:
+            element_items[element_id] = []
+        element_items[element_id].append({"is_f1": is_f1, "is_f2": is_f2})
 
-        is_f1 = is_assumption and claim_has_numeric
-        is_f2 = is_inferred and body_has_arithmetic
-
-        # Classify
-        if has_element and (is_f1 or is_f2):
-            if element_id not in seen_floor_elements:
-                # Gate condition 3 passes: first floor-eligible claim for this element
-                seen_floor_elements[element_id] = claim_key
-                floor_claims.append(claim_key)
-                harness_is_floor = True
-            else:
-                # Gate condition 3 fails: second+ claim for same element → optional elaboration
-                tag_warn_msgs.append(
-                    f"Optional elaboration (discretionary): item '{title[:70]}' anchors to "
-                    f"'{element_id}' which already has a required floor claim "
-                    f"('{seen_floor_elements[element_id][:50]}') — "
-                    f"classified as discretionary (one required claim per element)"
-                )
-                disc_claims.append(claim_key)
-                harness_is_floor = False
-        elif has_element:
-            # Element: present but no F-1/F-2 structure → semantic F-3/F-4/F-5 range
-            floor_tier = (
-                "(F-1 candidate — no numeric in claim)"
-                if is_assumption
-                else "(F-2 candidate — no arithmetic in body)"
-                if is_inferred
-                else "(Class unclear)"
-            )
-            tag_warn_msgs.append(
-                f"Semantic floor (advisory, not gated): item '{title[:70]}' has Element: "
-                f"anchor {floor_tier} — harness cannot structurally classify F-3/F-4/F-5"
-            )
-            disc_claims.append(claim_key)
-            harness_is_floor = False
+    # Advisory F-cat per element: derived from all items for that element
+    element_fcat: dict = {}
+    for eid, items in element_items.items():
+        if any(i["is_f1"] for i in items):
+            element_fcat[eid] = "F-1"
+        elif any(i["is_f2"] for i in items):
+            element_fcat[eid] = "F-2"
         else:
-            # No Element: → standalone volunteered claim → discretionary
-            disc_claims.append(claim_key)
-            harness_is_floor = False
-
-        # Model-tag observability: [floor] title suffix vs harness result
-        if harness_is_floor and not is_model_tagged:
-            f_label = "F-1" if is_f1 else "F-2"
-            tag_warn_msgs.append(
-                f"Under-tagged: item '{title[:70]}' is harness-floor ({f_label}) "
-                f"but has no [floor] title marker"
-            )
-        elif not harness_is_floor and is_model_tagged:
-            tag_warn_msgs.append(
-                f"Over-tagged: item '{title[:70]}' has [floor] title marker but is "
-                f"harness-discretionary (no Element: anchor or no F-1/F-2 structure)"
+            element_fcat[eid] = "F-obs"
+            warn_msgs.append(
+                f"Semantic only (advisory): element '{eid}' has JUSTIFICATION entry "
+                f"but no harness-detectable F-1/F-2 structural signature"
             )
 
-    return floor_claims, disc_claims, tag_warn_msgs
+    covered_ids = frozenset(element_items.keys())
+    uncovered_ids = sorted(selected_ids - covered_ids)
+    extra_ids = sorted(covered_ids - selected_ids)
+
+    if unanchored:
+        sample = unanchored[:3]
+        suffix = "..." if len(unanchored) > 3 else ""
+        warn_msgs.append(
+            f"{len(unanchored)} unanchored JUSTIFICATION item(s) (no Element: field) "
+            f"— discretionary, not gated. Sample: {sample}{suffix}"
+        )
+    if extra_ids:
+        warn_msgs.append(
+            f"JUSTIFICATION entries anchor to non-selected element IDs {extra_ids} "
+            f"— Element: field may reference a non-selected hypothesis or pain point"
+        )
+
+    return covered_ids, uncovered_ids, extra_ids, element_fcat, warn_msgs
 
 
 def extract_candidate_pool(text: str) -> list:
@@ -537,12 +522,13 @@ def run_stability_check(paths: list, strict: bool = False,
       - Keys on id= from score comments when present
       - Falls back to alias-normalised title for pre-v11 dossiers
 
-    JUSTIFICATION check uses structural floor classification (AC2 / B3+):
-      - FAIL on floor-item set divergence (items with Element: anchor + F-1/F-2 + first per element)
-      - WARN on optional elaborations: second+ F-1/F-2 claim anchored to same element → discretionary
-      - WARN on model [floor] tag / harness classification mismatches (observability)
-      - WARN on semantic F-3/F-4/F-5 range items (Element: present, no F-1/F-2 structure)
-      - WARN on discretionary-item divergence (expected ~20% LC-tagging CV)
+    JUSTIFICATION check uses spine-derived floor (AC2 / B4):
+      - Floor = frozenset of selected element IDs covered by ≥1 JUSTIFICATION anchor
+      - FAIL on cross-run divergence of the covered element ID set
+      - FAIL per-run if a selected element has no JUSTIFICATION entry (schema gap)
+      - WARN on F-category flips across runs (advisory observability — not gated)
+      - WARN on unanchored JUSTIFICATION items (no Element: field — discretionary)
+      - WARN on JUSTIFICATION entries anchoring to non-selected element IDs
       - No global justification count band (retired FW-08 pattern avoided)
 
     Returns a result dict with keys: passed, fail_issues, warn_issues, per_run.
@@ -554,29 +540,35 @@ def run_stability_check(paths: list, strict: bool = False,
         except Exception as e:
             return {"error": f"Cannot read {p}: {e}"}
 
-        just_entries = extract_justification_entries(text)
-        floor_claims, disc_claims, tag_warns = split_justification_by_tier(just_entries)
+        # Extract selected IDs first — used as the spine for floor derivation
+        h_ids = extract_hypothesis_ids(text, archetype)
+        pp_ids = extract_pain_point_ids(text, archetype)
 
-        # Legacy title lists preserved for per-run reporting / observability
+        just_entries = extract_justification_entries(text)
+        covered_ids, uncovered_ids, extra_ids, element_fcat, just_warns = \
+            classify_justification_by_element(just_entries, h_ids, pp_ids)
+
         all_just_titles = [normalise_title(t) for t, _ in just_entries]
 
         per_run.append({
             "file": str(p),
-            "hypothesis_ids":     extract_hypothesis_ids(text, archetype),
-            "pain_point_ids":     extract_pain_point_ids(text, archetype),
-            "hypothesis_titles":  extract_hypothesis_titles(text),   # observability
-            "pain_point_titles":  extract_pain_point_titles(text),   # observability
-            "justification_titles":       all_just_titles,
-            "justification_floor":        floor_claims,
-            "justification_discretionary": disc_claims,
-            "floor_tag_warns":            tag_warns,
-            "candidate_pool":     extract_candidate_pool(text),
+            "hypothesis_ids":              h_ids,
+            "pain_point_ids":              pp_ids,
+            "hypothesis_titles":           extract_hypothesis_titles(text),
+            "pain_point_titles":           extract_pain_point_titles(text),
+            "justification_titles":        all_just_titles,
+            "justification_floor_ids":     covered_ids,    # frozenset of element IDs
+            "justification_uncovered":     uncovered_ids,  # selected IDs missing from JUSTIFICATION
+            "justification_extra":         extra_ids,      # JUSTIFICATION anchors not in selected set
+            "justification_element_fcat":  element_fcat,   # advisory F-cat per element
+            "justification_warns":         just_warns,
+            "candidate_pool":              extract_candidate_pool(text),
         })
 
     fail_issues = []
     warn_issues = []
 
-    # FAIL checks — selected sets must be identical (keyed on canonical IDs)
+    # FAIL: selected sets must be identical (keyed on canonical IDs)
     fail_issues.extend(check_set_stability(
         [r["hypothesis_ids"] for r in per_run], "Hypothesis selected set"
     ))
@@ -584,17 +576,14 @@ def run_stability_check(paths: list, strict: bool = False,
         [r["pain_point_ids"] for r in per_run], "Pain point selected set"
     ))
 
-    # JUSTIFICATION: gate on structural floor subset only (B3)
-    floor_counts = [len(r["justification_floor"]) for r in per_run]
+    # JUSTIFICATION: B4 spine-derived floor gate
+    floor_counts = [len(r["justification_floor_ids"]) for r in per_run]
     if all(c == 0 for c in floor_counts):
-        # No structural F-1/F-2 items found — either pre-v12 dossiers or missing fields
+        # No Element: anchors found — pre-v12 dossiers or missing fields
         warn_issues.append(
-            "No harness-derived floor items found in any run "
-            "(no Element: + structural F-1/F-2 entries). "
-            "Cannot apply B3 floor-subset gate. "
+            "No JUSTIFICATION Element: anchors found in any run — cannot apply B4 gate. "
             "Checking [floor] title markers as legacy fallback."
         )
-        # Legacy fallback: use [floor] title suffix (pre-B2 behaviour)
         legacy_floor = [
             [t for t in r["justification_titles"] if t.endswith("[floor]")]
             for r in per_run
@@ -614,37 +603,42 @@ def run_stability_check(paths: list, strict: bool = False,
                 legacy_floor, "JUSTIFICATION floor set ([floor]-tag fallback)"
             ))
     else:
-        # B2 path: gate on harness-classified floor set (keyed on claim text)
+        # B4 path: gate on element ID coverage set
         fail_issues.extend(check_set_stability(
-            [r["justification_floor"] for r in per_run], "JUSTIFICATION floor set"
+            [r["justification_floor_ids"] for r in per_run],
+            "JUSTIFICATION element coverage"
         ))
 
-        # Emit model-tag advisory warnings (under/over-tagged) as WARNs
+        # FAIL: schema gaps — selected elements absent from JUSTIFICATION
         for r in per_run:
-            for w in r["floor_tag_warns"]:
+            if r["justification_uncovered"]:
+                fail_issues.append(
+                    f"{Path(r['file']).name}: {len(r['justification_uncovered'])} selected "
+                    f"element(s) have no JUSTIFICATION entry (schema gap): "
+                    f"{r['justification_uncovered']}"
+                )
+
+        # Advisory WARNs per run (unanchored items, extra anchors, semantic-only)
+        for r in per_run:
+            for w in r["justification_warns"]:
                 warn_issues.append(f"{Path(r['file']).name}: {w}")
 
-        # Discretionary band: warn if it differs (expected, not a defect)
-        disc_sets = [frozenset(r["justification_discretionary"]) for r in per_run]
-        ref = disc_sets[0]
-        disc_divergences = []
-        for i, s in enumerate(disc_sets[1:], start=2):
-            if s != ref:
-                added = sorted(s - ref)
-                removed = sorted(ref - s)
-                lines = [f"Discretionary band differs between run 1 and run {i} "
-                         f"(WARN — expected variance):"]
-                if removed:
-                    lines.append(f"  In run 1 but not run {i}: {removed}")
-                if added:
-                    lines.append(f"  In run {i} but not run 1: {added}")
-                disc_divergences.append("\n".join(lines))
-        if strict:
-            fail_issues.extend(disc_divergences)
-        else:
-            warn_issues.extend(disc_divergences)
+        # Advisory: cross-run F-category flip (observability — not a gate)
+        all_element_ids: set = set()
+        for r in per_run:
+            all_element_ids.update(r["justification_element_fcat"].keys())
+        for eid in sorted(all_element_ids):
+            fcats = [
+                r["justification_element_fcat"].get(eid, "absent")
+                for r in per_run
+            ]
+            if len(set(fcats)) > 1:
+                warn_issues.append(
+                    f"F-category flip (advisory): element '{eid}' classified as "
+                    f"{fcats} across runs — stable floor gate not affected"
+                )
 
-    # WARN checks — pool divergence is observability, not a gate failure
+    # WARN: pool divergence is observability only
     pool_issues = check_pool_divergence([r["candidate_pool"] for r in per_run])
     if strict:
         fail_issues.extend(pool_issues)
@@ -697,12 +691,14 @@ def format_human_report(result: dict, paths: list) -> str:
         lines.append(f"  {Path(r['file']).name}:")
         lines.append(f"    Pain points selected:    {len(r['pain_point_ids'])}")
         lines.append(f"    Hypotheses selected:     {len(r['hypothesis_ids'])}")
-        floor_count = len(r.get("justification_floor", []))
-        disc_count = len(r.get("justification_discretionary", []))
+        floor_ids = r.get("justification_floor_ids", set())
+        uncovered = r.get("justification_uncovered", [])
         total_just = len(r["justification_titles"])
         lines.append(
             f"    Justification items:     {total_just}"
-            f"  (floor: {floor_count}  discretionary: {disc_count})"
+            f"  (covered elements: {len(floor_ids)}"
+            + (f"  schema-gaps: {len(uncovered)}" if uncovered else "")
+            + ")"
         )
         pool_scored = sum(1 for e in r["candidate_pool"] if e["product"] is not None)
         lines.append(f"    Candidate pool (scored): {pool_scored}")
@@ -759,8 +755,9 @@ def main():
                 "pain_points": len(r["pain_point_ids"]),
                 "hypotheses": len(r["hypothesis_ids"]),
                 "justification_items": len(r["justification_titles"]),
-                "justification_floor": len(r.get("justification_floor", [])),
-                "justification_discretionary": len(r.get("justification_discretionary", [])),
+                "justification_covered_elements": len(r.get("justification_floor_ids", set())),
+                "justification_uncovered": r.get("justification_uncovered", []),
+                "justification_element_fcat": r.get("justification_element_fcat", {}),
                 "candidate_pool_scored": sum(
                     1 for e in r["candidate_pool"] if e["product"] is not None
                 ),

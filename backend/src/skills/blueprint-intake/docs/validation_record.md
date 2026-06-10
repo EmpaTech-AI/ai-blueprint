@@ -2,7 +2,7 @@
 
 **Schema:** `intake_v1.0`
 **Maintained by:** AI Assist BG · Blueprint Practice
-**Last updated:** June 2026 (v11 batch + instrument rebuild)
+**Last updated:** June 2026 (v14 batch + instrument rebuild B4)
 
 This document records what has been validated, what has been confirmed as a known-gap, and the
 cross-matrix roadmap for expanding validation coverage beyond the primary archetype.
@@ -89,6 +89,73 @@ identical across all 4 runs — divergences are pure title paraphrase:
 **Verdict: the v10 instrument false-FAILed a semantically stable selection.** The selection is
 deterministic at the level that matters (which hypotheses are chosen). The instrument was gating
 on model prose titles, which are legitimately allowed to vary.
+
+---
+
+## v14 Validation Batch Summary
+
+### Engagement: Meridian Talent Partners (primary archetype — v14 stability analysis)
+
+| Axis | Value |
+|---|---|
+| Archetype | Recruitment & Talent Solutions |
+| Size band | Small (68 employees) |
+| Runs | 4 (v14_t1, v14_t2, v14_t3, v14_t4) |
+
+#### Results
+
+| Check | Result | Notes |
+|---|---|---|
+| Stage-2 dimension reproducibility | **STABLE — 2nd consecutive batch** | 6/6 dimensions identical 4/4 runs; People + Processes both Developing held from v13 |
+| Selected-set identity | **STABLE** | Canonical H-ID + PP-ID identical 4/4; H-RT-06 excluded 4/4 |
+| Schema counts / propagation | **HELD** | 7H / 8PP / propagation block present 4/4 |
+| v13 optional-anchored residual | **ADDRESSED** | "AI scheduling assistant" now emits `Element: NONE`; excluded by B3+ gate |
+| Justification floor (B3+) | **RED — two new variance surfaces** | F-category flips (F-5/F-1 for same claim) and Element re-anchoring (H-RT-01 ↔ H-RT-05) defeat B3+; root cause confirmed as per-item annotation CV |
+| Total-tag CV | **WIDENING** | 58/60/73/64 → CV 9.0% (trend: 2.8 → 7.7 → 9.0); same diffuse per-item noise |
+
+#### v14 Floor Defect Diagnosed (per-item annotation CV confirmed)
+
+Two surfaces remain after B3+'s optional-anchored closure:
+
+- **F-category flips:** Same claim classified F-5 in t1/t3, F-1 in t2/t4 (AI sourcing; Candidate Database Revival). B3+ gates only F-1/F-2 — an F-5 classification removes the item from the floor, so the same content is in/out depending on the model's F-cat annotation.
+- **Element re-anchoring / drop:** "AI sourcing tool" anchors H-RT-01 in three runs, H-RT-05 in t3; t3 emits `Element:` on only 3/7 items. B3+ deduplication reads `Element:` to de-dup — if the field re-anchors, dedup operates on a different set.
+
+Both are the same root cause identified in v11–v13: per-item annotations carry ~20% LC-emission CV. No additional per-item refinement can remove this variance; it only relocates it to the next annotation layer. Change of kind required: derive the floor from the selected-element spine.
+
+---
+
+## v14 Instrument Rebuild (development — June 2026)
+
+### B4 — Spine-Derived Floor (replaces B3+)
+
+**Problem:** B3+ (and all prior per-item classifiers) inherit the ~20% LC-emission CV of whatever per-item annotation they read. v11–v14 are four consecutive demonstrations that per-item gate refinement relocates this variance rather than removing it.
+
+**Root cause:** The floor gate reads model-emitted annotations (`[floor]` tag → `Floor category:` line → `Class:` + `Element:` fields). Every such annotation is non-deterministic. The selected-element ID set is the only layer that has been stable across all four batches.
+
+**Fix implemented (B4 — Spine-Derived Floor):**
+- `check_stability.py` updated:
+  - `split_justification_by_tier()` removed (B3+ per-item classifier).
+  - `classify_justification_by_element(entries, selected_h_ids, selected_pp_ids)` added.
+    - Groups JUSTIFICATION entries by `Element:` field value (element ID).
+    - Floor = `frozenset` of element IDs covered by ≥1 JUSTIFICATION entry.
+    - F-category per element is harness-computed from entry bodies and emitted as advisory WARN only — never used as a gate criterion.
+    - Uncovered selected IDs (element selected but absent from JUSTIFICATION) = schema-gap FAIL.
+    - Unanchored items (no `Element:` field) = discretionary, WARN only.
+  - `run_stability_check()` restructured: extracts selected IDs first, passes them to `classify_justification_by_element()`, gates on element ID coverage set.
+  - Cross-run F-category flip detection added as advisory WARN.
+- `SKILL.md` updated:
+  - Floor-marker rule updated from B3+ to B4: gate criterion is `Element:` presence (any number of entries per element); F-category advisory only.
+  - B3+ "one primary claim per required element" restriction lifted — sub-elaborations may carry `Element:` freely.
+  - Schema completeness requirement added: every selected element must have ≥1 JUSTIFICATION entry.
+
+**Why this ends the whack-a-mole:** The floor set is now `covered_element_ids ⊆ selected_element_ids`. Both sets derive from the stable P1 spine. F-category flips, Element re-anchoring, and optional-elaboration presence/absence do not affect `covered_element_ids` — an element is covered if any item anchors to it, regardless of category. The only way for `covered_element_ids` to change between runs is if an element's JUSTIFICATION anchor is added or removed entirely, which is a real schema defect (FAIL) not annotation noise (WARN).
+
+**Total-tag CV watch:** CV 9.0% (58/60/73/64). Trend widening (2.8 → 7.7 → 9.0). Once B4 is active, per-item tag totals are observability only. CV is expected to stabilise or become irrelevant once the floor is no longer driven by per-item classification.
+
+**Regression guards added:**
+- B4 gate reads element ID presence only; never reads F-category, F-N line, or `[floor]` suffix as a gate criterion
+- Schema-gap FAIL if a selected element has no JUSTIFICATION entry
+- No count-band gate introduced (FW-08 guard intact)
 
 ---
 

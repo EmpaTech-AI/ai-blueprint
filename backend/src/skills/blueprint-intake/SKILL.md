@@ -319,43 +319,35 @@ What resolves: Confirm with Operations Director in discovery session
 Confidence: Medium
 ```
 
-**Floor-marker rule (v12 — AC2 / B3):** `check_stability.py` derives floor membership from two
-structural signals, not from any model-emitted label. The `Floor category:` line and `[floor]`
-title suffix are now **advisory observability only** — they affect WARNs but not the gate result.
+**Floor-marker rule (v14 — AC2 / B4):** `check_stability.py` derives the floor from the
+**selected-element spine** (P1), not from per-item annotations. The gate criterion is:
 
-**Two conditions are required for an item to be harness-floor:**
+> *Floor = the set of selected element IDs covered by at least one JUSTIFICATION entry
+> via the `Element:` field.*
 
-1. **`Element:` field present** — identifies the required output element the claim scopes to
-   (e.g. `Element: H-RT-02` or `Element: PP-RT-07`). This anchors the claim to a specific
-   hypothesis or pain point in the required output. Standalone volunteered claims with no
-   `Element:` field are **discretionary by construction** — they may vary run-to-run without
-   triggering a gate failure.
+The `Floor category:` line, `[floor]` title suffix, and `Class:` (F-category) are **advisory
+observability only** — they appear in WARNs but never affect the gate result.
 
-2. **Structural F-1 or F-2 signature:**
-   - **F-1:** `Class: Assumption` AND the Claim text contains a numeric figure
-   - **F-2:** `Class: Inferred` AND the body contains an arithmetic/calculation signature
-     (÷, ×, "divided by", "calculation", "per FTE", "combining N sources", etc.)
+**One condition is required for an element to be harness-floor:**
 
-Items with `Element:` present but no F-1/F-2 structural signature fall in the semantic
-F-3/F-4/F-5 range — the harness emits a WARN but does not gate them (semantic claims cannot
-be structurally verified run-to-run).
+- **`Element:` field present in at least one JUSTIFICATION entry** — identifies the selected
+  hypothesis or pain point the entry scopes to (e.g. `Element: H-RT-02`). This anchors
+  coverage to that element. Any number of entries per element is allowed — one is sufficient.
+
+This design is immune to F-category flips and Element: re-anchoring because the gate reads
+only element ID presence, not item-level classification signals.
 
 **Practical guidance:**
-- Item 1 above (F-2 cross-document calculation scoped to H-RT-02) MUST carry `Element: H-RT-02`
-  and SHOULD also carry `Floor category: F-2` + `[floor]` title suffix for human readability.
-- Item 2 (a causal framing with no required-element anchor) has no `Element:` — it is
-  discretionary and does not require floor markers.
-- When you volunteer an extra Inferred/Assumption claim not tied to a specific hypothesis or
-  pain point in the required output, omit `Element:` — the harness will treat it as discretionary.
-- **One primary claim per required element.** Each hypothesis or pain point in the required
-  output may produce at most **one** floor-eligible JUSTIFICATION entry — the entry for the
-  primary confidence-tagged claim in that hypothesis's body. If you write a follow-on sub-detail
-  or phase-2 elaboration of the same hypothesis (e.g. an implementation variant of H-RT-05's
-  scheduling approach), **omit `Element:`** from that elaboration entry. Attaching `Element:`
-  to a sub-elaboration makes it floor-eligible, which causes the floor set to vary run-to-run
-  whenever the model includes or omits the elaboration. The harness enforces this with a
-  safety-net deduplication (second+ F-1/F-2 claim anchored to the same element → discretionary
-  + WARN), but the correct behaviour is not to anchor sub-elaborations in the first place.
+- Every selected hypothesis and pain point MUST have at least one JUSTIFICATION entry with
+  its `Element: H-RT-XX / PP-RT-XX` field — missing coverage is a schema-gap FAIL.
+- Item 1 above (F-2 cross-document calculation) MUST carry `Element: H-RT-02` and SHOULD
+  carry `Floor category: F-2` + `[floor]` title suffix for human readability.
+- Item 2 (causal framing without a required-element anchor) has no `Element:` — it is
+  discretionary and does not contribute to floor coverage.
+- When you volunteer an extra claim not tied to a specific hypothesis or pain point, omit
+  `Element:` — the harness will treat it as discretionary.
+- Multiple entries per element are fine. Sub-elaborations may carry `Element:` — any
+  anchor to the element counts as coverage. (The B3+ one-per-element restriction is lifted.)
 3. End with the Final marker:
 
 ```markdown
@@ -549,10 +541,11 @@ Mandatory. One numbered entry per [Inferred] and [Assumption] tag used in the bo
 Claim (verbatim) / Class / Element (if scoped to a required output element) /
 Floor category (advisory) / Why not higher / What resolves / Confidence.
 
-For claims that are structurally floor-eligible (F-1 or F-2 with an `Element:` anchor), also
-append `[floor]` to the item title and include `Floor category:` for human readability. The
-harness derives floor membership from `Element:` + structural class detection (B3) — these
-advisory markers do not control gating but improve traceability.
+For claims scoped to a selected hypothesis or pain point, carry `Element: H-RT-XX / PP-RT-XX`
+— this is the gate criterion (B4). For human readability, also append `[floor]` to the item
+title and include `Floor category:` when the claim is F-1/F-2 structural. The `Floor category:`
+line and `[floor]` suffix are advisory observability only; the gate reads only element ID
+presence, not F-category.
 
 ## Confidence Tagging — Critical Rules
 
