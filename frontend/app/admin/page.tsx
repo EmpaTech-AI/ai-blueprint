@@ -55,15 +55,61 @@ const SCORE_KEY_TO_STEP: Record<string, string> = { stepB: 'B', stepC: 'C', step
 const STATUS_BADGE: Record<string, string> = { pending: 'badge-pending', running: 'badge-running', review_ready: 'badge-review', approved: 'badge-approved', failed: 'badge-failed' };
 const STATUS_LABELS: Record<string, string> = { pending: 'Pending', running: 'Running', review_ready: 'Ready for Review', approved: 'Approved', failed: 'Failed' };
 
-// Scenario C — composition-tiered colour function.
-// Drives colour from documentVerifiedPercent (DB share of the high-confidence pool),
-// not from the blended score. This makes the badge and bar reflect epistemic quality
-// (how much is documentary) rather than the aggregate ratio.
-function compositionColor(docVerifiedPct: number, hasHighConfidence: boolean) {
-  if (!hasHighConfidence)       return { badge: 'badge-confidence-red',   bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',   text: '#fca5a5', band: 'No grounding' };
-  if (docVerifiedPct >= 80)     return { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',   text: '#86efac', band: 'Strongly documentary' };
-  if (docVerifiedPct >= 50)     return { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Mixed grounding' };
-  return                               { badge: 'badge-confidence-blue',  bar: '#3b82f6', barGlow: 'rgba(59,130,246,0.4)', text: '#93c5fd', band: 'Form-stated' };
+// Per-stage documentary-share thresholds for the composition tier.
+// Stage 1 intake is structurally form-heavy by design; Stage 5 final assembly
+// carries the highest documentary expectation. Provisional until Step-5 calibration.
+const COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
+  stepB:  { green: 70, amber: 45 }, // Stage 1 — Intake      (form intake is half FS by design)
+  stepC:  { green: 75, amber: 50 }, // Stage 2 — Maturity    (document-driven but inference frequent)
+  stepD:  { green: 75, amber: 50 }, // Stage 3 — Opportunities
+  stepD2: { green: 75, amber: 50 }, // Stage 4 — Roadmap     (inherits Stage 2/3 uncertainty)
+  stepE:  { green: 80, amber: 50 }, // Stage 5 — Assembly    (delivery artifact; highest bar)
+};
+
+// Provisional grounding-green cut. Clean runs range ~92–95%; 88 gives ~4 pp headroom
+// below the empirical floor. Recalibrate after Step-5 clean-baseline run.
+const GROUNDING_GREEN = 88;
+
+const TIER_STYLES = [
+  { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',   text: '#86efac', band: 'Strongly documentary', descriptor: 'Strongly documentary — suitable for client delivery' },
+  { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Mixed grounding',       descriptor: 'Mixed grounding — review form-stated items or low-confidence tags before delivery' },
+  { badge: 'badge-confidence-blue',  bar: '#3b82f6', barGlow: 'rgba(59,130,246,0.4)', text: '#93c5fd', band: 'Form-stated',           descriptor: 'Predominantly form-stated — verify before high-stakes use' },
+  { badge: 'badge-confidence-red',   bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',  text: '#fca5a5', band: 'Low grounding',         descriptor: 'Low grounding — address low-confidence items before proceeding' },
+] as const;
+
+// Stage-aware action text for the green tier only. Stage 1 reads "within expected range for intake"
+// so a 72% Stage-1 run isn't mislabelled "Strongly documentary" against an absolute bar.
+// Amber/blue/red wording is stage-neutral pending Step-5 calibration.
+const STAGE_GREEN_DESCRIPTORS: Record<string, string> = {
+  stepB:  'Documentary share within expected range for intake — suitable for pipeline use',
+  stepC:  'Strongly documentary for this stage — suitable for proceeding',
+  stepD:  'Strongly documentary for this stage — suitable for proceeding',
+  stepD2: 'Strongly documentary for this stage — suitable for proceeding',
+  stepE:  'Strongly documentary — suitable for client delivery',
+};
+
+// Scenario C — two-factor colour function.
+// Badge tier = worst of {composition tier, grounding tier} so the badge degrades
+// when EITHER the documentary share falls (FS-heavy run) OR LC count balloons
+// (grounding regression). Neither factor alone is sufficient; both must be healthy for green.
+// Composition thresholds are stage-keyed because Stage 1 is structurally more form-heavy
+// than Stage 5 by pipeline design.
+function compositionColor(docVerifiedPct: number, blendedScore: number, hasHighConfidence: boolean, stepKey: string) {
+  if (!hasHighConfidence) return { ...TIER_STYLES[3] };
+
+  const t = COMPOSITION_THRESHOLDS[stepKey] ?? COMPOSITION_THRESHOLDS.stepE;
+
+  const compTier   = docVerifiedPct >= t.green ? 0 : docVerifiedPct >= t.amber ? 1 : 2;
+  const groundTier = blendedScore   >= GROUNDING_GREEN ? 0 : blendedScore >= 76 ? 1 : blendedScore >= 60 ? 2 : 3;
+
+  const tier = Math.max(compTier, groundTier);
+  const base = TIER_STYLES[tier];
+  // Green tier gets stage-aware wording; other tiers are stage-neutral until Step-5 calibration.
+  const descriptor = tier === 0
+    ? (STAGE_GREEN_DESCRIPTORS[stepKey] ?? STAGE_GREEN_DESCRIPTORS.stepE)
+    : base.descriptor;
+
+  return { ...base, descriptor };
 }
 
 function SummaryLine({ line }: { line: string }) {
@@ -99,7 +145,7 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
   const docVerifiedPct = full?.documentVerifiedPercent ?? (high > 0 ? Math.round((dbCount / high) * 100) : score);
   const fsSharePct     = full?.formStatedSharePercent  ?? (high > 0 ? Math.round((fsCount  / high) * 100) : 0);
   const hasHighConf    = full ? high > 0 : score > 0;
-  const colors         = compositionColor(docVerifiedPct, hasHighConf);
+  const colors         = compositionColor(docVerifiedPct, score, hasHighConf, stepKey);
 
   return (
     <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
@@ -123,7 +169,7 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
       <div className="w-full rounded-full mb-2 mt-2" style={{ height: '4px', background: 'rgba(255,255,255,0.08)' }}>
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${docVerifiedPct}%`, background: colors.bar, boxShadow: `0 0 6px ${colors.barGlow}` }} />
       </div>
-      <p className="text-xs mb-3 leading-relaxed" style={{ color: colors.text }}>{full?.compositionDescriptor ?? (full ? undefined : colors.band)}</p>
+      <p className="text-xs mb-3 leading-relaxed" style={{ color: colors.text }}>{colors.descriptor}</p>
       {full && (
         <div className="space-y-1.5">
           <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Citation breakdown — {full.breakdown.total} total tags</p>

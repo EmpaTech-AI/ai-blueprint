@@ -1,5 +1,15 @@
 import { ConfidenceResult, JustificationEntry } from '../types/pipeline';
 
+// ─── Stage-keyed composition thresholds (mirrors frontend COMPOSITION_THRESHOLDS) ──
+// Both must remain in sync until Step-5 calibration can unify them into a shared config.
+const BACKEND_COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
+  stepB:  { green: 70, amber: 45 },
+  stepC:  { green: 75, amber: 50 },
+  stepD:  { green: 75, amber: 50 },
+  stepD2: { green: 75, amber: 50 },
+  stepE:  { green: 80, amber: 50 },
+};
+
 // ─── Tag patterns ─────────────────────────────────────────────────────────────
 // Each pattern handles:
 //   • Bare form:     [Document-Backed]
@@ -133,7 +143,7 @@ function extractTaggedSnippets(text: string, tagPattern: RegExp): string[] {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export function calculateConfidence(stepOutput: string): ConfidenceResult {
+export function calculateConfidence(stepOutput: string, stepKey?: string): ConfidenceResult {
   // Count tags on the content portion only (ignore the justification block itself)
   const contentOnly = stripJustification(stepOutput);
 
@@ -170,7 +180,7 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
   // Scenario C — compute split within the high-confidence pool (not against total)
   const documentVerifiedPercent = high > 0 ? Math.round((documentBacked / high) * 100) : 0;
   const formStatedSharePercent  = high > 0 ? Math.round((formStated  / high) * 100) : 0;
-  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total);
+  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total, stepKey);
 
   return {
     score,
@@ -191,11 +201,22 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
   };
 }
 
-function deriveCompositionDescriptor(documentVerifiedPercent: number, high: number, total: number): string {
+function deriveCompositionDescriptor(documentVerifiedPercent: number, high: number, total: number, stepKey?: string): string {
   if (total === 0) return '';
   if (high === 0)  return 'No high-confidence claims — all tags are low-confidence';
-  if (documentVerifiedPercent >= 80) return 'Strongly documentary — suitable for client delivery';
-  if (documentVerifiedPercent >= 50) return 'Mixed grounding — review form-stated items before delivery';
+
+  const t = BACKEND_COMPOSITION_THRESHOLDS[stepKey ?? 'stepE'] ?? BACKEND_COMPOSITION_THRESHOLDS.stepE;
+
+  if (documentVerifiedPercent >= t.green) {
+    // Stage 1 green means "within expected range for intake", not an absolute "strongly documentary" verdict.
+    if (stepKey === 'stepB') return 'Documentary share within expected range for intake — suitable for pipeline use';
+    return 'Strongly documentary — suitable for client delivery';
+  }
+  if (documentVerifiedPercent >= t.amber) {
+    if (stepKey === 'stepB') return 'Form-stated proportion elevated for intake — review client-stated claims before proceeding';
+    return 'Mixed grounding — review form-stated items before delivery';
+  }
+  if (stepKey === 'stepB') return 'Predominantly form-stated — verify all client assertions before high-stakes use';
   return 'Predominantly form-stated — verify before high-stakes use';
 }
 

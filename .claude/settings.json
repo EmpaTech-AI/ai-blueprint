@@ -88,7 +88,10 @@
       "Bash(python backend/src/skills/blueprint-intake/harness/validate_intake.py \"backend/src/skills/blueprint-intake/golden/recruitment_meridian_v1.md\")",
       "Bash(python -X utf8 -c ' *)",
       "Bash(python -X utf8 backend/src/skills/blueprint-intake/harness/tests/test_validate.py)",
-      "Bash(python -X utf8 -c \"import sys; data=sys.stdin.buffer.read\\(\\); sys.stdout.buffer.write\\(data\\)\")"
+      "Bash(python -X utf8 -c \"import sys; data=sys.stdin.buffer.read\\(\\); sys.stdout.buffer.write\\(data\\)\")",
+      "Bash(python -m pytest src/skills/blueprint-intake/harness/tests/test_validate.py -v)",
+      "Bash(python src/skills/blueprint-intake/harness/tests/test_validate.py)",
+      "Bash(npx jest *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

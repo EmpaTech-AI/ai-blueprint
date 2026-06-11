@@ -76,7 +76,7 @@ async function runStepWithGate(
   reviewerFlags: string[],
 ): Promise<string> {
   let output = await runner();
-  let score = calculateConfidence(output);
+  let score = calculateConfidence(output, scoreKey);
   const initialBand = scoreBand(score.score);
   let initialScore = score.score;
   let retried = false;
@@ -87,7 +87,7 @@ async function runStepWithGate(
     log('warn', `Quality gate ${initialBand.toUpperCase()} for ${stepLabel}: ${score.score}% — running automated retry`);
 
     const retriedOutput = await runner(corrective);
-    const retriedScore = calculateConfidence(retriedOutput);
+    const retriedScore = calculateConfidence(retriedOutput, scoreKey);
 
     if (scoreBand(retriedScore.score) === 'red') {
       throw new Error(
