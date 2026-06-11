@@ -74,6 +74,63 @@ router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
+// LC tags CSV download — all low-confidence justification entries across all stages
+router.get('/:jobId/lc-tags', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    if (!job.confidenceScores || Object.keys(job.confidenceScores).length === 0) {
+      res.status(404).json({ error: 'No confidence data available yet — run the pipeline first' });
+      return;
+    }
+
+    const stepLabels: Record<string, string> = {
+      stepB:  'Stage 1 — Intake Analysis',
+      stepC:  'Stage 2 — Maturity Scoring',
+      stepD:  'Stage 3 — Opportunity Mapping',
+      stepD2: 'Stage 4 — Action Roadmap',
+      stepE:  'Stage 5 — Document Assembly',
+    };
+
+    const lines: string[] = [];
+    lines.push(csvRow(['Stage', 'Tag Type', 'Item #', 'Label', 'Claim', 'Why Tagged', 'Missing Data', 'Consultant Action']));
+
+    let totalItems = 0;
+    for (const [stepKey, raw] of Object.entries(job.confidenceScores)) {
+      const stageLabel = stepLabels[stepKey] ?? stepKey;
+      const data = raw as { justificationEntries?: Array<{ index: number; tag: string; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }>; inferredSnippets?: string[]; assumptionSnippets?: string[] };
+
+      if (data.justificationEntries?.length) {
+        for (const e of data.justificationEntries) {
+          lines.push(csvRow([stageLabel, e.tag, String(e.index), e.label, e.claim, e.whyTagged, e.missingData, e.consultantAction]));
+          totalItems++;
+        }
+      } else {
+        // Legacy fallback: snippet-only entries
+        for (const s of (data.inferredSnippets ?? [])) {
+          lines.push(csvRow([stageLabel, 'Inferred', '', '', s, '', '', '']));
+          totalItems++;
+        }
+        for (const s of (data.assumptionSnippets ?? [])) {
+          lines.push(csvRow([stageLabel, 'Assumption', '', '', s, '', '', '']));
+          totalItems++;
+        }
+      }
+    }
+
+    if (totalItems === 0) {
+      lines.push(csvRow(['No low-confidence items found in any stage', '', '', '', '', '', '', '']));
+    }
+
+    const filename = `LC Tags - ${sanitizeFilename(job.clientName)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // BOM ensures Excel opens the file with correct UTF-8 encoding
+    res.send('﻿' + lines.join('\r\n'));
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
 // HTML preview of the assembled blueprint
 router.get('/:jobId/preview', requireAdmin, (req: Request, res: Response) => {
 
@@ -236,6 +293,10 @@ export default router;
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().substring(0, 60);
+}
+
+function csvRow(fields: string[]): string {
+  return fields.map(f => `"${(f ?? '').replace(/"/g, '""')}"`).join(',');
 }
 
 function getStepRaw(job: ReturnType<typeof loadJob>, step: string): string | undefined {

@@ -488,6 +488,22 @@ export default function AdminPage() {
     } catch { setError('Download failed — check your connection and try again.'); } finally { setDownloadingKey(null); }
   }, [apiUrl, authToken]);
 
+  const handleDownloadLcTags = useCallback(async (jobId: string, clientName: string) => {
+    const key = `${jobId}-lc`;
+    setDownloadingKey(key);
+    try {
+      const res = await fetch(`${apiUrl}/api/download/${jobId}/lc-tags`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!res.ok) { let msg = `Download failed (${res.status})`; try { const d = await res.json() as { error?: string }; msg = d.error ?? msg; } catch { /* ignore */ } setError(msg); return; }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `LC Tags - ${clientName}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setError('');
+    } catch { setError('Download failed — check your connection and try again.'); } finally { setDownloadingKey(null); }
+  }, [apiUrl, authToken]);
+
   const handleRequestSummary = useCallback(async (jobId: string) => {
     if (summaryLoadingId === jobId) return;
     setSummaryLoadingId(jobId);
@@ -821,7 +837,19 @@ export default function AdminPage() {
                           {/* Confidence scores */}
                           {Object.keys(job.confidenceScores).length > 0 && (
                             <div className="mt-5">
-                              <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>AI Output Quality — Confidence Scores</p>
+                              <div className="flex items-center justify-between mb-3 gap-2">
+                                <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>AI Output Quality — Confidence Scores</p>
+                                {Object.values(job.confidenceScores).some(d => typeof d === 'object' && (d.lowConfidenceCount ?? 0) > 0) && (
+                                  <button
+                                    onClick={() => handleDownloadLcTags(job.jobId, job.clientName)}
+                                    disabled={downloadingKey === `${job.jobId}-lc`}
+                                    className="inline-flex items-center gap-1.5 font-semibold text-xs rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 flex-shrink-0"
+                                    style={{ padding: '4px 11px', background: 'rgba(245,158,11,0.11)', border: '1px solid rgba(245,158,11,0.27)', color: '#fcd34d' }}
+                                  >
+                                    {downloadingKey === `${job.jobId}-lc` ? <><SpinnerIcon className="w-3 h-3 animate-spin" /> Downloading…</> : <><DownloadIcon className="w-3 h-3" /> LC Tags CSV</>}
+                                  </button>
+                                )}
+                              </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                                 {Object.entries(job.confidenceScores).map(([stepKey, data]) => (
                                   <ConfidenceCard key={stepKey} stepKey={stepKey} data={data}
