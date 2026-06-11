@@ -227,7 +227,8 @@ _FLOOR_CATEGORY_SEMANTIC_RE = re.compile(r"^\s*Floor category:\s*F-[345]", re.MU
 _CLAIM_RE = re.compile(r'^Claim:\s*["\']?(.+?)["\']?\s*$', re.MULTILINE)
 
 # B3: structural F-1/F-2 detection (v12)
-_ELEMENT_RE = re.compile(r"^\s*Element:\s*([A-Z]+-[A-Z]+-\d+)", re.MULTILINE)
+# Handles both legacy plain format (Element: H-RT-02) and structured bullet format (- **Element:** H-RT-02)
+_ELEMENT_RE = re.compile(r"Element:[*\s]*([A-Z]+-[A-Z]+-\d+)", re.MULTILINE)
 _CLASS_ASSUMPTION_RE = re.compile(r"^\s*Class:\s*Assumption", re.MULTILINE)
 _CLASS_INFERRED_RE = re.compile(r"^\s*Class:\s*Inferred", re.MULTILINE)
 # F-2 arithmetic signature: division/multiplication operators, "calculation", "per X FTE",

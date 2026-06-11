@@ -113,7 +113,7 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
               </div>
             ))}
           </div>
-          {full.breakdown.total > 0 && <p className="text-xs mt-2 pt-2" style={{ color: 'rgba(255,255,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total = {score}% grounded</p>}
+          {full.breakdown.total > 0 && <p className="text-xs mt-2 pt-2" style={{ color: 'rgba(255,255,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.highConfidenceCount} high-confidence ({full.breakdown.documentBacked} doc + {full.breakdown.formStated} form) ÷ {full.breakdown.total} total = {score}% grounded</p>}
           {full.breakdown.total === 0 && <p className="text-xs mt-1" style={{ color: '#fcd34d' }}>No confidence tags found in output — scored 0% (Red). Check that the skill prompt is generating citation tags.</p>}
         </div>
       )}

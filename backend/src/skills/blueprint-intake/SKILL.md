@@ -300,23 +300,22 @@ JUSTIFICATION block heading (H2 — do NOT use bold or triple-hyphens):
 ## [JUSTIFICATION]
 ```
 
-JUSTIFICATION entry format:
+JUSTIFICATION entry format (use `#### N. [Tag] Label` — this is the canonical format parsed by the
+dashboard and required by `../methodology-and-contracts/SKILL.md`):
 ```markdown
-**Item 1 — Revenue per delivery FTE estimate [floor]**
-Claim: "Revenue per delivery FTE is estimated at £103,000"
-Class: Inferred
-Element: H-RT-02
-Floor category: F-2 (cross-document calculation — revenue ÷ FTE count)
-Why not higher: No single document states this figure; derived by calculation
-What resolves: Confirm total revenue and FTE count are both from the same reporting period
-Confidence: High
+#### 1. [Inferred] Revenue per delivery FTE estimate [floor]
+- **Claim:** "Revenue per delivery FTE is estimated at £103,000"
+- **Element:** H-RT-02
+- **Floor category:** F-2 (cross-document calculation — revenue ÷ FTE count)
+- **Why inferred:** No single document states this figure; derived by dividing revenue from financial summary by FTE count from org chart
+- **Missing data:** Confirm total revenue and FTE count are both from the same reporting period in the financial summary
+- **Consultant action:** Request the client confirm the revenue ÷ FTE source figures from the financial summary
 
-**Item 2 — Analyst severity framing**
-Claim: "This bottleneck is the primary driver of the 28-day TTF gap"
-Class: Inferred
-Why not higher: Causal chain inferred from SOP and pipeline data — not stated directly
-What resolves: Confirm with Operations Director in discovery session
-Confidence: Medium
+#### 2. [Inferred] Analyst severity framing
+- **Claim:** "This bottleneck is the primary driver of the 28-day TTF gap"
+- **Why inferred:** Causal chain inferred from SOP and pipeline data — not stated directly
+- **Missing data:** Direct confirmation from Operations Director that manual sourcing drives the TTF gap
+- **Consultant action:** Confirm with Operations Director in discovery session
 ```
 
 **Floor-marker rule (v14 — AC2 / B4):** `check_stability.py` derives the floor from the
@@ -553,14 +552,17 @@ Primary driver: absence of time-tracking data.
 The `### Confidence Overview` sentence itself must NOT carry any confidence tag — it is a
 meta-description, not a claim. See `references/preflight.md` Pattern Set 7.
 
-One numbered entry per [Inferred] and [Assumption] tag used in the body. Each entry:
-Claim (verbatim) / Class / Element (if scoped to a required output element) /
-Floor category (advisory) / Why not higher / What resolves / Confidence.
+One numbered entry per [Inferred] and [Assumption] tag used in the body. Use the
+`#### N. [Tag] Label` format defined in `../methodology-and-contracts/SKILL.md` — this is
+the canonical format parsed by the dashboard. Required fields per entry:
+`- **Claim:**` / `- **Why inferred:**` or `- **Why assumed:**` / `- **Consultant action:**`.
+Recommended fields: `- **Element:**` (when scoped to a selected element) / `- **Missing data:**`.
+The `- **Floor category:**` field is advisory observability for F-1/F-2 structural claims.
 
-For claims scoped to a selected hypothesis or pain point, carry `Element: H-RT-XX / PP-RT-XX`
+For claims scoped to a selected hypothesis or pain point, carry `- **Element:** H-RT-XX / PP-RT-XX`
 — this is the gate criterion (B4). For human readability, also append `[floor]` to the item
-title and include `Floor category:` when the claim is F-1/F-2 structural. The `Floor category:`
-line and `[floor]` suffix are advisory observability only; the gate reads only element ID
+heading and include `- **Floor category:**` when the claim is F-1/F-2 structural. The `Floor category:`
+field and `[floor]` suffix are advisory observability only; the gate reads only element ID
 presence, not F-category.
 
 ## Confidence Tagging — Critical Rules
@@ -597,9 +599,9 @@ Before finalising the dossier, scan for and remove (per `references/preflight.md
 - Methodology meta-references in body prose (`per the methodology`, `this skill produces`, etc.)
 - Malformed confidence tags (per the forbidden tag forms above)
 - **JUSTIFICATION section reasoning preambles** — any text appearing between `## [JUSTIFICATION]`
-  and `**Item 1 —` that reads as internal reasoning (`Re-reading Checkpoint 2…`, `Producing
-  [JUSTIFICATION] first…`, `Let me review…`, etc.). The appendix must open directly with
-  `**Item 1`. This was the v11_t1 defect class.
+  and the first `#### 1.` entry that reads as internal reasoning (`Re-reading Checkpoint 2…`,
+  `Producing [JUSTIFICATION] first…`, `Let me review…`, etc.). The appendix must open directly
+  with `### Confidence Overview` then `#### 1. [Tag]`. This was the v11_t1 defect class.
 
 These patterns disqualify a dossier from client or pipeline use.
 

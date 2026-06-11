@@ -193,16 +193,15 @@ numbered entry.
 **Element IDs for Stage 4:** Reuse the H-RT-XX IDs from Stage 1. Each sequencing decision
 maps to the hypothesis being sequenced. No new ID namespace is introduced at Stage 4.
 
-**JUSTIFICATION entry format for Stage 4 (example):**
+**JUSTIFICATION entry format for Stage 4 (example — use `#### N. [Tag]` canonical format):**
 
 ```
-**Item 1 — Now→Next demotion for H-RT-05 [floor]**
-Claim: "Placed in Next because Data maturity is Early [Inferred — Stage 2 Data score has Partial grounding]"
-Class: Inferred
-Element: H-RT-05
-Why not higher: The Stage 2 Data score was itself Partial-grounded — no data governance document provided
-What resolves: Validate data readiness level with client before committing to this timeline
-Confidence: Low
+#### 1. [Inferred] Now→Next demotion for H-RT-05 [floor]
+- **Claim:** "Placed in Next because Data maturity is Early [Inferred — Stage 2 Data score has Partial grounding]"
+- **Element:** H-RT-05
+- **Why inferred:** The Stage 2 Data score was itself Partial-grounded — no data governance document provided
+- **Missing data:** Client data governance policy or data infrastructure documentation to confirm Data maturity level
+- **Consultant action:** Ask client to confirm data governance posture and validate or revise the Stage 2 Data maturity score before committing to this timeline
 ```
 
 **Confidence Overview (Stage 4 format):** Use H-RT-XX element IDs, not opportunity or phase numbers.

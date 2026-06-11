@@ -288,13 +288,13 @@ accounted for in the justification block.
 parentheses when the LC item is inherited from an upstream stage. Example:
 
 ```
-**Item 1 — Sourcing time saving in executive summary [floor]**
-Claim: "AI could reduce sourcing time by 40–60%"
-Class: Assumption
-Element: H-RT-02 (S3)
-Inherited from: Stage 3 JUSTIFICATION item 1 (industry benchmark, no client baseline)
-Consultant action: Validate against client time-tracking before client delivery
-Confidence: Low
+#### 1. [Assumption] Sourcing time saving in executive summary [floor]
+- **Claim:** "AI could reduce sourcing time by 40–60%"
+- **Element:** H-RT-02 (S3)
+- **Inherited from:** Stage 3 JUSTIFICATION item 1 (industry benchmark, no client baseline)
+- **Why assumed:** No client-specific time-tracking data; range from Stage 3 industry benchmark, not client measurement
+- **Missing data:** Client time-tracking log or process audit showing baseline sourcing hours per mandate
+- **Consultant action:** Validate against client time-tracking before client delivery
 ```
 
 **Confidence Overview (Stage 5 format):** Use H-RT-XX IDs with stage provenance. The overview

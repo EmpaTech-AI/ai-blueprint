@@ -999,6 +999,39 @@ def check_justification_block(text: str, sections: dict, report: ValidationRepor
         report.add_fail("justification_missing", "[JUSTIFICATION]", "Mandatory [JUSTIFICATION] block missing")
         return
     just_text = sections["JUSTIFICATION"]
+
+    # Pattern Set 7 (a): Confidence Overview must appear exactly once in the JUSTIFICATION block.
+    # Multiple copies add spurious LC tags and cause the grounded % to regress (v15 defect).
+    overview_occurrences = len(re.findall(r"^###\s+Confidence Overview", just_text, re.MULTILINE | re.IGNORECASE))
+    if overview_occurrences == 0:
+        report.add_fail(
+            "justification_overview_missing",
+            "[JUSTIFICATION]",
+            "Missing '### Confidence Overview' section in [JUSTIFICATION] block — required for dashboard display",
+        )
+    elif overview_occurrences > 1:
+        report.add_fail(
+            "justification_overview_duplicated",
+            "[JUSTIFICATION]",
+            f"JUSTIFICATION Confidence Overview is duplicated ({overview_occurrences}×) — emit exactly once as meta, "
+            f"no confidence tags. Each extra copy adds ~2–3 spurious LC tags and regresses grounded %. "
+            f"Regenerate chunk 3.",
+        )
+
+    # Pattern Set 7 (b): The ### Confidence Overview sentence must NOT carry a confidence tag.
+    # Self-tagging inflates the LC item count, corrupts pipeline metrics, and creates phantom UI spans.
+    overview_m = re.search(r"^###\s+Confidence Overview\s*\n(.{0,300})", just_text, re.MULTILINE | re.IGNORECASE)
+    if overview_m:
+        overview_line = overview_m.group(1)
+        if re.search(r"\[\s*(?:Document-Backed|Form-Stated|Inferred|Assumption|Assumed)", overview_line, re.IGNORECASE):
+            report.add_fail(
+                "justification_overview_self_tagged",
+                "[JUSTIFICATION] ### Confidence Overview",
+                "JUSTIFICATION Confidence Overview is self-tagged — meta-sentence must not carry confidence tags "
+                "([Document-Backed], [Form-Stated], [Inferred], [Assumption]). Self-tagging inflates the LC item count "
+                "and corrupts pipeline metrics. Regenerate chunk 3. See preflight.md Pattern Set 7.",
+            )
+
     # Body text = all content sections except JUSTIFICATION, joined.
     # Using section keys rather than a text offset makes this safe when JUSTIFICATION
     # appears before Section H (§3.C document order).
@@ -1020,10 +1053,18 @@ def check_justification_block(text: str, sections: dict, report: ValidationRepor
     report.metrics["body_assumption_tags"] = body_assumption
     report.metrics["distinct_appendix_refs"] = len(referenced_items)
 
-    # Count entries in justification
-    items = re.findall(r"\*\*Item\s+(\d+)\s+—", just_text)
+    # Count entries — handle both legacy **Item N — format and current #### N. [Tag] format.
+    # Legacy format: **Item N — Label** (pre-methodology-and-contracts alignment)
+    # Structured format: #### N. [Inferred] Label  (canonical, matches dashboard parser)
+    legacy_items = re.findall(r"\*\*Item\s+(\d+)\s+—", just_text)
+    structured_items = re.findall(
+        r"^####\s+(\d+)\.\s+\[(?:Inferred|Assumption|Assumed)\]",
+        just_text, re.MULTILINE | re.IGNORECASE,
+    )
+    items = legacy_items + structured_items
     item_numbers = {int(n) for n in items}
     report.metrics["justification_items"] = len(items)
+    report.metrics["justification_format"] = "structured" if structured_items else "legacy" if legacy_items else "none"
 
     # Every appendix reference in body must have a matching item
     missing = referenced_items - item_numbers
@@ -1052,12 +1093,48 @@ def check_justification_block(text: str, sections: dict, report: ValidationRepor
         "orphan_references": len(missing),
     }
 
-    # Each item must have required fields
-    item_chunks = re.split(r"\*\*Item\s+\d+\s+—", just_text)[1:]
-    for i, chunk in enumerate(item_chunks):
-        for field in ["Claim:", "Class:", "Why not higher:", "What resolves:", "Confidence:"]:
+    # Field validation — legacy **Item N — format (backward-compatible)
+    legacy_chunks = re.split(r"\*\*Item\s+\d+\s+—", just_text)[1:]
+    for i, chunk in enumerate(legacy_chunks):
+        for field in ["Claim:", "Why not higher:", "What resolves:"]:
             if field not in chunk:
-                report.add_fail("justification_field", f"Justification Item {i+1}", f"Missing required field '{field}'")
+                report.add_fail(
+                    "justification_field",
+                    f"Justification Item {i + 1}",
+                    f"Missing required field '{field}'",
+                )
+
+    # Field validation — structured #### N. [Tag] format (methodology-and-contracts canonical)
+    _STRUCTURED_ITEM_RE = re.compile(
+        r"^####\s+\d+\.\s+\[(?:Inferred|Assumption|Assumed)\][^\n]*$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    structured_chunks = _STRUCTURED_ITEM_RE.split(just_text)[1:]
+    for i, chunk in enumerate(structured_chunks):
+        if "Claim:" not in chunk:
+            report.add_fail(
+                "justification_field",
+                f"Justification Item {i + 1}",
+                "Missing required field '**Claim:**'",
+            )
+        if not re.search(r"\*\*Why\s+(?:inferred|assumed)\b", chunk, re.IGNORECASE):
+            report.add_fail(
+                "justification_field",
+                f"Justification Item {i + 1}",
+                "Missing required field '**Why inferred:**' or '**Why assumed:**'",
+            )
+        if "Consultant action:" not in chunk:
+            report.add_fail(
+                "justification_field",
+                f"Justification Item {i + 1}",
+                "Missing required field '**Consultant action:**'",
+            )
+        if "Missing data:" not in chunk:
+            report.add_warn(
+                "justification_field",
+                f"Justification Item {i + 1}",
+                "Recommended field '**Missing data:**' not found — add for consultant validation workflow",
+            )
 
 # ============================================================================
 # 1A — Tagging completeness (v9: replaces FW-08 count-band)

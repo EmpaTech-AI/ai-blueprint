@@ -260,17 +260,16 @@ numbered entry.
 corresponds to a Stage 1 hypothesis (linked via the `id=` field in the Stage 1 score comment).
 No new ID namespace is introduced at Stage 3.
 
-**JUSTIFICATION entry format for Stage 3 (example):**
+**JUSTIFICATION entry format for Stage 3 (example — use `#### N. [Tag]` canonical format):**
 
 ```
-**Item 1 — Sourcing automation impact estimate [floor]**
-Claim: "Automation could reduce sourcing time by 40–60%"
-Class: Assumption
-Element: H-RT-02
-Floor category: F-5 (industry benchmark — no client time-tracking data)
-Why not higher: No client-specific sourcing time study available
-What resolves: Request time-tracking log from operations team
-Confidence: Low
+#### 1. [Assumption] Sourcing automation impact estimate [floor]
+- **Claim:** "Automation could reduce sourcing time by 40–60%"
+- **Element:** H-RT-02
+- **Floor category:** F-5 (industry benchmark — no client time-tracking data)
+- **Why assumed:** No client-specific sourcing time study available; range derived from industry benchmarks only
+- **Missing data:** Client time-tracking log or process audit showing baseline sourcing hours per mandate
+- **Consultant action:** Request time-tracking log from operations team before finalising the impact estimate
 ```
 
 **Confidence Overview (Stage 3 format):** Use H-RT-XX element IDs, not opportunity numbers.
