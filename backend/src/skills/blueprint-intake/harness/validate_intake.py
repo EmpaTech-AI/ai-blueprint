@@ -989,7 +989,7 @@ def check_first_mention_db_uniqueness(text: str, sections: dict, report: Validat
         report.add_warn(
             "db_citation_overrepeated",
             "Body",
-            f"Source '{src}' cited {cnt} times in Document-Backed tags (threshold: ≤3). "
+            f"Source '{src}' cited {cnt} times in Document-Backed tags (threshold: <=3). "
             "Check whether all occurrences are distinct claims or whether the source is over-cited."
         )
 

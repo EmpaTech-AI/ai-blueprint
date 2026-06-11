@@ -1,0 +1,67 @@
+======================================================================
+PIO Framework Validation Report
+Schema: intake_v1.0
+File: backend\src\skills\blueprint-intake\golden\recruitment_meridian_v1.md
+======================================================================
+
+RESULT: PASS — dossier conforms to schema intake_v1.0
+
+Metrics:
+  archetype: recruitment
+  size_band: small
+  richness: standard
+  section_a_words: 335
+  section_b_rows: 49
+  section_b_citation_coverage: {'rows_total': 49, 'rows_with_one_citation': 49, 'rows_with_zero_citations': 0, 'rows_with_multiple_citations': 0}
+  section_c_pain_points: 8
+  section_d_hypotheses: 7
+  section_g_questions: 4
+  total_tags: 108
+  tag_breakdown: {'Document-Backed': 86, 'Document-Backed + Form-Stated': 6, 'Form-Stated': 5, 'Inferred': 5, 'Assumption': 6}
+  lc_raw_count: 11
+  db_first_mention_uniqueness: {'unique_source_references': 22, 'max_repeat_count': 16, 'over_represented_sources': [{'source': 'previous AI initiatives', 'count': 16}, {'source': 'tech inventory', 'count': 14}, {'source': 'strategic plan', 'count': 11}, {'source': 'sales pipeline', 'count': 9}, {'source': 'SOP', 'count': 8}, {'source': 'org chart', 'count': 7}, {'source': 'marketing/customer data', 'count': 7}]}
+  body_inferred_tags: 5
+  body_assumption_tags: 6
+  distinct_appendix_refs: 8
+  justification_items: 8
+  justification_format: legacy
+  appendix_inline_correspondence: {'appendix_items_total': 8, 'items_with_at_least_one_inline_reference': 8, 'items_with_zero_references': 0, 'orphan_references': 0}
+  bare_lc_tags: 0
+  tagging_completeness: PASS
+  hypotheses: [{'position': 1, 'title': 'AI-Powered CV Formatting and Candidate Summary Generation'}, {'position': 2, 'title': 'ATS-Driven Automated Client Status Updates'}, {'position': 3, 'title': 'Interview Scheduling Standardisation via Calendly'}, {'position': 4, 'title': 'GDPR Compliance Foundation (Sprint 0 Enabler)'}, {'position': 5, 'title': 'AI-Assisted Specialist Candidate Sourcing'}, {'position': 6, 'title': 'Candidate Database Revival via AI Matching and Governance Reset'}, {'position': 7, 'title': 'RPO Service Design Supported by AI Delivery Infrastructure'}]
+  pain_points: [{'position': 1, 'title': 'Manual Candidate Sourcing Bottleneck: Primary TTF Driver', 'severity': 'High'}, {'position': 2, 'title': 'Unusable Candidate Database: EUR 9,600/Year Asset Providing Zero Value', 'severity': 'High'}, {'position': 3, 'title': 'CV Formatting Consuming High-Value Consultant Time', 'severity': 'High'}, {'position': 4, 'title': 'Client Communication: Structural Failure, Not Behavioural', 'severity': 'High'}, {'position': 5, 'title': 'Ungoverned AI Use: Live GDPR Compliance Risk', 'severity': 'High'}, {'position': 6, 'title': 'RPO Product Gap: Revenue Opportunity Without Infrastructure', 'severity': 'High'}, {'position': 7, 'title': 'No Real-Time Pipeline Visibility for Leadership', 'severity': 'Medium-High'}, {'position': 8, 'title': 'Interview & Offer Coordination Friction', 'severity': 'Medium'}]
+  weak_tags: [{'tag': 'Inferred', 'sources': 'derivation per appendix item 1'}, {'tag': 'Inferred', 'sources': 'derivation per appendix item 2'}, {'tag': 'Inferred', 'sources': 'derivation per appendix item 3'}, {'tag': 'Assumption', 'sources': 'appendix item 4'}, {'tag': 'Inferred', 'sources': 'derivation per appendix item 6'}, {'tag': 'Assumption', 'sources': 'appendix item 5'}, {'tag': 'Assumption', 'sources': 'appendix item 7'}, {'tag': 'Assumption', 'sources': 'appendix item 8'}, {'tag': 'Inferred', 'sources': ''}, {'tag': 'Assumption', 'sources': ''}, {'tag': 'Assumption', 'sources': ''}]
+
+Issues:
+  [WARN] size_band_not_declared
+    Location: Header
+    Message:  Company Size Band not declared in header; defaulting to 'small' (no count adjustments). Add 'Company Size Band: micro/small/mid/large' to the dossier header or pass --size-band.
+  [WARN] richness_not_declared
+    Location: Header
+    Message:  Document Richness not declared in header; auto-detected as 'standard' from Section B Document-Backed tag count. Declare 'Document Richness: sparse/standard/heavy' in the dossier header or pass --richness to override.
+  [WARN] hr05_scores_absent
+    Location: Section D
+    Message:  No machine-readable <!-- score: product=N --> comments found. Within-cluster score ordering cannot be verified (SK-05 dependency). Run gate on native markdown BEFORE DOCX conversion.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'org chart' cited 7 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'strategic plan' cited 11 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'sales pipeline' cited 9 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'SOP' cited 8 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'previous AI initiatives' cited 16 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'tech inventory' cited 14 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+  [WARN] db_citation_overrepeated
+    Location: Body
+    Message:  Source 'marketing/customer data' cited 7 times in Document-Backed tags (threshold: ≤3). Check whether all occurrences are distinct claims or whether the source is over-cited.
+
+======================================================================

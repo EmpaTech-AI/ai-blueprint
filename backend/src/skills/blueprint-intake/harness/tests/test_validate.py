@@ -12,6 +12,7 @@ disqualified TEST 2 of the original Blueprint pipeline:
   - Missing justification entries
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -44,9 +45,10 @@ def run_validator(text: str) -> tuple:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(text)
         path = f.name
+    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     result = subprocess.run(
         [sys.executable, str(HARNESS), path],
-        capture_output=True, text=True
+        capture_output=True, text=True, encoding="utf-8", env=env
     )
     Path(path).unlink()
     return result.returncode, result.stdout

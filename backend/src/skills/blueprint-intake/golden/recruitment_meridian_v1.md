@@ -389,6 +389,9 @@ The RPO service line has no product definition, SLA framework, or pricing model 
 
 ## [JUSTIFICATION]
 
+### Confidence Overview
+Grounded: 97 of 108 tagged claims are high-confidence (90%). Low-confidence items: Item 3 and Item 4 (Calendly-Vincere integration feasibility and AI scheduling tool effectiveness — vendor confirmation pending), Item 5 (AI sourcing tool time-reduction estimate — external benchmark only, no Meridian pilot data), Item 7 (database revival timeline — success contingent on governance quality not yet committed), Item 8 (RPO acceleration timeline — internal strategic projection without comparable case data). Primary driver: absence of client-specific time-tracking data and unconfirmed vendor integration capabilities.
+
 **Item 1 — Hypothesis 1 CV savings of 200–300 hours/month**
 Claim: "200–300 hours of consultant time per month that could be redirected"
 Class: Inferred
