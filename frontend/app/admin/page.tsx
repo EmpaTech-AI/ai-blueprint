@@ -15,7 +15,7 @@ import type { AuthUser } from '@/lib/auth';
 
 interface ConfidenceBreakdown { documentBacked: number; formStated: number; inferred: number; assumption: number; total: number }
 interface JustificationEntry { index: number; tag: 'Inferred' | 'Assumption'; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }
-interface StepConfidence { score: number; highConfidenceCount: number; lowConfidenceCount: number; needsReview: boolean; breakdown: ConfidenceBreakdown; confidenceOverview?: string; justificationEntries?: JustificationEntry[]; inferredSnippets?: string[]; assumptionSnippets?: string[]; noTagsReason?: string; scoreContext?: string }
+interface StepConfidence { score: number; highConfidenceCount: number; lowConfidenceCount: number; needsReview: boolean; breakdown: ConfidenceBreakdown; documentVerifiedPercent?: number; formStatedSharePercent?: number; compositionDescriptor?: string; confidenceOverview?: string; justificationEntries?: JustificationEntry[]; inferredSnippets?: string[]; assumptionSnippets?: string[]; noTagsReason?: string; scoreContext?: string }
 interface TruncationSummary { field: string; originalLength: number; truncatedLength: number }
 
 interface JobSummary {
@@ -55,11 +55,15 @@ const SCORE_KEY_TO_STEP: Record<string, string> = { stepB: 'B', stepC: 'C', step
 const STATUS_BADGE: Record<string, string> = { pending: 'badge-pending', running: 'badge-running', review_ready: 'badge-review', approved: 'badge-approved', failed: 'badge-failed' };
 const STATUS_LABELS: Record<string, string> = { pending: 'Pending', running: 'Running', review_ready: 'Ready for Review', approved: 'Approved', failed: 'Failed' };
 
-function scoreColor(score: number) {
-  if (score >= 90) return { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',  text: '#86efac', band: 'Green',  action: 'Quick scan (5 min) — output is solid.' };
-  if (score >= 76) return { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Amber',  action: 'Review flagged items (15–30 min). Fix specific issues before proceeding.' };
-  if (score >= 60) return { badge: 'badge-confidence-blue',  bar: '#3b82f6', barGlow: 'rgba(59,130,246,0.4)', text: '#93c5fd', band: 'Blue',   action: 'Detailed review required (30–60 min). Fill gaps from source documents.' };
-  return           { badge: 'badge-confidence-red',          bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',  text: '#fca5a5', band: 'Red',    action: 'Critical concern — stop and assess root cause before proceeding.' };
+// Scenario C — composition-tiered colour function.
+// Drives colour from documentVerifiedPercent (DB share of the high-confidence pool),
+// not from the blended score. This makes the badge and bar reflect epistemic quality
+// (how much is documentary) rather than the aggregate ratio.
+function compositionColor(docVerifiedPct: number, hasHighConfidence: boolean) {
+  if (!hasHighConfidence)       return { badge: 'badge-confidence-red',   bar: '#ef4444', barGlow: 'rgba(239,68,68,0.4)',   text: '#fca5a5', band: 'No grounding' };
+  if (docVerifiedPct >= 80)     return { badge: 'badge-confidence-green', bar: '#22c55e', barGlow: 'rgba(34,197,94,0.4)',   text: '#86efac', band: 'Strongly documentary' };
+  if (docVerifiedPct >= 50)     return { badge: 'badge-confidence-amber', bar: '#f59e0b', barGlow: 'rgba(245,158,11,0.4)', text: '#fcd34d', band: 'Mixed grounding' };
+  return                               { badge: 'badge-confidence-blue',  bar: '#3b82f6', barGlow: 'rgba(59,130,246,0.4)', text: '#93c5fd', band: 'Form-stated' };
 }
 
 function SummaryLine({ line }: { line: string }) {
@@ -82,9 +86,20 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
   const stepId   = SCORE_KEY_TO_STEP[stepKey] ?? stepKey;
   const stepMeta = STEP_INFO[stepId];
   const score    = typeof data === 'number' ? data : data.score;
-  const colors   = scoreColor(score);
   const full     = typeof data === 'object' ? data : null;
   const snippetCount = (full?.inferredSnippets?.length ?? 0) + (full?.assumptionSnippets?.length ?? 0);
+
+  // Scenario C — derive composition metrics for display.
+  // documentVerifiedPercent = DB ÷ (DB+FS): share of high-confidence that is documentary.
+  // Falls back to inline computation for jobs stored before Scenario C was deployed.
+  // When no breakdown is available (number-only data), fall back to score so the bar still renders.
+  const dbCount        = full?.breakdown.documentBacked ?? 0;
+  const fsCount        = full?.breakdown.formStated     ?? 0;
+  const high           = dbCount + fsCount;
+  const docVerifiedPct = full?.documentVerifiedPercent ?? (high > 0 ? Math.round((dbCount / high) * 100) : score);
+  const fsSharePct     = full?.formStatedSharePercent  ?? (high > 0 ? Math.round((fsCount  / high) * 100) : 0);
+  const hasHighConf    = full ? high > 0 : score > 0;
+  const colors         = compositionColor(docVerifiedPct, hasHighConf);
 
   return (
     <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
@@ -95,31 +110,47 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className={colors.badge}>{colors.band}</span>
-          <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{score}%</span>
+          {full ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{docVerifiedPct}% <span style={{ fontWeight: 400, opacity: 0.55, fontSize: '0.62rem' }}>doc</span></span>
+              <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.62rem' }}>{score}% blended</span>
+            </div>
+          ) : (
+            <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{score}%</span>
+          )}
         </div>
       </div>
       <div className="w-full rounded-full mb-2 mt-2" style={{ height: '4px', background: 'rgba(255,255,255,0.08)' }}>
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, background: colors.bar, boxShadow: `0 0 6px ${colors.barGlow}` }} />
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${docVerifiedPct}%`, background: colors.bar, boxShadow: `0 0 6px ${colors.barGlow}` }} />
       </div>
-      <p className="text-xs mb-3 leading-relaxed" style={{ color: colors.text }}>{colors.action}</p>
+      <p className="text-xs mb-3 leading-relaxed" style={{ color: colors.text }}>{full?.compositionDescriptor ?? (full ? undefined : colors.band)}</p>
       {full && (
         <div className="space-y-1.5">
           <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Citation breakdown — {full.breakdown.total} total tags</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-            {[['Document-Backed', full.breakdown.documentBacked, '#86efac'], ['Form-Stated', full.breakdown.formStated, '#86efac'], ['Inferred', full.breakdown.inferred, '#fcd34d'], ['Assumption', full.breakdown.assumption, '#fca5a5']].map(([lbl, val, clr]) => (
+            {[['Document-Backed', full.breakdown.documentBacked, '#86efac'], ['Form-Stated', full.breakdown.formStated, '#a5f3fc'], ['Inferred', full.breakdown.inferred, '#fcd34d'], ['Assumption', full.breakdown.assumption, '#fca5a5']].map(([lbl, val, clr]) => (
               <div key={String(lbl)} className="flex items-center justify-between">
                 <span style={{ color: 'rgba(255,255,255,0.45)' }}>{lbl}</span>
                 <span className="font-semibold tabular-nums" style={{ color: String(clr) }}>{val}</span>
               </div>
             ))}
           </div>
-          {full.breakdown.total > 0 && <p className="text-xs mt-2 pt-2" style={{ color: 'rgba(255,255,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.highConfidenceCount} high-confidence ({full.breakdown.documentBacked} doc + {full.breakdown.formStated} form) ÷ {full.breakdown.total} total = {score}% grounded</p>}
+          {full.breakdown.total > 0 && (
+            <div className="mt-2 pt-2 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                {full.breakdown.documentBacked} of {full.highConfidenceCount} high-confidence are documentary ({docVerifiedPct}%) · {full.breakdown.formStated} form-stated ({fsSharePct}%)
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                Blended: {full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total = {score}% (v14+ continuity)
+              </p>
+            </div>
+          )}
           {full.breakdown.total === 0 && <p className="text-xs mt-1" style={{ color: '#fcd34d' }}>No confidence tags found in output — scored 0% (Red). Check that the skill prompt is generating citation tags.</p>}
         </div>
       )}
       {full?.confidenceOverview && <p className="text-xs mt-2 pt-2 leading-relaxed italic" style={{ color: 'rgba(255,255,255,0.5)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.confidenceOverview}</p>}
       {full?.noTagsReason && <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.noTagsReason}</p>}
-      {full?.scoreContext && !full.noTagsReason && <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: score >= 76 ? 'rgba(255,255,255,0.45)' : '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.scoreContext}</p>}
+      {full?.scoreContext && !full.noTagsReason && <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: docVerifiedPct >= 50 ? 'rgba(255,255,255,0.45)' : '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.scoreContext}</p>}
       {(full?.justificationEntries?.length ?? 0) > 0 && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button onClick={() => setShowSnippets(!showSnippets)} className="text-xs font-semibold flex items-center gap-1 w-full" style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>

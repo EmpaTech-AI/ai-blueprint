@@ -56,11 +56,15 @@ export interface JustificationEntry {
 }
 
 export interface ConfidenceResult {
-  score: number;
+  score: number;                      // blended (DB+FS)/total — retained for v14+ continuity
   highConfidenceCount: number;
   lowConfidenceCount: number;
   needsReview: boolean;
   breakdown: ConfidenceBreakdown;
+  // Scenario C — observability-tiered fields (split within the high-confidence pool)
+  documentVerifiedPercent?: number;   // DB ÷ (DB+FS) as % — share of high-confidence that is documentary
+  formStatedSharePercent?: number;    // FS ÷ (DB+FS) as % — share of high-confidence that is form-stated
+  compositionDescriptor?: string;     // human-readable observability label derived from documentVerifiedPercent
   confidenceOverview?: string;
   justificationEntries?: JustificationEntry[];
   inferredSnippets?: string[];   // legacy fallback — present only when no structured block was found

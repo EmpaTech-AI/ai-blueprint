@@ -167,12 +167,20 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
 
   const scoreContext = deriveScoreContext({ score, total, high, low, documentBacked, formStated, inferred, assumption, hasStructuredBlock: hasStructured });
 
+  // Scenario C — compute split within the high-confidence pool (not against total)
+  const documentVerifiedPercent = high > 0 ? Math.round((documentBacked / high) * 100) : 0;
+  const formStatedSharePercent  = high > 0 ? Math.round((formStated  / high) * 100) : 0;
+  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total);
+
   return {
     score,
     highConfidenceCount: high,
     lowConfidenceCount: low,
     needsReview: score < 76,
     breakdown: { documentBacked, formStated, inferred, assumption, total },
+    documentVerifiedPercent,
+    formStatedSharePercent,
+    compositionDescriptor,
     confidenceOverview:   overview || undefined,
     justificationEntries: entries.length > 0 ? entries : undefined,
     // legacy fallback fields — present only when no structured block was found
@@ -181,6 +189,14 @@ export function calculateConfidence(stepOutput: string): ConfidenceResult {
     noTagsReason,
     scoreContext,
   };
+}
+
+function deriveCompositionDescriptor(documentVerifiedPercent: number, high: number, total: number): string {
+  if (total === 0) return '';
+  if (high === 0)  return 'No high-confidence claims — all tags are low-confidence';
+  if (documentVerifiedPercent >= 80) return 'Strongly documentary — suitable for client delivery';
+  if (documentVerifiedPercent >= 50) return 'Mixed grounding — review form-stated items before delivery';
+  return 'Predominantly form-stated — verify before high-stakes use';
 }
 
 function deriveScoreContext(p: {
