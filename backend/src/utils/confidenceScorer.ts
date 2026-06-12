@@ -152,12 +152,26 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // Count tags on the content portion only (ignore the justification block itself)
   const contentOnly = stripJustification(stepOutput);
 
-  // P3: Strip structural-span sections that contain non-genuine LC tags.
-  // Section H (Reviewer Checklist) in stepB output uses reference-style labels like
-  // "[Inferred — appendix item N]" as scaffolding — they are not genuine low-confidence claims.
+  // P3: Two-pass structural-span strip for stepB.
+  //
+  // Pass 1 (role-based, whole-document): Appendix cross-reference tags appear throughout
+  // sections A–G as derived-figure markers, e.g. "[Inferred — derivation per appendix item 3]".
+  // These are structural scaffolding — the genuine claim is the derivation in the justification
+  // appendix (already stripped), not a separate inference in the body. Strip them wherever they
+  // appear, regardless of section position.
+  //
+  // Pass 2 (position-based safety net): Section H (Reviewer Checklist) mentions tag names
+  // in checklist prose, e.g. "carry [Inferred] or [Assumption] tags" — regex false-positives.
+  // Strip H and everything after it to catch these and any remaining structural content.
+  //
+  // Floor-labels require the raw v16 string to target precisely — implement after D3 sign-off.
   let contentForCounting = contentOnly;
   if (stepKey === 'stepB') {
-    contentForCounting = contentOnly.replace(/\n## H\)[\s\S]*$/i, '').trim();
+    contentForCounting = contentForCounting.replace(
+      /\s*\[(Inferred|Assumption|Assumed)[^\]]*appendix item \d+[^\]]*\]/gi,
+      '',
+    );
+    contentForCounting = contentForCounting.replace(/\n## H\)[\s\S]*$/i, '').trim();
   }
 
   const documentBacked = (contentForCounting.match(TAG_PATTERNS.documentBacked) || []).length;

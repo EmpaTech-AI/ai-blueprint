@@ -161,8 +161,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     );
     await saveStepOutput(jobId, 'C', maturity);
 
-    // P2-2: Deterministic per-dimension absence check (verify on SOURCE before proceeding).
-    // Checks the raw step C output so D6 is satisfied — source is authoritative, not export cards.
+    // P2-2a (completeness guard): Verify all 6 dimension headings present in raw Step C output.
+    // Checks source before proceeding — D6 satisfied. Worth keeping standalone.
+    // The real P2-2 (per-dimension absence-of-record check) requires D3 sign-off and will be
+    // built alongside P1 — it must not be considered delivered by this guard.
     const MATURITY_DIMENSIONS = ['Strategy', 'Data', 'Technology', 'People', 'Processes', 'Governance'];
     const missingDimensions = MATURITY_DIMENSIONS.filter(
       (dim) => !new RegExp(`##?#?\\s+${dim}\\b`, 'im').test(maturity),

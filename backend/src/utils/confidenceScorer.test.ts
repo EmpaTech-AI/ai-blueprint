@@ -161,6 +161,13 @@ describe('calculateConfidence', () => {
 // ── P0 Freeze guards ──────────────────────────────────────────────────────────
 // These tests are stability anchors. A failure here means a protected constant
 // was changed. Consult Dev_Team_Action_Note_v16 before modifying the expected values.
+//
+// P0 OUTCOME-FREEZE (multi-run reproducibility) is NOT here — it belongs in the P4 harness:
+//   • assert identical selected-ID set across 4 runs
+//   • assert 6/6 maturity dimensions present across 4 runs
+//   • assert spine-overview element set stable across 4 runs
+// These require multi-run fixtures. They MUST be implemented in P4 — do not treat this
+// unit suite as covering them.
 
 describe('P0 Freeze guards — threshold stability', () => {
   it('GROUNDING_GREEN is 88 — do not recalibrate without Practice sign-off', () => {
@@ -183,21 +190,48 @@ describe('P0 Freeze guards — threshold stability', () => {
     });
   });
 
-  it('stepB structural-span strip does not affect counts outside Section H', () => {
-    // Tags before Section H must be counted; tags inside Section H must not.
-    const withSectionH =
-      'Revenue [Document-Backed] is strong.\n\n## H) Reviewer Checklist\n\nCheck item [Inferred — appendix item 1].';
-    const result = calculateConfidence(withSectionH, 'stepB');
+  it('stepB pass-1: strips appendix-reference tags in the body (before Section H)', () => {
+    // The key regression the previous Section-H-only strip missed: appendix cross-references
+    // in sections A–G are structural scaffolding, not genuine LC claims.
+    const bodyRef =
+      'Revenue [Document-Backed] is strong.\n\n' +
+      'Estimated savings [Inferred — derivation per appendix item 3].\n\n' +
+      'Compliance risk [Inferred — per appendix item 6].\n\n' +
+      '## H) Reviewer Checklist\n\nNo tags here.';
+    const result = calculateConfidence(bodyRef, 'stepB');
     expect(result.breakdown.documentBacked).toBe(1);
-    expect(result.breakdown.inferred).toBe(0);   // Section H tag must be stripped
+    expect(result.breakdown.inferred).toBe(0);   // Both appendix-refs stripped before Section H
     expect(result.score).toBe(100);
   });
 
-  it('stepB structural-span strip is no-op for other step keys', () => {
-    // Same content with stepC — Section H tags SHOULD be counted.
-    const withSectionH =
+  it('stepB pass-2: strips Section H text-mention false-positives', () => {
+    // Section H checklist mentions tag names as prose ("carry [Inferred] or [Assumption] tags"),
+    // which match the tag regex. The Section H strip must catch these.
+    const withMentions =
+      'Revenue [Document-Backed] is strong.\n\n' +
+      '## H) Reviewer Checklist\n\n' +
+      '8 items in [JUSTIFICATION] appendix carry [Inferred] or [Assumption] tags.';
+    const result = calculateConfidence(withMentions, 'stepB');
+    expect(result.breakdown.documentBacked).toBe(1);
+    expect(result.breakdown.inferred).toBe(0);
+    expect(result.breakdown.assumption).toBe(0);
+    expect(result.score).toBe(100);
+  });
+
+  it('stepB: genuine inline [Inferred] claims (no appendix reference) are still counted', () => {
+    // A real inference with a substantive description must not be stripped.
+    const genuine =
+      'Revenue [Document-Backed] is strong.\n\nCapacity at risk [Inferred — derived from staffing model].';
+    const result = calculateConfidence(genuine, 'stepB');
+    expect(result.breakdown.inferred).toBe(1);   // no appendix item N → not stripped
+    expect(result.score).toBe(50);
+  });
+
+  it('stepB structural-span strip is a no-op for other step keys', () => {
+    // Same content with stepC — appendix-ref tags SHOULD be counted.
+    const bodyRef =
       'Revenue [Document-Backed] is strong.\n\n## H) Reviewer Checklist\n\nCheck item [Inferred — appendix item 1].';
-    const result = calculateConfidence(withSectionH, 'stepC');
+    const result = calculateConfidence(bodyRef, 'stepC');
     expect(result.breakdown.inferred).toBe(1);   // No stripping for non-stepB keys
   });
 });
