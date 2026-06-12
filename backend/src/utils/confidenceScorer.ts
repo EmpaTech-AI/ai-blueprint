@@ -152,32 +152,36 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // Count tags on the content portion only (ignore the justification block itself)
   const contentOnly = stripJustification(stepOutput);
 
-  // P3: Two-pass structural-span strip for stepB.
-  //
-  // Pass 1 (role-based, whole-document): Appendix cross-reference tags appear throughout
-  // sections A–G as derived-figure markers, e.g. "[Inferred — derivation per appendix item 3]".
-  // These are structural scaffolding — the genuine claim is the derivation in the justification
-  // appendix (already stripped), not a separate inference in the body. Strip them wherever they
-  // appear, regardless of section position.
-  //
-  // Pass 2 (position-based safety net): Section H (Reviewer Checklist) mentions tag names
-  // in checklist prose, e.g. "carry [Inferred] or [Assumption] tags" — regex false-positives.
-  // Strip H and everything after it to catch these and any remaining structural content.
-  //
-  // Floor-labels require the raw v16 string to target precisely — implement after D3 sign-off.
-  let contentForCounting = contentOnly;
-  if (stepKey === 'stepB') {
-    contentForCounting = contentForCounting.replace(
-      /\s*\[(Inferred|Assumption|Assumed)[^\]]*appendix item \d+[^\]]*\]/gi,
-      '',
-    );
-    contentForCounting = contentForCounting.replace(/\n## H\)[\s\S]*$/i, '').trim();
-  }
+  // High-confidence tags: counted from the body for all steps.
+  // No structural spans exist among DB/FS tags, so body counting is reliable here.
+  const documentBacked = (contentOnly.match(TAG_PATTERNS.documentBacked) || []).length;
+  const formStated     = (contentOnly.match(TAG_PATTERNS.formStated)     || []).length;
 
-  const documentBacked = (contentForCounting.match(TAG_PATTERNS.documentBacked) || []).length;
-  const formStated     = (contentForCounting.match(TAG_PATTERNS.formStated)     || []).length;
-  const inferred       = (contentForCounting.match(TAG_PATTERNS.inferred)       || []).length;
-  const assumption     = (contentForCounting.match(TAG_PATTERNS.assumption)     || []).length;
+  // Parse the justification block early — it is the authoritative LC source for stepB.
+  const { overview, entries } = parseJustificationBlock(stepOutput);
+  const hasStructured = entries.length > 0 || overview.length > 0;
+
+  let inferred: number;
+  let assumption: number;
+
+  if (stepKey === 'stepB' && entries.length > 0) {
+    // P3: Positive LC counting for stepB.
+    //
+    // Body-section [Inferred] and [Assumption] tags include structural scaffolding:
+    // overview-enumeration items (e.g. "H-RT-02 ([Inferred] — …)"), appendix cross-references
+    // ("[Inferred — derivation per appendix item N]"), and text-mention false-positives —
+    // all present in sections A–G at positions that vary run-to-run, making any negative
+    // (strip-based) approach position-keyed and non-deterministic.
+    //
+    // The justification block enumerates only genuine LC claims in a stable #### N. [Tag]
+    // format. Using entry count is format-keyed and run-stable (measured: 8 across all 4 v16
+    // runs). Fall back to body counting below only when no structured block is present.
+    inferred  = entries.filter(e => e.tag === 'Inferred').length;
+    assumption = entries.filter(e => e.tag === 'Assumption').length;
+  } else {
+    inferred  = (contentOnly.match(TAG_PATTERNS.inferred)  || []).length;
+    assumption = (contentOnly.match(TAG_PATTERNS.assumption) || []).length;
+  }
 
   const high  = documentBacked + formStated;
   const low   = inferred + assumption;
@@ -186,13 +190,9 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // not a neutral 50. The noTagsReason field explains this to the consultant.
   const score = total === 0 ? 0 : Math.round((high / total) * 100);
 
-  // Try to parse the structured justification block first
-  const { overview, entries } = parseJustificationBlock(stepOutput);
-
   // Fall back to raw snippet extraction if no structured block was produced
-  const hasStructured = entries.length > 0 || overview.length > 0;
-  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(contentForCounting, TAG_PATTERNS.inferred)   : undefined;
-  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(contentForCounting, TAG_PATTERNS.assumption) : undefined;
+  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(contentOnly, TAG_PATTERNS.inferred)   : undefined;
+  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(contentOnly, TAG_PATTERNS.assumption) : undefined;
 
   let noTagsReason: string | undefined;
   if (total === 0) {

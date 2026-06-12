@@ -190,48 +190,82 @@ describe('P0 Freeze guards — threshold stability', () => {
     });
   });
 
-  it('stepB pass-1: strips appendix-reference tags in the body (before Section H)', () => {
-    // The key regression the previous Section-H-only strip missed: appendix cross-references
-    // in sections A–G are structural scaffolding, not genuine LC claims.
-    const bodyRef =
-      'Revenue [Document-Backed] is strong.\n\n' +
-      'Estimated savings [Inferred — derivation per appendix item 3].\n\n' +
-      'Compliance risk [Inferred — per appendix item 6].\n\n' +
-      '## H) Reviewer Checklist\n\nNo tags here.';
-    const result = calculateConfidence(bodyRef, 'stepB');
+  it('stepB uses justification-entry count as authoritative LC — body structural spans excluded', () => {
+    // Body has 3 [Inferred] tags: two appendix cross-refs + one text-mention false-positive.
+    // Justification block has exactly 1 genuine entry.
+    // Score must be derived from entry count (1), not body tag count (3).
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Savings [Inferred — derivation per appendix item 1].',
+      'Risk [Inferred — derivation per appendix item 2].',
+      'Would replace [Inferred] tag once confirmed.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'One genuine inference.',
+      '#### 1. [Inferred] Estimated savings timeline',
+      '- **Claim**: "Timeline is estimated."',
+      '- **Why inferred**: No pilot data.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepB');
     expect(result.breakdown.documentBacked).toBe(1);
-    expect(result.breakdown.inferred).toBe(0);   // Both appendix-refs stripped before Section H
-    expect(result.score).toBe(100);
+    expect(result.breakdown.inferred).toBe(1);     // entry count, not body count (3)
+    expect(result.score).toBe(50);                  // 1 high / 2 total
   });
 
-  it('stepB pass-2: strips Section H text-mention false-positives', () => {
-    // Section H checklist mentions tag names as prose ("carry [Inferred] or [Assumption] tags"),
-    // which match the tag regex. The Section H strip must catch these.
-    const withMentions =
-      'Revenue [Document-Backed] is strong.\n\n' +
-      '## H) Reviewer Checklist\n\n' +
-      '8 items in [JUSTIFICATION] appendix carry [Inferred] or [Assumption] tags.';
-    const result = calculateConfidence(withMentions, 'stepB');
-    expect(result.breakdown.documentBacked).toBe(1);
-    expect(result.breakdown.inferred).toBe(0);
-    expect(result.breakdown.assumption).toBe(0);
-    expect(result.score).toBe(100);
+  it('stepB: overview-enumeration and checklist mentions are excluded via positive counting', () => {
+    // Overview block uses H-RT-NN ([Inferred] — …) format; checklist mentions tag names as prose.
+    // Both are structural scaffolding. With positive counting neither inflates the LC count.
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'H-RT-02 ([Inferred] — monthly savings derived from staffing model).',
+      'H-RT-03 ([Inferred] — timeline estimated from vendor data).',
+      '## H) Reviewer Checklist',
+      '8 items carry [Inferred] or [Assumption] tags.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'Two genuine inferences.',
+      '#### 1. [Inferred] Monthly savings',
+      '- **Claim**: "Savings estimate."',
+      '- **Why inferred**: No pilot data.',
+      '#### 2. [Inferred] Timeline',
+      '- **Claim**: "Timeline."',
+      '- **Why inferred**: Vendor data only.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepB');
+    expect(result.breakdown.inferred).toBe(2);     // entry count — overview+checklist excluded
+    expect(result.score).toBe(33);                  // 1 high / 3 total
   });
 
-  it('stepB: genuine inline [Inferred] claims (no appendix reference) are still counted', () => {
-    // A real inference with a substantive description must not be stripped.
-    const genuine =
-      'Revenue [Document-Backed] is strong.\n\nCapacity at risk [Inferred — derived from staffing model].';
-    const result = calculateConfidence(genuine, 'stepB');
-    expect(result.breakdown.inferred).toBe(1);   // no appendix item N → not stripped
+  it('stepB falls back to body-tag counting when no justification block is present', () => {
+    // If the model fails to produce a structured block, body counting is the safe fallback.
+    const noBlock = 'Revenue [Document-Backed] is strong. Risk [Inferred] is moderate.';
+    const result = calculateConfidence(noBlock, 'stepB');
+    expect(result.breakdown.inferred).toBe(1);     // body count used (no entries to count from)
     expect(result.score).toBe(50);
   });
 
-  it('stepB structural-span strip is a no-op for other step keys', () => {
-    // Same content with stepC — appendix-ref tags SHOULD be counted.
-    const bodyRef =
-      'Revenue [Document-Backed] is strong.\n\n## H) Reviewer Checklist\n\nCheck item [Inferred — appendix item 1].';
-    const result = calculateConfidence(bodyRef, 'stepC');
-    expect(result.breakdown.inferred).toBe(1);   // No stripping for non-stepB keys
+  it('other step keys always use body-tag counting, not entry count', () => {
+    // For stepC: body has 3 [Inferred] but justification block has only 1 entry.
+    // All 3 body tags must be counted (positive-counting is stepB-only).
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Risk A [Inferred] noted.',
+      'Risk B [Inferred] noted.',
+      'Risk C [Inferred] noted.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'Three risks.',
+      '#### 1. [Inferred] First risk',
+      '- **Claim**: "Risk A."',
+      '- **Why inferred**: Indirect evidence.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepC');
+    expect(result.breakdown.inferred).toBe(3);     // body count, not entry count (1)
   });
 });
