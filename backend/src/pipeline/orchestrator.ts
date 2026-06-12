@@ -160,6 +160,22 @@ export async function runPipeline(jobId: string): Promise<void> {
       confidenceScores, reviewerFlags,
     );
     await saveStepOutput(jobId, 'C', maturity);
+
+    // P2-2: Deterministic per-dimension absence check (verify on SOURCE before proceeding).
+    // Checks the raw step C output so D6 is satisfied — source is authoritative, not export cards.
+    const MATURITY_DIMENSIONS = ['Strategy', 'Data', 'Technology', 'People', 'Processes', 'Governance'];
+    const missingDimensions = MATURITY_DIMENSIONS.filter(
+      (dim) => !new RegExp(`##?#?\\s+${dim}\\b`, 'im').test(maturity),
+    );
+    if (missingDimensions.length > 0) {
+      reviewerFlags.push(
+        `Stage 2 (Maturity) is missing ${missingDimensions.length}/6 dimension(s): ` +
+        `${missingDimensions.join(', ')} — verify Step C output before proceeding; ` +
+        `downstream steps may produce incomplete maturity data.`,
+      );
+      log('warn', `Stage 2 missing dimensions: ${missingDimensions.join(', ')}`, { jobId });
+    }
+
     const maturityClean = stripJustification(maturity);
 
     // Step D — blueprint-opportunities

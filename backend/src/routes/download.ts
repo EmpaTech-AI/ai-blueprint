@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
+import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
 import fs from 'fs';
@@ -84,15 +85,6 @@ const LC_STEP_LABELS: Record<string, string> = {
   stepE:  'Stage 5 — Document Assembly',
 };
 
-// Mirror of the frontend compositionColor() badge logic
-const LC_COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
-  stepB:  { green: 70, amber: 45 },
-  stepC:  { green: 75, amber: 50 },
-  stepD:  { green: 75, amber: 50 },
-  stepD2: { green: 75, amber: 50 },
-  stepE:  { green: 80, amber: 50 },
-};
-const LC_GROUNDING_GREEN = 88;
 const LC_TIER_BANDS       = ['Strongly documentary', 'Mixed grounding', 'Form-stated', 'Low grounding'] as const;
 const LC_TIER_DESCRIPTORS = [
   'Strongly documentary — suitable for client delivery',
@@ -128,9 +120,9 @@ function computeLcBadge(stepKey: string, data: LcStepData): { band: string; desc
 
   if (high === 0) return { band: LC_TIER_BANDS[3], descriptor: LC_TIER_DESCRIPTORS[3] };
 
-  const t          = LC_COMPOSITION_THRESHOLDS[stepKey] ?? LC_COMPOSITION_THRESHOLDS.stepE;
-  const compTier   = docPct      >= t.green            ? 0 : docPct      >= t.amber ? 1 : 2;
-  const groundTier = blendedScore >= LC_GROUNDING_GREEN ? 0 : blendedScore >= 76    ? 1 : blendedScore >= 60 ? 2 : 3;
+  const t          = BACKEND_COMPOSITION_THRESHOLDS[stepKey] ?? BACKEND_COMPOSITION_THRESHOLDS.stepE;
+  const compTier   = docPct      >= t.green         ? 0 : docPct      >= t.amber ? 1 : 2;
+  const groundTier = blendedScore >= GROUNDING_GREEN ? 0 : blendedScore >= 76    ? 1 : blendedScore >= 60 ? 2 : 3;
   const tier       = Math.max(compTier, groundTier);
 
   const band       = LC_TIER_BANDS[tier];

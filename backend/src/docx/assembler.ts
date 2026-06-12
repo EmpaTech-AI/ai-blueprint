@@ -229,6 +229,9 @@ export async function generateBlueprintDocx(
   }
 
   const doc = new Document({
+    creator: 'AI Assist BG',
+    title: `AI Value Blueprint — ${clientName}`,
+    description: `AI Value Blueprint prepared by AI Assist BG for ${clientName}`,
     numbering: {
       config: [{
         reference: 'default-numbering',

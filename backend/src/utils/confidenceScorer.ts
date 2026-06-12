@@ -2,13 +2,18 @@ import { ConfidenceResult, JustificationEntry } from '../types/pipeline';
 
 // ─── Stage-keyed composition thresholds (mirrors frontend COMPOSITION_THRESHOLDS) ──
 // Both must remain in sync until Step-5 calibration can unify them into a shared config.
-const BACKEND_COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
+// P0: exported so download.ts and freeze-guard tests share a single source of truth.
+export const BACKEND_COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
   stepB:  { green: 70, amber: 45 },
   stepC:  { green: 75, amber: 50 },
   stepD:  { green: 75, amber: 50 },
   stepD2: { green: 75, amber: 50 },
   stepE:  { green: 80, amber: 50 },
 };
+
+// P0: exported so download.ts badge logic and freeze-guard tests share this constant.
+// Do NOT recalibrate this threshold — see Dev_Team_Action_Note_v16 §P0.
+export const GROUNDING_GREEN = 88;
 
 // ─── Tag patterns ─────────────────────────────────────────────────────────────
 // Each pattern handles:
@@ -147,10 +152,18 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // Count tags on the content portion only (ignore the justification block itself)
   const contentOnly = stripJustification(stepOutput);
 
-  const documentBacked = (contentOnly.match(TAG_PATTERNS.documentBacked) || []).length;
-  const formStated     = (contentOnly.match(TAG_PATTERNS.formStated)     || []).length;
-  const inferred       = (contentOnly.match(TAG_PATTERNS.inferred)       || []).length;
-  const assumption     = (contentOnly.match(TAG_PATTERNS.assumption)     || []).length;
+  // P3: Strip structural-span sections that contain non-genuine LC tags.
+  // Section H (Reviewer Checklist) in stepB output uses reference-style labels like
+  // "[Inferred — appendix item N]" as scaffolding — they are not genuine low-confidence claims.
+  let contentForCounting = contentOnly;
+  if (stepKey === 'stepB') {
+    contentForCounting = contentOnly.replace(/\n## H\)[\s\S]*$/i, '').trim();
+  }
+
+  const documentBacked = (contentForCounting.match(TAG_PATTERNS.documentBacked) || []).length;
+  const formStated     = (contentForCounting.match(TAG_PATTERNS.formStated)     || []).length;
+  const inferred       = (contentForCounting.match(TAG_PATTERNS.inferred)       || []).length;
+  const assumption     = (contentForCounting.match(TAG_PATTERNS.assumption)     || []).length;
 
   const high  = documentBacked + formStated;
   const low   = inferred + assumption;
@@ -164,8 +177,8 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
 
   // Fall back to raw snippet extraction if no structured block was produced
   const hasStructured = entries.length > 0 || overview.length > 0;
-  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(stepOutput, TAG_PATTERNS.inferred)   : undefined;
-  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(stepOutput, TAG_PATTERNS.assumption) : undefined;
+  const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(contentForCounting, TAG_PATTERNS.inferred)   : undefined;
+  const assumptionSnippets = !hasStructured && assumption > 0 ? extractTaggedSnippets(contentForCounting, TAG_PATTERNS.assumption) : undefined;
 
   let noTagsReason: string | undefined;
   if (total === 0) {
@@ -180,7 +193,7 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // Scenario C — compute split within the high-confidence pool (not against total)
   const documentVerifiedPercent = high > 0 ? Math.round((documentBacked / high) * 100) : 0;
   const formStatedSharePercent  = high > 0 ? Math.round((formStated  / high) * 100) : 0;
-  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total, stepKey);
+  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total, stepKey, score);
 
   return {
     score,
@@ -201,23 +214,34 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   };
 }
 
-function deriveCompositionDescriptor(documentVerifiedPercent: number, high: number, total: number, stepKey?: string): string {
+function deriveCompositionDescriptor(documentVerifiedPercent: number, high: number, total: number, stepKey?: string, blendedScore?: number): string {
   if (total === 0) return '';
   if (high === 0)  return 'No high-confidence claims — all tags are low-confidence';
 
   const t = BACKEND_COMPOSITION_THRESHOLDS[stepKey ?? 'stepE'] ?? BACKEND_COMPOSITION_THRESHOLDS.stepE;
+  const compositionGreen = documentVerifiedPercent >= t.green;
+  const compositionAmber = !compositionGreen && documentVerifiedPercent >= t.amber;
 
-  if (documentVerifiedPercent >= t.green) {
+  let base: string;
+  if (compositionGreen) {
     // Stage 1 green means "within expected range for intake", not an absolute "strongly documentary" verdict.
-    if (stepKey === 'stepB') return 'Documentary share within expected range for intake — suitable for pipeline use';
-    return 'Strongly documentary — suitable for client delivery';
+    if (stepKey === 'stepB') base = 'Documentary share within expected range for intake — suitable for pipeline use';
+    else base = 'Strongly documentary — suitable for client delivery';
+  } else if (compositionAmber) {
+    if (stepKey === 'stepB') base = 'Form-stated proportion elevated for intake — review client-stated claims before proceeding';
+    else base = 'Mixed grounding — review form-stated items before delivery';
+  } else {
+    if (stepKey === 'stepB') base = 'Predominantly form-stated — verify all client assertions before high-stakes use';
+    else base = 'Predominantly form-stated — verify before high-stakes use';
   }
-  if (documentVerifiedPercent >= t.amber) {
-    if (stepKey === 'stepB') return 'Form-stated proportion elevated for intake — review client-stated claims before proceeding';
-    return 'Mixed grounding — review form-stated items before delivery';
+
+  // P3 factor-attribution: when composition quality is green but LC volume degrades the blended score,
+  // make clear which factor is responsible so the consultant knows composition itself is not the issue.
+  if (compositionGreen && blendedScore !== undefined && blendedScore < GROUNDING_GREEN) {
+    base += ` — overall badge degraded by LC volume (blended ${blendedScore}%), not composition quality`;
   }
-  if (stepKey === 'stepB') return 'Predominantly form-stated — verify all client assertions before high-stakes use';
-  return 'Predominantly form-stated — verify before high-stakes use';
+
+  return base;
 }
 
 function deriveScoreContext(p: {

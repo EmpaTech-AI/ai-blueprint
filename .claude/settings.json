@@ -91,7 +91,8 @@
       "Bash(python -X utf8 -c \"import sys; data=sys.stdin.buffer.read\\(\\); sys.stdout.buffer.write\\(data\\)\")",
       "Bash(python -m pytest src/skills/blueprint-intake/harness/tests/test_validate.py -v)",
       "Bash(python src/skills/blueprint-intake/harness/tests/test_validate.py)",
-      "Bash(npx jest *)"
+      "Bash(npx jest *)",
+      "Bash(xargs grep -l \"confidenceScores\\\\|LCCard\\\\|Job Summary\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

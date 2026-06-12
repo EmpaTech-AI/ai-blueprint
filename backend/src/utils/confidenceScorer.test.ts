@@ -3,6 +3,8 @@ import {
   stripJustification,
   stripConfidenceTags,
   stripForDelivery,
+  BACKEND_COMPOSITION_THRESHOLDS,
+  GROUNDING_GREEN,
 } from './confidenceScorer';
 
 // ── stripJustification ────────────────────────────────────────────────────────
@@ -153,5 +155,49 @@ describe('calculateConfidence', () => {
     const result = calculateConfidence(text2);
     expect(result.score).toBe(80);
     expect(result.needsReview).toBe(false);
+  });
+});
+
+// ── P0 Freeze guards ──────────────────────────────────────────────────────────
+// These tests are stability anchors. A failure here means a protected constant
+// was changed. Consult Dev_Team_Action_Note_v16 before modifying the expected values.
+
+describe('P0 Freeze guards — threshold stability', () => {
+  it('GROUNDING_GREEN is 88 — do not recalibrate without Practice sign-off', () => {
+    expect(GROUNDING_GREEN).toBe(88);
+  });
+
+  it('BACKEND_COMPOSITION_THRESHOLDS has exactly the expected step keys', () => {
+    expect(Object.keys(BACKEND_COMPOSITION_THRESHOLDS)).toEqual(
+      ['stepB', 'stepC', 'stepD', 'stepD2', 'stepE'],
+    );
+  });
+
+  it('BACKEND_COMPOSITION_THRESHOLDS values are frozen to agreed calibration', () => {
+    expect(BACKEND_COMPOSITION_THRESHOLDS).toEqual({
+      stepB:  { green: 70, amber: 45 },
+      stepC:  { green: 75, amber: 50 },
+      stepD:  { green: 75, amber: 50 },
+      stepD2: { green: 75, amber: 50 },
+      stepE:  { green: 80, amber: 50 },
+    });
+  });
+
+  it('stepB structural-span strip does not affect counts outside Section H', () => {
+    // Tags before Section H must be counted; tags inside Section H must not.
+    const withSectionH =
+      'Revenue [Document-Backed] is strong.\n\n## H) Reviewer Checklist\n\nCheck item [Inferred — appendix item 1].';
+    const result = calculateConfidence(withSectionH, 'stepB');
+    expect(result.breakdown.documentBacked).toBe(1);
+    expect(result.breakdown.inferred).toBe(0);   // Section H tag must be stripped
+    expect(result.score).toBe(100);
+  });
+
+  it('stepB structural-span strip is no-op for other step keys', () => {
+    // Same content with stepC — Section H tags SHOULD be counted.
+    const withSectionH =
+      'Revenue [Document-Backed] is strong.\n\n## H) Reviewer Checklist\n\nCheck item [Inferred — appendix item 1].';
+    const result = calculateConfidence(withSectionH, 'stepC');
+    expect(result.breakdown.inferred).toBe(1);   // No stripping for non-stepB keys
   });
 });
