@@ -122,8 +122,9 @@ function SummaryLine({ line }: { line: string }) {
   return <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>{t.replace(/\*\*(.+?)\*\*/g, '$1')}</p>;
 }
 
-function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onRequestSummary }: {
+function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onRequestSummary, onDownloadStep, lcDownloadingFormat }: {
   stepKey: string; data: StepConfidence | number; riskSummary?: string; isSummaryLoading?: boolean; onRequestSummary?: () => void;
+  onDownloadStep?: (format: 'docx' | 'pdf') => void; lcDownloadingFormat?: 'docx' | 'pdf' | null;
 }) {
   const [showSnippets, setShowSnippets] = useState(false);
   const [showSummary, setShowSummary]   = useState(false);
@@ -197,6 +198,20 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
       {full?.confidenceOverview && <p className="text-xs mt-2 pt-2 leading-relaxed italic" style={{ color: 'rgba(255,255,255,0.5)', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.confidenceOverview}</p>}
       {full?.noTagsReason && <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.noTagsReason}</p>}
       {full?.scoreContext && !full.noTagsReason && <p className="text-xs mt-2 pt-2 leading-relaxed" style={{ color: docVerifiedPct >= 50 ? 'rgba(255,255,255,0.45)' : '#fcd34d', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{full.scoreContext}</p>}
+      {onDownloadStep && full && (full.lowConfidenceCount ?? 0) > 0 && (
+        <div className="mt-3 pt-2 flex items-center gap-2 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>LC Tags:</span>
+          {(['docx', 'pdf'] as const).map((fmt) => {
+            const isLoading = lcDownloadingFormat === fmt;
+            const fc = { docx: { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.25)', color: '#a5b4fc' }, pdf: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.25)', color: '#93c5fd' } }[fmt];
+            return (
+              <button key={fmt} onClick={() => onDownloadStep(fmt)} disabled={!!lcDownloadingFormat} className="inline-flex items-center gap-1 font-semibold rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40" style={{ padding: '3px 9px', fontSize: '0.65rem', background: fc.bg, border: `1px solid ${fc.border}`, color: fc.color }}>
+                {isLoading ? <SpinnerIcon className="w-2.5 h-2.5 animate-spin" /> : <DownloadIcon className="w-2.5 h-2.5" />}&nbsp;{fmt.toUpperCase()}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {(full?.justificationEntries?.length ?? 0) > 0 && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button onClick={() => setShowSnippets(!showSnippets)} className="text-xs font-semibold flex items-center gap-1 w-full" style={{ color: showSnippets ? '#fcd34d' : 'rgba(252,211,77,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
@@ -565,16 +580,19 @@ export default function AdminPage() {
     } catch { setError('Download failed — check your connection and try again.'); } finally { setDownloadingKey(null); }
   }, [apiUrl, authToken]);
 
-  const handleDownloadLcTags = useCallback(async (jobId: string, clientName: string) => {
-    const key = `${jobId}-lc`;
+  const handleDownloadLcTags = useCallback(async (jobId: string, clientName: string, format: 'docx' | 'pdf', stepKey?: string) => {
+    const key = stepKey ? `${jobId}-lc-${stepKey}-${format}` : `${jobId}-lc-${format}`;
     setDownloadingKey(key);
     try {
-      const res = await fetch(`${apiUrl}/api/download/${jobId}/lc-tags`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const url = stepKey
+        ? `${apiUrl}/api/download/${jobId}/lc-tags/${stepKey}/${format}`
+        : `${apiUrl}/api/download/${jobId}/lc-tags/${format}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
       if (!res.ok) { let msg = `Download failed (${res.status})`; try { const d = await res.json() as { error?: string }; msg = d.error ?? msg; } catch { /* ignore */ } setError(msg); return; }
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `LC Tags - ${clientName}.csv`;
+      a.download = stepKey ? `LC Tags - ${clientName} - ${stepKey}.${format}` : `LC Tags - ${clientName}.${format}`;
       a.click();
       URL.revokeObjectURL(a.href);
       setError('');
@@ -917,14 +935,17 @@ export default function AdminPage() {
                               <div className="flex items-center justify-between mb-3 gap-2">
                                 <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>AI Output Quality — Confidence Scores</p>
                                 {Object.values(job.confidenceScores).some(d => typeof d === 'object' && (d.lowConfidenceCount ?? 0) > 0) && (
-                                  <button
-                                    onClick={() => handleDownloadLcTags(job.jobId, job.clientName)}
-                                    disabled={downloadingKey === `${job.jobId}-lc`}
-                                    className="inline-flex items-center gap-1.5 font-semibold text-xs rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40 flex-shrink-0"
-                                    style={{ padding: '4px 11px', background: 'rgba(245,158,11,0.11)', border: '1px solid rgba(245,158,11,0.27)', color: '#fcd34d' }}
-                                  >
-                                    {downloadingKey === `${job.jobId}-lc` ? <><SpinnerIcon className="w-3 h-3 animate-spin" /> Downloading…</> : <><DownloadIcon className="w-3 h-3" /> LC Tags CSV</>}
-                                  </button>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {(['docx', 'pdf'] as const).map((fmt) => {
+                                      const key = `${job.jobId}-lc-${fmt}`;
+                                      const fc = { docx: { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.27)', color: '#a5b4fc' }, pdf: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.27)', color: '#93c5fd' } }[fmt];
+                                      return (
+                                        <button key={fmt} onClick={() => handleDownloadLcTags(job.jobId, job.clientName, fmt)} disabled={downloadingKey === key} className="inline-flex items-center gap-1.5 font-semibold text-xs rounded-full transition-all duration-200 hover:-translate-y-px disabled:opacity-40" style={{ padding: '4px 11px', background: fc.bg, border: `1px solid ${fc.border}`, color: fc.color }}>
+                                          {downloadingKey === key ? <><SpinnerIcon className="w-3 h-3 animate-spin" /> Downloading…</> : <><DownloadIcon className="w-3 h-3" /> LC Tags {fmt.toUpperCase()}</>}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 )}
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
@@ -933,6 +954,11 @@ export default function AdminPage() {
                                     riskSummary={stepKey === 'stepE' ? riskSummaries[job.jobId] : undefined}
                                     isSummaryLoading={stepKey === 'stepE' && summaryLoadingId === job.jobId}
                                     onRequestSummary={stepKey === 'stepE' ? () => handleRequestSummary(job.jobId) : undefined}
+                                    onDownloadStep={(fmt) => handleDownloadLcTags(job.jobId, job.clientName, fmt, stepKey)}
+                                    lcDownloadingFormat={
+                                      downloadingKey === `${job.jobId}-lc-${stepKey}-docx` ? 'docx' :
+                                      downloadingKey === `${job.jobId}-lc-${stepKey}-pdf` ? 'pdf' : null
+                                    }
                                   />
                                 ))}
                               </div>

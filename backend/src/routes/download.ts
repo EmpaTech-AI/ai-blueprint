@@ -74,61 +74,125 @@ router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-// LC tags CSV download — all low-confidence justification entries across all stages
-router.get('/:jobId/lc-tags', requireAdmin, (req: Request, res: Response) => {
+// LC tags — helpers
+const LC_STEP_LABELS: Record<string, string> = {
+  stepB:  'Stage 1 — Intake Analysis',
+  stepC:  'Stage 2 — Maturity Scoring',
+  stepD:  'Stage 3 — Opportunity Mapping',
+  stepD2: 'Stage 4 — Action Roadmap',
+  stepE:  'Stage 5 — Document Assembly',
+};
+
+type LcStepData = {
+  justificationEntries?: Array<{ index: number; tag: string; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }>;
+  inferredSnippets?: string[];
+  assumptionSnippets?: string[];
+};
+
+function buildLcTagsMarkdown(job: ReturnType<typeof loadJob>, filterStep?: string): { title: string; markdown: string } {
+  const scores = job.confidenceScores ?? {};
+  const entries = filterStep
+    ? Object.entries(scores).filter(([k]) => k === filterStep)
+    : Object.entries(scores);
+
+  if (filterStep) {
+    const stageLabel = LC_STEP_LABELS[filterStep] ?? filterStep;
+    const title = `LC Tags — ${stageLabel}`;
+    const lines: string[] = [`# ${title}`, `**${job.clientName}**`, ''];
+    appendLcStepEntries(lines, (scores[filterStep] ?? {}) as LcStepData);
+    return { title, markdown: lines.join('\n') };
+  }
+
+  const title = 'LC Tags Report';
+  const lines: string[] = [`# ${title}`, `**${job.clientName}**`, ''];
+  for (const [stepKey, raw] of entries) {
+    lines.push(`## ${LC_STEP_LABELS[stepKey] ?? stepKey}`, '');
+    appendLcStepEntries(lines, raw as LcStepData);
+  }
+  return { title, markdown: lines.join('\n') };
+}
+
+function appendLcStepEntries(lines: string[], data: LcStepData): void {
+  if (data.justificationEntries?.length) {
+    for (const e of data.justificationEntries) {
+      lines.push(`### [${e.tag}] ${e.label}`, '');
+      if (e.claim)            lines.push(`**Claim:** ${e.claim}`, '');
+      if (e.whyTagged)        lines.push(`**Why tagged:** ${e.whyTagged}`, '');
+      if (e.missingData)      lines.push(`**Missing data:** ${e.missingData}`, '');
+      if (e.consultantAction) lines.push(`**Consultant action:** ${e.consultantAction}`, '');
+      lines.push('');
+    }
+    return;
+  }
+  for (const s of (data.inferredSnippets  ?? [])) { lines.push('### [Inferred]',    '', s, ''); }
+  for (const s of (data.assumptionSnippets ?? [])) { lines.push('### [Assumption]', '', s, ''); }
+  if (!data.inferredSnippets?.length && !data.assumptionSnippets?.length) {
+    lines.push('*No low-confidence items in this stage.*', '');
+  }
+}
+
+// LC tags DOCX — all stages
+router.get('/:jobId/lc-tags/docx', requireAdmin, async (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     if (!job.confidenceScores || Object.keys(job.confidenceScores).length === 0) {
       res.status(404).json({ error: 'No confidence data available yet — run the pipeline first' });
       return;
     }
-
-    const stepLabels: Record<string, string> = {
-      stepB:  'Stage 1 — Intake Analysis',
-      stepC:  'Stage 2 — Maturity Scoring',
-      stepD:  'Stage 3 — Opportunity Mapping',
-      stepD2: 'Stage 4 — Action Roadmap',
-      stepE:  'Stage 5 — Document Assembly',
-    };
-
-    const lines: string[] = [];
-    lines.push(csvRow(['Stage', 'Tag Type', 'Item #', 'Label', 'Claim', 'Why Tagged', 'Missing Data', 'Consultant Action']));
-
-    let totalItems = 0;
-    for (const [stepKey, raw] of Object.entries(job.confidenceScores)) {
-      const stageLabel = stepLabels[stepKey] ?? stepKey;
-      const data = raw as { justificationEntries?: Array<{ index: number; tag: string; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }>; inferredSnippets?: string[]; assumptionSnippets?: string[] };
-
-      if (data.justificationEntries?.length) {
-        for (const e of data.justificationEntries) {
-          lines.push(csvRow([stageLabel, e.tag, String(e.index), e.label, e.claim, e.whyTagged, e.missingData, e.consultantAction]));
-          totalItems++;
-        }
-      } else {
-        // Legacy fallback: snippet-only entries
-        for (const s of (data.inferredSnippets ?? [])) {
-          lines.push(csvRow([stageLabel, 'Inferred', '', '', s, '', '', '']));
-          totalItems++;
-        }
-        for (const s of (data.assumptionSnippets ?? [])) {
-          lines.push(csvRow([stageLabel, 'Assumption', '', '', s, '', '', '']));
-          totalItems++;
-        }
-      }
-    }
-
-    if (totalItems === 0) {
-      lines.push(csvRow(['No low-confidence items found in any stage', '', '', '', '', '', '', '']));
-    }
-
-    const filename = `LC Tags - ${sanitizeFilename(job.clientName)}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    const { markdown } = buildLcTagsMarkdown(job);
+    const tmpPath = path.join(os.tmpdir(), `lc-tags-${req.params.jobId}.docx`);
+    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    const filename = `LC Tags - ${sanitizeFilename(job.clientName)}.docx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    // BOM ensures Excel opens the file with correct UTF-8 encoding
-    res.send('﻿' + lines.join('\r\n'));
-  } catch {
-    res.status(404).json({ error: 'Job not found' });
-  }
+    res.send(docxBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate DOCX' }); }
+});
+
+// LC tags PDF — all stages
+router.get('/:jobId/lc-tags/pdf', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    if (!job.confidenceScores || Object.keys(job.confidenceScores).length === 0) {
+      res.status(404).json({ error: 'No confidence data available yet — run the pipeline first' });
+      return;
+    }
+    const { markdown } = buildLcTagsMarkdown(job);
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, markdown);
+    const filename = `LC Tags - ${sanitizeFilename(job.clientName)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate PDF' }); }
+});
+
+// LC tags DOCX — single stage
+router.get('/:jobId/lc-tags/:stepKey/docx', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const { title, markdown } = buildLcTagsMarkdown(job, req.params.stepKey);
+    const tmpPath = path.join(os.tmpdir(), `lc-tags-${req.params.jobId}-${req.params.stepKey}.docx`);
+    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    const filename = `${sanitizeFilename(job.clientName)} - ${sanitizeFilename(title)}.docx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(docxBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate DOCX' }); }
+});
+
+// LC tags PDF — single stage
+router.get('/:jobId/lc-tags/:stepKey/pdf', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const { title, markdown } = buildLcTagsMarkdown(job, req.params.stepKey);
+    const pdfBuffer = await generateBlueprintPdf(job.clientName, markdown);
+    const filename = `${sanitizeFilename(job.clientName)} - ${sanitizeFilename(title)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch { res.status(500).json({ error: 'Failed to generate PDF' }); }
 });
 
 // HTML preview of the assembled blueprint
@@ -293,10 +357,6 @@ export default router;
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().substring(0, 60);
-}
-
-function csvRow(fields: string[]): string {
-  return fields.map(f => `"${(f ?? '').replace(/"/g, '""')}"`).join(',');
 }
 
 function getStepRaw(job: ReturnType<typeof loadJob>, step: string): string | undefined {
