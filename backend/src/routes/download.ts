@@ -75,6 +75,7 @@ router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
 });
 
 // LC tags — helpers
+
 const LC_STEP_LABELS: Record<string, string> = {
   stepB:  'Stage 1 — Intake Analysis',
   stepC:  'Stage 2 — Maturity Scoring',
@@ -83,11 +84,62 @@ const LC_STEP_LABELS: Record<string, string> = {
   stepE:  'Stage 5 — Document Assembly',
 };
 
+// Mirror of the frontend compositionColor() badge logic
+const LC_COMPOSITION_THRESHOLDS: Record<string, { green: number; amber: number }> = {
+  stepB:  { green: 70, amber: 45 },
+  stepC:  { green: 75, amber: 50 },
+  stepD:  { green: 75, amber: 50 },
+  stepD2: { green: 75, amber: 50 },
+  stepE:  { green: 80, amber: 50 },
+};
+const LC_GROUNDING_GREEN = 88;
+const LC_TIER_BANDS       = ['Strongly documentary', 'Mixed grounding', 'Form-stated', 'Low grounding'] as const;
+const LC_TIER_DESCRIPTORS = [
+  'Strongly documentary — suitable for client delivery',
+  'Mixed grounding — review form-stated items or low-confidence tags before delivery',
+  'Predominantly form-stated — verify before high-stakes use',
+  'Low grounding — address low-confidence items before proceeding',
+] as const;
+const LC_STAGE_GREEN_DESCRIPTORS: Record<string, string> = {
+  stepB:  'Documentary share within expected range for intake — suitable for pipeline use',
+  stepC:  'Strongly documentary for this stage — suitable for proceeding',
+  stepD:  'Strongly documentary for this stage — suitable for proceeding',
+  stepD2: 'Strongly documentary for this stage — suitable for proceeding',
+  stepE:  'Strongly documentary — suitable for client delivery',
+};
+
 type LcStepData = {
+  score?: number;
+  highConfidenceCount?: number;
+  lowConfidenceCount?: number;
+  breakdown?: { documentBacked: number; formStated: number; inferred: number; assumption: number; total: number };
+  documentVerifiedPercent?: number;
   justificationEntries?: Array<{ index: number; tag: string; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }>;
   inferredSnippets?: string[];
   assumptionSnippets?: string[];
 };
+
+function computeLcBadge(stepKey: string, data: LcStepData): { band: string; descriptor: string } {
+  const db   = data.breakdown?.documentBacked ?? 0;
+  const fs   = data.breakdown?.formStated     ?? 0;
+  const high = db + fs;
+  const docPct      = data.documentVerifiedPercent ?? (high > 0 ? Math.round((db / high) * 100) : (data.score ?? 0));
+  const blendedScore = data.score ?? 0;
+
+  if (high === 0) return { band: LC_TIER_BANDS[3], descriptor: LC_TIER_DESCRIPTORS[3] };
+
+  const t          = LC_COMPOSITION_THRESHOLDS[stepKey] ?? LC_COMPOSITION_THRESHOLDS.stepE;
+  const compTier   = docPct      >= t.green            ? 0 : docPct      >= t.amber ? 1 : 2;
+  const groundTier = blendedScore >= LC_GROUNDING_GREEN ? 0 : blendedScore >= 76    ? 1 : blendedScore >= 60 ? 2 : 3;
+  const tier       = Math.max(compTier, groundTier);
+
+  const band       = LC_TIER_BANDS[tier];
+  const descriptor = tier === 0
+    ? (LC_STAGE_GREEN_DESCRIPTORS[stepKey] ?? LC_TIER_DESCRIPTORS[0])
+    : LC_TIER_DESCRIPTORS[tier];
+
+  return { band, descriptor };
+}
 
 function buildLcTagsMarkdown(job: ReturnType<typeof loadJob>, filterStep?: string): { title: string; markdown: string } {
   const scores = job.confidenceScores ?? {};
@@ -98,18 +150,50 @@ function buildLcTagsMarkdown(job: ReturnType<typeof loadJob>, filterStep?: strin
   if (filterStep) {
     const stageLabel = LC_STEP_LABELS[filterStep] ?? filterStep;
     const title = `LC Tags — ${stageLabel}`;
-    const lines: string[] = [`# ${title}`, `**${job.clientName}**`, ''];
-    appendLcStepEntries(lines, (scores[filterStep] ?? {}) as LcStepData);
+    const data  = (scores[filterStep] ?? {}) as LcStepData;
+    const lines: string[] = [`# ${title}`, `**Client:** ${job.clientName}`, ''];
+    appendLcStageHeader(lines, filterStep, stageLabel, data);
+    appendLcStepEntries(lines, data);
     return { title, markdown: lines.join('\n') };
   }
 
   const title = 'LC Tags Report';
-  const lines: string[] = [`# ${title}`, `**${job.clientName}**`, ''];
+  const lines: string[] = [`# ${title}`, `**Client:** ${job.clientName}`, ''];
   for (const [stepKey, raw] of entries) {
-    lines.push(`## ${LC_STEP_LABELS[stepKey] ?? stepKey}`, '');
-    appendLcStepEntries(lines, raw as LcStepData);
+    const stageLabel = LC_STEP_LABELS[stepKey] ?? stepKey;
+    const data = raw as LcStepData;
+    lines.push(`## ${stageLabel}`, '');
+    appendLcStageHeader(lines, stepKey, stageLabel, data);
+    appendLcStepEntries(lines, data);
   }
   return { title, markdown: lines.join('\n') };
+}
+
+function appendLcStageHeader(lines: string[], stepKey: string, stageLabel: string, data: LcStepData): void {
+  const { band, descriptor } = computeLcBadge(stepKey, data);
+
+  const db      = data.breakdown?.documentBacked ?? 0;
+  const fs      = data.breakdown?.formStated     ?? 0;
+  const high    = db + fs;
+  const docPct  = data.documentVerifiedPercent ?? (high > 0 ? Math.round((db / high) * 100) : (data.score ?? 0));
+  const blended = data.score ?? 0;
+  const total   = data.breakdown?.total ?? 0;
+  const inf     = data.breakdown?.inferred   ?? 0;
+  const asm     = data.breakdown?.assumption ?? 0;
+  const lcCount = data.lowConfidenceCount ?? (inf + asm);
+
+  lines.push(
+    `**Grounding:** ${band}`,
+    `**Documentary (doc%):** ${docPct}%   ·   **Blended:** ${blended}%   ·   **Low-confidence tags:** ${lcCount}`,
+    '',
+    `*${descriptor}*`,
+    '',
+    `**Citation breakdown — ${total} total tags**`,
+    `Document-Backed: **${db}**   ·   Form-Stated: **${fs}**   ·   Inferred: **${inf}**   ·   Assumption: **${asm}**`,
+    '',
+    '---',
+    '',
+  );
 }
 
 function appendLcStepEntries(lines: string[], data: LcStepData): void {
