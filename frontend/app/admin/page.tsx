@@ -580,6 +580,11 @@ export default function AdminPage() {
     } catch { setError('Download failed — check your connection and try again.'); } finally { setDownloadingKey(null); }
   }, [apiUrl, authToken]);
 
+  const LC_STEP_NAMES: Record<string, string> = {
+    stepB: 'Stage 1 - Intake Analysis', stepC: 'Stage 2 - Maturity Scoring',
+    stepD: 'Stage 3 - Opportunity Mapping', stepD2: 'Stage 4 - Action Roadmap', stepE: 'Stage 5 - Document Assembly',
+  };
+
   const handleDownloadLcTags = useCallback(async (jobId: string, clientName: string, format: 'docx' | 'pdf', stepKey?: string) => {
     const key = stepKey ? `${jobId}-lc-${stepKey}-${format}` : `${jobId}-lc-${format}`;
     setDownloadingKey(key);
@@ -592,7 +597,8 @@ export default function AdminPage() {
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = stepKey ? `LC Tags - ${clientName} - ${stepKey}.${format}` : `LC Tags - ${clientName}.${format}`;
+      const stageLabel = stepKey ? (LC_STEP_NAMES[stepKey] ?? stepKey) : null;
+      a.download = stageLabel ? `LC Tags - ${clientName} - ${stageLabel}.${format}` : `LC Tags - ${clientName}.${format}`;
       a.click();
       URL.revokeObjectURL(a.href);
       setError('');
