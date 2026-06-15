@@ -123,7 +123,7 @@ const SERVER_START_TIME_MS = Date.now() - Math.round(process.uptime() * 1000);
 // name before it appears on client-facing cover pages and document metadata.
 // The job record itself retains the original name for internal tracking.
 function stripTestLabel(name: string): string {
-  return name.replace(/\s+v?\d+[\s_-]*[Tt]est[\s_-]*\d+\s*$/i, '').trim();
+  return name.replace(/\s+v?\d+(\.\d+)*[\s_-]*[Tt]est[\s_-]*\d+\s*$/i, '').trim();
 }
 
 // ─── Main pipeline ─────────────────────────────────────────────────────────────
