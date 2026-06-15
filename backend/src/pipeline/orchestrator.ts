@@ -113,12 +113,43 @@ async function runStepWithGate(
   return output;
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+// D8: Record server start time at module load so the build-freshness guard can
+// compare it against dist/ file mtimes during each pipeline run.
+const SERVER_START_TIME_MS = Date.now() - Math.round(process.uptime() * 1000);
+
+// Strip internal test-run labels (e.g. "v17 Test 1", "v18 Test 2") from the client
+// name before it appears on client-facing cover pages and document metadata.
+// The job record itself retains the original name for internal tracking.
+function stripTestLabel(name: string): string {
+  return name.replace(/\s+v?\d+[\s_-]*[Tt]est[\s_-]*\d+\s*$/i, '').trim();
+}
+
 // ─── Main pipeline ─────────────────────────────────────────────────────────────
 
 export async function runPipeline(jobId: string): Promise<void> {
   const job = loadJob(jobId);
   const reviewerFlags: string[] = [];
   const confidenceScores: PipelineJob['confidenceScores'] = {};
+
+  // D8: Build-freshness guard. In production the server runs node dist/server.js — if
+  // npm run build was executed after this process started, dist/ is newer than the loaded
+  // modules. Reject the run immediately so the operator gets a clear error rather than
+  // silently running stale code for another full batch.
+  const distScorerPath = path.join(__dirname, '../utils/confidenceScorer.js');
+  if (fs.existsSync(distScorerPath)) {
+    const buildMtime = fs.statSync(distScorerPath).mtimeMs;
+    if (buildMtime > SERVER_START_TIME_MS) {
+      throw new Error(
+        'D8 STALE BUILD: dist/utils/confidenceScorer.js was rebuilt after this server process started. ' +
+        'Restart the server (npm start) to load the latest compiled code before running new pipeline jobs.',
+      );
+    }
+  }
+
+  // Strip internal test-run labels before the name is embedded in client-facing deliverables.
+  const deliveryClientName = stripTestLabel(job.clientName);
 
   log('info', `Pipeline started for job ${jobId}`, { client: job.clientName });
 
@@ -220,14 +251,14 @@ export async function runPipeline(jobId: string): Promise<void> {
     const docxFilename = `AI Value Blueprint - ${sanitizeName(job.clientName)}.docx`;
     const docxPath = path.join(JOBS_DIR, jobId, docxFilename);
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
-    const docxBuffer = await generateBlueprintDocx(job.clientName, assembledForDelivery, docxPath);
+    const docxBuffer = await generateBlueprintDocx(deliveryClientName, assembledForDelivery, docxPath);
 
     await saveDocxData(jobId, docxBuffer.toString('base64'));
 
-    const pdfBuffer = await generateBlueprintPdf(job.clientName, assembledForDelivery);
+    const pdfBuffer = await generateBlueprintPdf(deliveryClientName, assembledForDelivery);
     await savePdfData(jobId, pdfBuffer.toString('base64'));
 
-    const txtContent = generateBlueprintTxt(job.clientName, assembledForDelivery);
+    const txtContent = generateBlueprintTxt(deliveryClientName, assembledForDelivery);
     await saveTxtData(jobId, txtContent);
 
     await updateConfidenceScores(jobId, confidenceScores);
