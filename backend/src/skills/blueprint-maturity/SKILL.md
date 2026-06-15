@@ -10,8 +10,8 @@ description: >
   score". This is NOT the full 5-level maturity assessment — it produces a 1-page snapshot with 3
   levels, not the full 10–15 page report.
 schema_version: intake_v1.0
-skill_version: 1.0.0
-last_updated: 2026-05-27
+skill_version: 1.1.0
+last_updated: 2026-06-15
 ---
 
 # Blueprint Maturity Scorer
@@ -45,6 +45,11 @@ Score each on a 3-level scale:
 ### Strategy
 How clearly AI is connected to business objectives. Look for: stated AI vision, leadership
 sponsorship, defined AI use cases, alignment between AI and business priorities.
+
+**Established gate — three artifacts required (see §Dimension-Specific Established Gates).**
+Board-approved priorities, a de facto champion, and leadership awareness are Developing signals.
+They cannot, alone or together, reach Established. Established requires A1 + A2 + A3 (below),
+each confirmed at Document-Backed or Form-Stated confidence.
 
 ### Data
 Quality, accessibility, and governance of organizational data. Look for: structured vs.
@@ -128,6 +133,40 @@ each dimension, use this test:
 | People | Named AI champion, organic tool adoption, or awareness training | Documented resistance with zero capability; explicit refusal on record |
 | Processes | Documented SOP (even partial or unadopted), standardization effort, or measurement culture present | Client confirms no SOPs exist; active rejection of process discipline on record |
 | Governance | Named data policy, compliance awareness, or data-handling procedure present | Explicitly ungoverned on record; client confirms no policies and no intent |
+
+## Dimension-Specific Established Gates
+
+### Strategy — Established Gate (D3, ratified 15 Jun 2026)
+
+`Strategy = Established` **iff** all three of the following artifacts are affirmatively present
+at **Document-Backed or Form-Stated** confidence. `[Inferred]` and `[Assumption]` claims can
+**never** satisfy a required artifact — you cannot infer your way to Established.
+
+| ID | Required artifact | Counts as present | Does NOT count as present |
+|---|---|---|---|
+| **A1** | Committed AI budget | An approved, dedicated AI budget line explicitly confirmed in documents or the form | Budget "in discussion"; budget range "under consideration"; AI folded into a general tech or migration line |
+| **A2** | Formal owner or steering group | A named AI programme owner or steering body with a **documented mandate**, distinct from a pre-existing role | De facto champion; informal lead; someone who "handles AI" alongside their main role |
+| **A3** | Implementation plan beyond annual priorities | A documented AI implementation plan or roadmap with a horizon **beyond the current single annual priority list** | An annual strategic plan with AI goals; a list of AI use cases; board-approved AI priorities for this FY |
+
+**Capping rule:** If any artifact is absent from the record — even if Developing signals are
+strong — the dimension is **capped at Developing**. This cap does not require evidence that the
+artifact is actively absent; absence from the record is sufficient.
+
+**Relationship to the Evidenced-Absence rule:** The Evidenced-Absence rule prevents downgrading
+*Developing → Early* without proof that a capability is absent. This gate works in the opposite
+direction: it prevents upgrading *Developing → Established* without proof that three specific
+artifacts are present. Both rules encode the same discipline — score what the record confirms.
+
+**Calibration example — Meridian Talent Partners:**
+
+| Artifact | Evidence | Present? |
+|---|---|---|
+| A1 committed AI budget | €10k–€50k "in discussion," no approved line | ✗ |
+| A2 formal owner / steering group | Ops Director is de facto champion, no documented mandate | ✗ |
+| A3 implementation plan beyond annual | FY2026 strategic plan only; no multi-year roadmap | ✗ |
+
+→ **Strategy = Developing on every run.** The four board-approved AI priorities are the Developing
+signal and cannot lift the score. A run that scores Meridian's Strategy as Established is wrong.
 
 ## Operating Procedure
 
