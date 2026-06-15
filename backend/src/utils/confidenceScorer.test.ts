@@ -240,6 +240,31 @@ describe('P0 Freeze guards — threshold stability', () => {
     expect(result.score).toBe(33);                  // 1 high / 3 total
   });
 
+  it('stepB counts entries with non-canonical field names — P3a regression guard', () => {
+    // Root cause of P3a never firing in v17/v18/v18.1 production batches.
+    // LLM used "**Rationale**" / "**Evidence gap**" instead of "**Claim**" / "**Why inferred**".
+    // extractField returned '' for both → old `if (claim || whyTagged)` guard dropped the entry
+    // → entries.length = 0 → positive-counting branch skipped → body counting used (LC = 23-31).
+    // Fix: header match is the authoritative signal; entry is always pushed regardless of body fields.
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Savings [Inferred — derivation per appendix item 1].',
+      'Risk [Inferred — derivation per appendix item 2].',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'One genuine inference.',
+      '#### 1. [Inferred] Estimated savings timeline',
+      '- **Rationale**: No pilot data available.',
+      '- **Evidence gap**: Client time-tracking not provided.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepB');
+    // entry.claim = '', entry.whyTagged = '' (non-canonical) — but header matched → must be pushed
+    expect(result.breakdown.inferred).toBe(1);  // entry count, not body count (2)
+    expect(result.score).toBe(50);               // 1 high / 2 total
+  });
+
   it('stepB falls back to body-tag counting when no justification block is present', () => {
     // If the model fails to produce a structured block, body counting is the safe fallback.
     const noBlock = 'Revenue [Document-Backed] is strong. Risk [Inferred] is moderate.';

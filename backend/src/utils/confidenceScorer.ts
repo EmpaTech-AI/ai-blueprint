@@ -74,18 +74,21 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
     const missingData       = extractField(body, ['Missing data']);
     const consultantAction  = extractField(body, ['Consultant action']);
 
-    if (claim || whyTagged) {
-      entries.push({
-        index: parseInt(m[1], 10),
-        // Normalise [Assumed] → 'Assumption' so the frontend type is satisfied
-        tag: rawTag.toLowerCase() === 'inferred' ? 'Inferred' : 'Assumption',
-        label: m[3].trim(),
-        claim,
-        whyTagged,
-        missingData,
-        consultantAction,
-      });
-    }
+    // Push every entry whose #### N. [Tag] header matched — the header is the authoritative
+    // signal that a genuine LC item was enumerated. Do NOT gate on claim/whyTagged: if the
+    // LLM uses non-canonical field names the extractField calls return '', both are falsy,
+    // and the entry would be silently dropped — leaving entries.length = 0 and falling
+    // through to body counting every run. (Root cause of P3a not firing in v17/v18/v18.1.)
+    entries.push({
+      index: parseInt(m[1], 10),
+      // Normalise [Assumed] → 'Assumption' so the frontend type is satisfied
+      tag: rawTag.toLowerCase() === 'inferred' ? 'Inferred' : 'Assumption',
+      label: m[3].trim(),
+      claim,
+      whyTagged,
+      missingData,
+      consultantAction,
+    });
   }
 
   return { overview, entries };
