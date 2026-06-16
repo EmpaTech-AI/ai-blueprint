@@ -379,61 +379,74 @@ The RPO service line has no product definition, SLA framework, or pricing model 
 
 ## [JUSTIFICATION]
 
-**Item 1 — Hypothesis 1 CV savings of 200–300 hours/month**
-Claim: "200–300 hours of consultant time per month that could be redirected"
-Class: Inferred
-Why not higher: This is a derived figure, not a directly cited number. The arithmetic chain is: (current CV time per candidate from SOP, 95–125 minutes) minus (target per candidate from strategic plan, 30 minutes) = 65–95 minutes saved per candidate, times 5 candidates per shortlist times 35–40 mandates per month = 190–317 hours, presented as 200–300 for conservatism.
-What resolves: Direct measurement of consultant CV time over a 1-month pilot would convert this to [Document-Backed] for the Meridian-specific figure.
-Confidence: High (the derivation chain is fully source-backed; only the final aggregation is computed).
+### Confidence Overview
+Grounded: 97 of 108 tagged claims are high-confidence (90%). Low-confidence items: Items 3 and 4 (Calendly-Vincere integration feasibility and AI scheduling tool effectiveness — vendor confirmation pending), Item 5 (AI sourcing tool time-reduction estimate — external benchmark only, no Meridian pilot data), Item 7 (database revival timeline — success contingent on governance quality not yet committed), Item 8 (RPO acceleration timeline — internal strategic projection without comparable case data). Primary driver: absence of client-specific time-tracking data and unconfirmed vendor integration capabilities.
 
-**Item 2 — Hypothesis 2 Vincere trigger-based automation capability**
-Claim: "Vincere's ATS, once fully implemented, can trigger automated status update emails to clients based on mandate stage changes"
-Class: Inferred
-Why not higher: Vincere is documented in the tech inventory as a specialist recruitment CRM/ATS; trigger-based email automation is standard for this category, but specific Vincere capability is not confirmed in the uploaded documents.
-What resolves: Confirmation from the Vincere implementation consultant engaged from June 2026 (named in PDF 2 and PDF 7).
-Confidence: High (vendor category norm; specific feature confirmation pending).
+#### 1. [Inferred] Consultant time savings of 200–300 hours per month [floor]
+- **Claim:** "200–300 hours of consultant time per month that could be redirected from CV screening to higher-value activities"
+- **Element:** H-RT-02
+- **Floor category:** F-2 (cross-document calculation — consultant time per candidate from SOP × shortlist size × monthly mandates)
+- **Why inferred:** Arithmetic chain derived from SOP (95–125 min/candidate) and strategic plan target (30 min); no single document states the aggregate monthly figure directly
+- **Missing data:** Direct measurement of consultant CV processing time per candidate in a representative month
+- **Consultant action:** Instrument a one-month time-tracking pilot before delivery finalisation to convert to a Document-Backed figure specific to Meridian
 
-**Item 3 — Hypothesis 3 Calendly-Vincere-Outlook integration feasibility**
-Claim: "Standardising Calendly company-wide and integrating with Vincere and Outlook could eliminate most scheduling friction"
-Class: Inferred
-Why not higher: Calendly has documented integrations with Outlook and many ATS platforms; specific Vincere-Calendly connector is not confirmed in uploaded documents.
-What resolves: Direct check with Vincere implementation consultant of available Calendly connector OR a 2-week internal pilot using Calendly + manual Vincere update workflow.
-Confidence: Medium (Calendly-Outlook is documented; Calendly-Vincere is plausible but unconfirmed).
+#### 2. [Inferred] Vincere trigger-based automation capability [floor]
+- **Claim:** "Vincere's ATS, once fully implemented, can trigger automated status update emails to clients based on mandate stage changes"
+- **Element:** H-RT-03
+- **Floor category:** F-3 (vendor capability — trigger-based email automation is standard for the ATS category; specific Vincere feature not confirmed in uploaded documents)
+- **Why inferred:** Specific Vincere trigger-email capability not confirmed in uploaded documents; inferred from standard specialist ATS category capabilities
+- **Missing data:** Confirmation of Vincere trigger-email feature from the implementation consultant engaged June 2026 (named in PDF 2 and PDF 7)
+- **Consultant action:** Request feature confirmation from the Vincere implementation consultant before Hypothesis 2 is presented to the client
 
-**Item 4 — Hypothesis 3 AI scheduling assistant for senior panel coordination**
-Claim: "An AI scheduling assistant (e.g. Reclaim.ai) could handle multi-party coordination as a Phase 2 extension"
-Class: Assumption
-Why not higher: No prior Meridian evaluation of AI scheduling tools; no industry-specific case data for recruitment firm contexts.
-What resolves: 30-day pilot with one named tool (Reclaim.ai, x.ai, or Vincere's native scheduling if any) using a single sector team (Tech & Engineering as the largest team for sample size).
-Confidence: Medium (tool category is real; specific impact for Meridian is unmeasured).
+#### 3. [Inferred] Calendly-Vincere-Outlook integration feasibility [floor]
+- **Claim:** "Standardising Calendly company-wide and integrating with Vincere and Outlook could eliminate most scheduling friction"
+- **Element:** H-RT-05
+- **Floor category:** F-3 (vendor integration — Calendly-Outlook is documented; Calendly-Vincere specific connector not confirmed in uploaded documents)
+- **Why inferred:** Calendly-Outlook integration is documented; Calendly-Vincere native connector not confirmed in uploaded materials
+- **Missing data:** Availability of a Calendly-Vincere native connector or API integration path
+- **Consultant action:** Direct check with Vincere implementation consultant on Calendly connector availability; fallback: 2-week pilot using Calendly with manual Vincere update to validate friction reduction before full rollout
 
-**Item 5 — Hypothesis 4 AI sourcing tool impact estimate**
-Claim: "A specialist AI sourcing tool... could reduce initial longlist generation from 3–4 hours to under 1 hour"
-Class: Assumption
-Why not higher: Based on vendor-reported benchmarks for comparable firm sizes; no Meridian-specific implementation data, and LinkedIn AI and Lusha both failed for specialist/CEE roles per PDF 8.
-What resolves: 60-day pilot of one named tool (Loxo or Gem) on a single sector (Tech & Engineering), with researcher time-tracking instrumented for the duration.
-Confidence: Low (the underlying problem is exactly the CEE specialist-role weakness that has defeated previous AI sourcing tools).
+#### 4. [Assumption] AI scheduling assistant for senior panel coordination [floor]
+- **Claim:** "An AI scheduling assistant (e.g. Reclaim.ai) could handle multi-party coordination for senior panel interviews as a Phase 2 extension"
+- **Element:** H-RT-05
+- **Floor category:** F-1 (no prior Meridian evaluation; no industry-specific case data for recruitment firm contexts)
+- **Why assumed:** No prior Meridian evaluation of AI scheduling tools; no industry-specific case data for this use case in recruitment contexts
+- **Missing data:** Comparative evaluation of AI scheduling tools (Reclaim.ai, x.ai, Vincere native scheduling) against Meridian's senior panel coordination workflow
+- **Consultant action:** 30-day pilot with one named tool using the Tech & Engineering team before including in the roadmap
 
-**Item 6 — Hypothesis 5 GDPR foundation as Sprint 0**
-Claim: "The consent audit, data retention policy, and Right to Erasure process should be treated as Sprint 0"
-Class: Inferred
-Why not higher: GDPR compliance work is a standard prerequisite for AI deployment in EU recruitment contexts; specific timeline and cost are not quantified in available documents.
-What resolves: GDPR/data protection specialist scoping engagement (named action in Section G open questions).
-Confidence: High (the necessity is documented; the specific scope is the remaining variable).
+#### 5. [Assumption] AI sourcing tool longlist generation time reduction [floor]
+- **Claim:** "A specialist AI sourcing tool could reduce initial longlist generation from 3–4 hours to under 1 hour"
+- **Element:** H-RT-01
+- **Floor category:** F-1 (vendor-reported benchmarks only; LinkedIn AI and Lusha have already failed for CEE specialist roles; no Meridian pilot data)
+- **Why assumed:** Based on vendor-reported benchmarks for comparable firm sizes; LinkedIn AI and Lusha have both failed for specialist/CEE roles per PDF 8; no Meridian-specific pilot data exists
+- **Missing data:** 60-day instrumented pilot on specialist CEE roles using Loxo or Gem to establish whether any tool overcomes the CEE matching weakness
+- **Consultant action:** Instrument researcher time-tracking for the Tech & Engineering team over 60 days; defer to Document-Backed only after pilot data is collected
 
-**Item 7 — Hypothesis 6 Database revival via governance reset**
-Claim: "AI matching tools could surface relevant candidates from the existing database within 6–12 months"
-Class: Assumption
-Why not higher: Timeline and match quality depend on data governance quality achieved during migration; no baseline measurement of how many mandates could be served from the existing database exists.
-What resolves: Audit of FY2025 mandate role-type distribution against existing database role-type distribution (named action in Section G open questions).
-Confidence: Low (highest variance among hypotheses; success contingent on governance rigor not yet committed).
+#### 6. [Inferred] GDPR foundation as Sprint 0 prerequisite for all AI scaling [floor]
+- **Claim:** "The consent audit, data retention policy, and Right to Erasure process should be treated as Sprint 0 of the AI programme"
+- **Element:** H-RT-07
+- **Floor category:** F-3 (regulatory standard — GDPR compliance as AI prerequisite is EU practice norm; specific Meridian scope and cost not quantified)
+- **Why inferred:** GDPR compliance work is a documented prerequisite for AI deployment in EU recruitment contexts; specific timeline and cost not quantified in available documents
+- **Missing data:** GDPR specialist scoping of the consent audit, retention policy, and erasure workflow for Meridian's specific data volume and geographic footprint
+- **Consultant action:** Engage a GDPR specialist for a scoping engagement as a pre-programme gate before the AI programme begins
 
-**Item 8 — Hypothesis 7 RPO formalisation accelerating two new contracts**
-Claim: "Formalising the RPO product with AI-enabled delivery could accelerate the path to two new signed contracts by Q4 2026"
-Class: Assumption
-Why not higher: No comparable RPO product launch timeline data available for firms of this size and maturity; strategic plan targets are stated but execution timeline is internal projection.
-What resolves: Benchmark against published RPO launch case studies for firms of similar size + commercial-cycle data from Meridian BD team on average enterprise sales cycle for RPO-class deals.
-Confidence: Medium (strategic intent is clear; the timeline is the variable).
+#### 7. [Assumption] Database revival timeline and match quality [floor]
+- **Claim:** "AI matching tools could surface relevant candidates from the existing database within 6–12 months"
+- **Element:** H-RT-04
+- **Floor category:** F-1 (success contingent on governance quality not yet committed; no baseline match-potential measurement exists)
+- **Why assumed:** Timeline and match quality depend on governance quality achieved during migration; no baseline measurement of mandate-to-database match potential exists
+- **Missing data:** Audit of FY2025 mandate role-type distribution against existing database role-type distribution to establish baseline match potential
+- **Consultant action:** Commission a data audit before database revival is confirmed in the client roadmap
+
+#### 8. [Assumption] RPO formalisation accelerating two new contracts by Q4 2026 [floor]
+- **Claim:** "Formalising the RPO product with AI-enabled delivery could accelerate the path to two new signed contracts by Q4 2026"
+- **Element:** H-RT-08
+- **Floor category:** F-1 (no comparable RPO product launch data; Q4 2026 target is an internal strategic projection)
+- **Why assumed:** No comparable RPO product launch timeline data for firms of this size and maturity; strategic plan targets are stated but execution timeline is an internal projection
+- **Missing data:** Benchmark against published RPO launch case studies for comparable firm sizes; commercial-cycle data from Meridian BD team on average enterprise sales cycle
+- **Consultant action:** Source 2–3 comparable RPO launch case studies and triangulate against Meridian BD pipeline data before the Q4 2026 target appears in client-facing materials
+
+[END JUSTIFICATION]
 
 ---
 

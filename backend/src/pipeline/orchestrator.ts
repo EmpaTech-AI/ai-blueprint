@@ -151,7 +151,10 @@ export async function runPipeline(jobId: string): Promise<void> {
   // Strip internal test-run labels before the name is embedded in client-facing deliverables.
   const deliveryClientName = stripTestLabel(job.clientName);
 
-  log('info', `Pipeline started for job ${jobId}`, { client: job.clientName });
+  log('info', `Pipeline started for job ${jobId}`, {
+    client: job.clientName,
+    gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+  });
 
   try {
     // Step A — parse documents

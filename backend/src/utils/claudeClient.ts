@@ -72,7 +72,7 @@ export async function invokeSkill(
           model: 'claude-sonnet-4-6',
           max_tokens: maxTokens,
           temperature: 0,
-          system: systemPrompt,
+          system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: userMessage }],
         }),
         CHUNK_TIMEOUT_MS,
@@ -98,7 +98,7 @@ export async function invokeSkill(
               model: 'claude-sonnet-4-6',
               max_tokens: maxTokens,
               temperature: 0,
-              system: systemPrompt,
+              system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
               messages: [
                 { role: 'user',      content: userMessage },
                 { role: 'assistant', content: result },
@@ -175,7 +175,7 @@ async function invokeChunk(
           model: 'claude-sonnet-4-6',
           max_tokens: maxTokens,
           temperature: 0,
-          system: systemPrompt,
+          system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
           messages,
         }),
         CHUNK_TIMEOUT_MS,
@@ -395,7 +395,7 @@ export async function callClaude(
     model: 'claude-sonnet-4-6',
     max_tokens: maxTokens,
     temperature: 0,
-    system: systemPrompt,
+    system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage }],
   });
   const block = response.content.find(b => b.type === 'text');
