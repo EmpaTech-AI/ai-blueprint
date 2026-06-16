@@ -21,6 +21,9 @@ if (!process.env.REVIEWER_SECRET_TOKEN) {
   );
 }
 
+// Captured once at module load — used by /health to confirm a fresh process started.
+const PROCESS_START_MS = Date.now();
+
 // ── Startup recovery ──────────────────────────────────────────────────────────
 const orphaned = resetRunningJobs();
 if (orphaned > 0) {
@@ -64,7 +67,12 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    processStartedAt: new Date(PROCESS_START_MS).toISOString(),
+    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
+    gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+  });
 });
 
 app.use('/api/intake', intakeRouter);
@@ -80,7 +88,11 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 const server = app.listen(PORT, () => {
-  log('info', `Backend running on port ${PORT}`);
+  log('info', `Backend running on port ${PORT}`, {
+    processStartedAt: new Date(PROCESS_START_MS).toISOString(),
+    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
+    gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+  });
 });
 
 process.on('SIGTERM', () => {
