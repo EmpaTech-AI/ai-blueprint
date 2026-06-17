@@ -12,8 +12,8 @@ description: >
   for the Blueprint". This is NOT the full opportunity backlog — it produces 5–7 opportunities
   with half-page cards, not the full 10–12 with detailed cards and discovery questions.
 schema_version: intake_v1.0
-skill_version: 1.0.0
-last_updated: 2026-05-27
+skill_version: 1.1.0
+last_updated: 2026-06-17
 ---
 
 # Blueprint Opportunity Harvester

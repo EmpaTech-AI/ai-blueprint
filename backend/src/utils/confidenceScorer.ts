@@ -44,9 +44,13 @@ export function stripConfidenceTags(text: string): string {
   );
 }
 
-// Strips both justification block and inline confidence tags — use before generating client documents.
+export function stripBuildStamp(text: string): string {
+  return text.replace(/^<!-- pipeline-build:.*?-->\n/m, '');
+}
+
+// Strips build stamp, justification block, and inline confidence tags — use before generating client documents.
 export function stripForDelivery(text: string): string {
-  return stripConfidenceTags(stripJustification(text));
+  return stripConfidenceTags(stripJustification(stripBuildStamp(text)));
 }
 
 // ─── Justification block parser ───────────────────────────────────────────────

@@ -1,7 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { log } from './logger';
+
+// Prepended to every step output so each saved file is self-identifying.
+// sha   = first 8 chars of RAILWAY_GIT_COMMIT_SHA (identifies the deployment)
+// psig  = first 12 chars of SHA-256 of the loaded system prompt (identifies the
+//         exact prompt content served — catches replica divergence even when the
+//         git SHA is identical across workers)
+function buildStampComment(skillName: string, systemPrompt: string): string {
+  const sha  = (process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown').slice(0, 8);
+  const psig = crypto.createHash('sha256').update(systemPrompt).digest('hex').slice(0, 12);
+  return `<!-- pipeline-build: skill=${skillName} sha=${sha} psig=${psig} -->\n`;
+}
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -125,7 +137,7 @@ export async function invokeSkill(
         continue;
       }
 
-      return result;
+      return buildStampComment(skillName, systemPrompt) + result;
     } catch (err: unknown) {
       const isRateLimit = err instanceof Anthropic.RateLimitError;
       const msg = err instanceof Error ? err.message : String(err);
@@ -383,7 +395,7 @@ export async function invokeSkillChunked(
   ].join('\n\n');
 
   log('info', `${skillName} chunked assembly complete`, { totalLength: assembled.length });
-  return assembled;
+  return buildStampComment(skillName, systemPrompt) + assembled;
 }
 
 export async function callClaude(

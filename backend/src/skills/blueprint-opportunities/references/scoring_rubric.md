@@ -97,7 +97,7 @@ After scoring, classify each opportunity into one of three categories:
 | Class | Criteria |
 |-------|---------|
 | **Quick Win** | Feasibility ≥ 4 (post-adjustment) AND can deliver visible value within 4–8 weeks |
-| **Foundation Builder** | Addresses a maturity gap or enables future opportunities; moderate effort; Feasibility 2–4 |
+| **Foundation Builder** | Addresses a maturity gap or enables future opportunities; moderate effort; Feasibility 2–4 **and Impact ≤ 3** |
 | **Big Bet** | Impact ≥ 4 AND Feasibility ≤ 3; requires significant investment, change management, or maturity growth |
 
 **Edge cases:**

@@ -11,7 +11,7 @@ description: >
   levels, not the full 10–15 page report.
 schema_version: intake_v1.0
 skill_version: 1.1.0
-last_updated: 2026-06-15
+last_updated: 2026-06-17
 ---
 
 # Blueprint Maturity Scorer
@@ -128,7 +128,7 @@ each dimension, use this test:
 | Dimension | Presence signals that hold at Developing (do not downgrade from these alone) | Evidenced absence (warranted downgrade) |
 |---|---|---|
 | Strategy | Named AI goal, board conversation, or strategic plan mention | No AI mention in any document AND form explicitly denies strategic interest |
-| Data | Named data source, structured reporting, or data lake referenced | Client confirms zero structured data; no named sources across all inputs |
+| Data | Named data source, structured reporting, or data lake referenced | Client confirms zero structured data; no named sources across all inputs — **or** primary data source carries a documented systematic quality failure (confirmed cleaning failure, ≥30% stale/corrupt records on record, or active data integrity breakdown confirmed in documents or form — see Developing Floor Gate D4) |
 | Technology | Named tools in use, licences, or technology investment documented | Zero technology spend confirmed; no tools named across all inputs |
 | People | Named AI champion, organic tool adoption, or awareness training | Documented resistance with zero capability; explicit refusal on record |
 | Processes | Documented SOP (even partial or unadopted), standardization effort, or measurement culture present | Client confirms no SOPs exist; active rejection of process discipline on record |
@@ -167,6 +167,30 @@ artifacts are present. Both rules encode the same discipline — score what the 
 
 → **Strategy = Developing on every run.** The four board-approved AI priorities are the Developing
 signal and cannot lift the score. A run that scores Meridian's Strategy as Established is wrong.
+
+### Data — Developing Floor Gate (D4, ratified 17 Jun 2026)
+
+`Data = Developing` **iff** both of the following conditions are satisfied at **Document-Backed or Form-Stated** confidence. `[Inferred]` and `[Assumption]` claims can **never** satisfy a required condition — you cannot infer your way to Developing.
+
+| ID | Required condition | Counts as satisfied | Does NOT count as satisfied |
+|---|---|---|---|
+| **D1** | At least one structured data source actively used in core operations | Named CRM, database, data warehouse, or structured reporting system confirmed in documents or form as actively used | Mention of a data tool without confirmation of active use; spreadsheet-only exchange where no named operational system is described |
+| **D2** | No documented systematic data quality failure on the primary data source | Primary data source has no confirmed cleaning failure, no ≥30% stale/corrupt records on record, and no active data integrity breakdown documented in client materials | A confirmed cleaning failure event; ≥30% stale or invalid records explicitly stated in client documents or form; ongoing data integrity breakdown confirmed on record |
+
+**Capping rule:** If D2 fails — a documented systematic quality failure exists for the primary data source — the dimension is **capped at Early** regardless of D1. The existence of a named-but-broken data source is evidenced absence of reliable data capability, not a presence signal that holds the dimension at Developing.
+
+**Relationship to the Evidenced-Absence rule:** The Evidenced-Absence rule prevents downgrading *Developing → Early* when the only negative signal is absence of record. This gate works in the same direction: a documented systematic quality failure (D2) is **evidenced absence** of reliable data capability — not merely absence of record. D1 alone (named source present) does not override documented evidence of failure.
+
+**Calibration example — Meridian Talent Partners (t3 fork):**
+
+| Condition | Evidence | Satisfied? |
+|---|---|---|
+| D1 (structured source active) | Vincere CRM and manual CSV exchange named and in use [Document-Backed] | ✓ |
+| D2 (no systematic quality failure) | 35% stale candidate records [Document-Backed]; 2023 data cleaning failure confirmed [Document-Backed] | ✗ |
+
+→ **Data = Early on every run.** D1 is satisfied but D2 fails — the 35% stale figure and confirmed 2023 cleaning failure are documented systematic quality failures that cap the dimension at Early regardless of the Vincere CRM presence. A run that scores Meridian's Data as Developing is wrong.
+
+---
 
 ## Operating Procedure
 

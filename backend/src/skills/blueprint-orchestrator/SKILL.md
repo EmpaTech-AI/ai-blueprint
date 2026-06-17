@@ -212,8 +212,8 @@ Current versions (as of this SKILL.md update):
 |-------|---------|--------|
 | blueprint-orchestrator | 2.1.0 | intake_v1.0 |
 | blueprint-intake | 2.1.0 | intake_v1.0 |
-| blueprint-maturity | 1.0.0 | intake_v1.0 |
-| blueprint-opportunities | 1.0.0 | intake_v1.0 |
+| blueprint-maturity | 1.1.0 | intake_v1.0 |
+| blueprint-opportunities | 1.1.0 | intake_v1.0 |
 | blueprint-roadmap | 1.0.0 | intake_v1.0 |
 | blueprint-assembly | 1.0.0 | intake_v1.0 |
 

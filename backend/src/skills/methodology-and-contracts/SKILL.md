@@ -151,12 +151,16 @@ Used consistently across all Blueprint skills:
 - People ≤ Early → reduce feasibility for solutions requiring widespread adoption
 - Technology ≤ Early → reduce feasibility for large integrations
 
+Each applicable dimension reduces Feasibility **independently** — never collapse two adjustments into one on the grounds that one "already captures" the other. Data Early and Governance Early are separate constraints (data quality risk vs. legal/compliance risk) and both apply when both conditions are met. **Remedial opportunities are not exempt:** an opportunity whose purpose is to address a maturity gap (e.g., a GDPR sprint remediating Early Governance) still receives the adjustment — Early maturity means harder execution regardless of intent.
+
 **Ranking:** Sort by (Impact × Feasibility), then by Alignment as tiebreaker.
 
 **Classification:**
-- **Quick Win** — High feasibility, can start immediately, fast ROI
-- **Foundation Builder** — Enablement work that unblocks future initiatives
-- **Big Bet** — High impact but lower feasibility, requires investment
+- **Quick Win** — Feasibility ≥ 4, can start immediately, fast ROI
+- **Foundation Builder** — Addresses maturity gaps or enables future initiatives; Feasibility 2–4 and Impact ≤ 3
+- **Big Bet** — Impact ≥ 4 AND Feasibility ≤ 3; requires significant investment or maturity growth
+
+**Tiebreaker — Big Bet beats Foundation Builder:** When Impact ≥ 4 AND post-adjustment Feasibility ≤ 3, classify as Big Bet even if the opportunity also addresses a maturity gap. Foundation Builder applies only when Feasibility ≥ 4 or Impact ≤ 3.
 
 ### Roadmap Sequencing (Now / Next / Later)
 

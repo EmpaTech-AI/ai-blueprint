@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import intakeRouter from './routes/intake';
@@ -23,6 +25,25 @@ if (!process.env.REVIEWER_SECRET_TOKEN) {
 
 // Captured once at module load — used by /health to confirm a fresh process started.
 const PROCESS_START_MS = Date.now();
+
+// Hash all .md files in dist/skills at startup. Stable for a given build; differs
+// the moment any SKILL.md changes — even if RAILWAY_GIT_COMMIT_SHA stays the same.
+// Compare this value across instances to confirm fleet uniformity after a deploy.
+function computeSkillsSig(): string {
+  const skillsDir = path.join(__dirname, 'skills');
+  if (!fs.existsSync(skillsDir)) return 'unknown';
+  const hash = crypto.createHash('sha256');
+  function walk(dir: string): void {
+    for (const entry of fs.readdirSync(dir).sort()) {
+      const full = path.join(dir, entry);
+      if (fs.statSync(full).isDirectory()) { walk(full); }
+      else if (entry.endsWith('.md')) { hash.update(entry); hash.update(fs.readFileSync(full)); }
+    }
+  }
+  walk(skillsDir);
+  return hash.digest('hex').slice(0, 12);
+}
+const SKILLS_SIG = computeSkillsSig();
 
 // ── Startup recovery ──────────────────────────────────────────────────────────
 const orphaned = resetRunningJobs();
@@ -72,6 +93,7 @@ app.get('/health', (req, res) => {
     processStartedAt: new Date(PROCESS_START_MS).toISOString(),
     deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
     gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+    skillsSig: SKILLS_SIG,
   });
 });
 
@@ -92,6 +114,7 @@ const server = app.listen(PORT, () => {
     processStartedAt: new Date(PROCESS_START_MS).toISOString(),
     deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
     gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+    skillsSig: SKILLS_SIG,
   });
 });
 
