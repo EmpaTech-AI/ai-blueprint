@@ -144,6 +144,10 @@ How strongly the opportunity supports the client's stated strategic goals and pr
 - If People is "Early" → reduce feasibility by 1 for solutions requiring widespread adoption
 - If Technology is "Early" → reduce feasibility by 1 for large integrations
 
+**Two common errors to avoid:**
+1. **Never skip one adjustment because another "already covers it."** Data Early and Governance Early are independent constraints (data quality vs. legal/compliance risk). If both conditions are met, both reductions apply — even if reducing by one seems to "capture the core problem."
+2. **Remedial opportunities are not exempt.** An opportunity that exists to fix a maturity gap (e.g., a GDPR sprint to remediate Early Governance) is still subject to the adjustment for that dimension. Early maturity means harder execution — the purpose of the work does not change this.
+
 Note every adjustment explicitly: "Feasibility reduced from 4 to 3 due to Early Data maturity."
 
 **Rank** by (Impact × Feasibility), using Alignment as tiebreaker.
@@ -153,8 +157,10 @@ Note every adjustment explicitly: "Feasibility reduced from 4 to 3 due to Early 
 Assign each opportunity to one of three categories:
 
 - **Quick Win** — Feasibility ≥ 4, can start immediately, delivers visible value within weeks
-- **Foundation Builder** — Enables future initiatives, addresses maturity gaps, moderate effort
-- **Big Bet** — Impact score 4–5 but feasibility ≤ 3, requires significant investment or maturity growth
+- **Foundation Builder** — Enables future initiatives, addresses maturity gaps, moderate effort; Feasibility 2–4 and Impact ≤ 3
+- **Big Bet** — Impact ≥ 4 AND feasibility ≤ 3, requires significant investment or maturity growth
+
+**Tiebreaker — Big Bet beats Foundation Builder:** If an opportunity has Impact ≥ 4 AND post-adjustment Feasibility ≤ 3, classify it as a Big Bet even if it also addresses a maturity gap. Foundation Builder applies only when Feasibility ≥ 4 or Impact ≤ 3.
 
 The final set should ideally include at least 1 Quick Win, at least 1 Foundation Builder,
 and at least 1 Big Bet — showing the client the range of what's possible.

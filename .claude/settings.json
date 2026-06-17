@@ -93,7 +93,8 @@
       "Bash(python src/skills/blueprint-intake/harness/tests/test_validate.py)",
       "Bash(npx jest *)",
       "Bash(xargs grep -l \"confidenceScores\\\\|LCCard\\\\|Job Summary\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(xargs grep -l \"CONFIDENCE_PROPAGATION\\\\|Readiness Snapshot\\\\|maturity snapshot\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

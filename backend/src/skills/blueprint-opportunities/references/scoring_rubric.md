@@ -65,6 +65,8 @@ The maturity snapshot from Step 2 may require downward adjustments to Feasibilit
 
 **Rules:**
 - Adjustments are cumulative — an opportunity can be reduced by up to 4 if all four dimensions are Early
+- **Each Early dimension applies independently. Never collapse two applicable adjustments into one on the grounds that one "already captures" the other. Data Early and Governance Early are separate constraints — data quality risk vs. legal/compliance risk respectively. If both apply, both reduce Feasibility.**
+- **Remedial opportunities are not exempt. An opportunity whose purpose is to address a maturity gap (e.g., a GDPR sprint that remediates Early Governance) still receives the adjustment. The adjustment measures execution difficulty, not intent — building governance from zero is harder regardless of whether the work is foundational.**
 - Adjusted Feasibility has a floor of 1 (never below 1)
 - **Every adjustment must be noted explicitly** in the opportunity card: "Feasibility reduced from 4 to 3 due to Early Data maturity [Inferred from Stage 2 snapshot]."
 - If no adjustments apply, note "No maturity adjustments required."
@@ -101,7 +103,8 @@ After scoring, classify each opportunity into one of three categories:
 **Edge cases:**
 - An opportunity with Feasibility 4 and very high Impact may still be a Foundation Builder if
   it is primarily about fixing an infrastructure gap (e.g., data governance). Use judgment and
-  document the classification rationale.
+  document the classification rationale. **This edge case applies only when Feasibility ≥ 4.**
+- **Big Bet takes precedence over Foundation Builder when Impact ≥ 4 AND Feasibility ≤ 3.** The fact that an opportunity also addresses a maturity gap does not change the classification — if Impact ≥ 4 and post-adjustment Feasibility ≤ 3, it is a Big Bet. Classify as Foundation Builder only when Feasibility ≥ 4 or Impact ≤ 3.
 - An opportunity cannot be BOTH a Quick Win and a Big Bet. If scores suggest both, re-check
   the Feasibility score — Feasibility ≥ 4 and Impact ≥ 4 is a Quick Win, not a Big Bet.
 
