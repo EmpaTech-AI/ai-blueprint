@@ -45,6 +45,16 @@ function computeSkillsSig(): string {
 }
 const SKILLS_SIG = computeSkillsSig();
 
+// Hash the compiled confidenceScorer.js at startup. Changes whenever the scorer is rebuilt,
+// even if the git SHA is identical. Lets you confirm P3a (or any scorer fix) is live without
+// running a pipeline job — compare scorerSig across instances via /health.
+function computeScorerSig(): string {
+  const scorerPath = path.join(__dirname, 'utils', 'confidenceScorer.js');
+  if (!fs.existsSync(scorerPath)) return 'unknown';
+  return crypto.createHash('sha256').update(fs.readFileSync(scorerPath)).digest('hex').slice(0, 12);
+}
+const SCORER_SIG = computeScorerSig();
+
 // ── Startup recovery ──────────────────────────────────────────────────────────
 const orphaned = resetRunningJobs();
 if (orphaned > 0) {
@@ -94,6 +104,7 @@ app.get('/health', (req, res) => {
     deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
     gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
     skillsSig: SKILLS_SIG,
+    scorerSig: SCORER_SIG,
   });
 });
 
@@ -115,6 +126,7 @@ const server = app.listen(PORT, () => {
     deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? 'local',
     gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
     skillsSig: SKILLS_SIG,
+    scorerSig: SCORER_SIG,
   });
 });
 

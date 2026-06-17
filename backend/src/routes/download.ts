@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
-import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN } from '../utils/confidenceScorer';
+import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
 import fs from 'fs';
@@ -485,8 +485,9 @@ function buildStepContent(step: string, raw: string): { title: string; markdown:
     }
   }
 
-  // Steps B–E: raw content is already markdown; ensure it begins with a heading
-  const markdown = raw.trimStart().startsWith('#') ? raw : `# ${title}\n\n${raw}`;
+  // Steps B–E: strip build stamp / LC tags / justification before rendering client documents
+  const clean = stripForDelivery(raw);
+  const markdown = clean.trimStart().startsWith('#') ? clean : `# ${title}\n\n${clean}`;
   return { title, markdown };
 }
 
