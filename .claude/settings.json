@@ -148,7 +148,11 @@
       "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" show 0bdc51d718c185820fc98cbf735637397f94fcfe --stat)",
       "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" show a2c78ecffc8a33990c57909e3be4e6418cb3057a --stat)",
       "Bash(cat backend/.gitignore)",
-      "Bash(cat .gitignore)"
+      "Bash(cat .gitignore)",
+      "Skill(gstack)",
+      "Skill(gstack:*)",
+      "WebFetch(domain:ai-blueprint-five-delta.vercel.app)",
+      "Bash(git stash *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"
