@@ -56,7 +56,11 @@ export function stripForDelivery(text: string): string {
 // ─── Justification block parser ───────────────────────────────────────────────
 
 function parseJustificationBlock(text: string): { overview: string; entries: JustificationEntry[] } {
-  const blockMatch = text.match(/## \[JUSTIFICATION\]([\s\S]*?)\[END JUSTIFICATION\]/i);
+  // Primary: canonical terminator. Fallback: match to end of text — v24+ intake outputs
+  // omit [END JUSTIFICATION] and close with the "End of Compressed Client Dossier" footer.
+  const blockMatch =
+    text.match(/## \[JUSTIFICATION\]([\s\S]*?)\[END JUSTIFICATION\]/i) ??
+    text.match(/## \[JUSTIFICATION\]([\s\S]*?)$/i);
   if (!blockMatch) return { overview: '', entries: [] };
 
   const block = blockMatch[1];
@@ -64,20 +68,20 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
   const overview = block.match(/### Confidence Overview\s*([\s\S]*?)(?=###|$)/i)?.[1]?.trim() ?? '';
 
   const entries: JustificationEntry[] = [];
-  // Match each numbered entry: #### N. [Tag] Label
+
+  // Canonical format: #### N. [Inferred|Assumption|Assumed] Label
   // Accepts [Inferred], [Assumption], [Assumed] in any case
-  const entryRegex = /#### (\d+)\.\s*\[(Inferred|Assumption|Assumed)\]\s*(.+?)\n([\s\S]*?)(?=#### \d+\.|### |\[END JUSTIFICATION\]|$)/gi;
+  const canonicalEntryRegex = /#### (\d+)\.\s*\[(Inferred|Assumption|Assumed)\]\s*(.+?)\n([\s\S]*?)(?=#### \d+\.|### |\[END JUSTIFICATION\]|$)/gi;
+
+  // Floor format (v24+ intake): #### N. Label [floor]
+  // Tag is derived from the body field: "Why assumed" → Assumption, otherwise → Inferred.
+  const floorEntryRegex = /#### (\d+)\.\s*(.+?)\s*\[floor\]\s*\n([\s\S]*?)(?=#### \d+\.|### |\[END JUSTIFICATION\]|\*End of|$)/gi;
+
   let m: RegExpExecArray | null;
 
-  while ((m = entryRegex.exec(block)) !== null) {
-    const body = m[4];
+  while ((m = canonicalEntryRegex.exec(block)) !== null) {
+    const body   = m[4];
     const rawTag = m[2];
-
-    const claim             = extractField(body, ['Claim']);
-    const whyTagged         = extractField(body, ['Why inferred', 'Why assumed', 'Why infer', 'Why assum']);
-    const missingData       = extractField(body, ['Missing data']);
-    const consultantAction  = extractField(body, ['Consultant action']);
-
     // Push every entry whose #### N. [Tag] header matched — the header is the authoritative
     // signal that a genuine LC item was enumerated. Do NOT gate on claim/whyTagged: if the
     // LLM uses non-canonical field names the extractField calls return '', both are falsy,
@@ -86,13 +90,31 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
     entries.push({
       index: parseInt(m[1], 10),
       // Normalise [Assumed] → 'Assumption' so the frontend type is satisfied
-      tag: rawTag.toLowerCase() === 'inferred' ? 'Inferred' : 'Assumption',
+      tag:   rawTag.toLowerCase() === 'inferred' ? 'Inferred' : 'Assumption',
       label: m[3].trim(),
-      claim,
-      whyTagged,
-      missingData,
-      consultantAction,
+      claim:            extractField(body, ['Claim']),
+      whyTagged:        extractField(body, ['Why inferred', 'Why assumed', 'Why infer', 'Why assum']),
+      missingData:      extractField(body, ['Missing data']),
+      consultantAction: extractField(body, ['Consultant action']),
     });
+  }
+
+  // If canonical format produced no entries, try the floor format.
+  if (entries.length === 0) {
+    while ((m = floorEntryRegex.exec(block)) !== null) {
+      const body = m[3];
+      // Derive tag from the body's field label — "Why assumed" signals Assumption.
+      const tag: 'Inferred' | 'Assumption' = /\*\*Why assumed/i.test(body) ? 'Assumption' : 'Inferred';
+      entries.push({
+        index: parseInt(m[1], 10),
+        tag,
+        label:            m[2].trim(),
+        claim:            extractField(body, ['Claim']),
+        whyTagged:        extractField(body, ['Why inferred', 'Why assumed', 'Why infer', 'Why assum']),
+        missingData:      extractField(body, ['Missing data']),
+        consultantAction: extractField(body, ['Consultant action']),
+      });
+    }
   }
 
   return { overview, entries };
@@ -100,7 +122,8 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
 
 function extractField(body: string, keys: string[]): string {
   for (const key of keys) {
-    const pattern = new RegExp(`\\*\\*${key}[^*]*\\*\\*:?\\s*"?([\\s\\S]*?)"?(?=\\n-\\s*\\*\\*|\\n####|$)`, 'i');
+    // Lookahead accepts both - and • list bullets (v24+ intake uses •).
+    const pattern = new RegExp(`\\*\\*${key}[^*]*\\*\\*:?\\s*"?([\\s\\S]*?)"?(?=\\n[•\\-]\\s*\\*\\*|\\n####|$)`, 'i');
     const match = body.match(pattern);
     if (match?.[1]) return match[1].trim().replace(/^"/, '').replace(/"$/, '');
   }

@@ -273,6 +273,49 @@ describe('P0 Freeze guards — threshold stability', () => {
     expect(result.score).toBe(50);
   });
 
+  it('stepB: floor format without [END JUSTIFICATION] — v24+ intake regression guard', () => {
+    // v24+ blueprint-intake outputs omit [END JUSTIFICATION] and use "#### N. Label [floor]"
+    // header format with • bullets. Both changes caused P3a to fall back to body-count (LC 25-31).
+    // Fix: blockMatch falls back to $; floorEntryRegex handles label-first + [floor] headers;
+    // extractField accepts • as a field delimiter.
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Savings [Inferred — derivation per appendix item 1].',
+      'Risk [Inferred — derivation per appendix item 2].',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'Grounded: 94 of 102 tagged claims are high-confidence (92%). Low-confidence elements: H-RT-02.',
+      '',
+      '### Low-Confidence Items',
+      '',
+      '#### 1. Consultant time savings estimate [floor]',
+      '• **Claim:** "200–300 hours per month."',
+      '• **Element:** H-RT-02',
+      '• **Floor category:** F-2',
+      '• **Why inferred:** Arithmetic chain from SOP data.',
+      '• **Missing data:** Direct measurement.',
+      '• **Consultant action:** Instrument time-tracking.',
+      '',
+      '#### 2. Vendor integration feasibility [floor]',
+      '• **Claim:** "Integration would eliminate friction."',
+      '• **Element:** H-RT-05',
+      '• **Floor category:** F-3',
+      '• **Why assumed:** No client evaluation exists.',
+      '• **Missing data:** Vendor confirmation.',
+      '• **Consultant action:** Check with vendor.',
+      '',
+      '*End of Compressed Client Dossier. Schema: intake_v1.0. Chunks 1–3 complete.*',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepB');
+    // entry count (2) used — not body count (inflated structural tags)
+    expect(result.breakdown.inferred).toBe(1);    // entry 1: Why inferred → Inferred
+    expect(result.breakdown.assumption).toBe(1);  // entry 2: Why assumed → Assumption
+    expect(result.justificationEntries).toHaveLength(2);
+    expect(result.justificationEntries?.[0].tag).toBe('Inferred');
+    expect(result.justificationEntries?.[1].tag).toBe('Assumption');
+  });
+
   it('other step keys always use body-tag counting, not entry count', () => {
     // For stepC: body has 3 [Inferred] but justification block has only 1 entry.
     // All 3 body tags must be counted (positive-counting is stepB-only).

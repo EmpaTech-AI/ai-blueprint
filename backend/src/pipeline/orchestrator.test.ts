@@ -117,7 +117,7 @@ describe('Quality gate — Blue band (60–75)', () => {
     const { retried, flags, score } = await runGate(runner);
     expect(calls).toBe(2);
     expect(retried).toBe(true);
-    expect(score).toBe(66);
+    expect(score).toBe(67); // Math.round(2/3 * 100) = 67
     expect(flags.length).toBeGreaterThan(0);
   });
 });
