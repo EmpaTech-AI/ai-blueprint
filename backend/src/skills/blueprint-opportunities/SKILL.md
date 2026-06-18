@@ -139,6 +139,22 @@ For each of the 5–7 opportunities, score on three dimensions:
 How strongly the opportunity supports the client's stated strategic goals and priorities.
 
 **Apply the Readiness Adjustment Rule (mandatory):**
+
+When a matched archetype is loaded, check the hypothesis's D6 adjustment eligibility flags in the
+archetype's Hypothesis Library. Each flag is a deterministic trigger — if the flag is `yes` AND
+the corresponding dimension is "Early", apply the −1 adjustment. Do not re-judge eligibility;
+the flags encode the Practice team's decision for this archetype.
+
+| Flag | Maturity dimension | When to reduce Feasibility by 1 |
+|------|--------------------|---------------------------------|
+| `ml_heavy` | Data is "Early" | Opportunity flag `ml_heavy = yes` |
+| `multi_source` | Data is "Early" | Opportunity flag `multi_source = yes` |
+| `regulated` | Governance is "Early" | Opportunity flag `regulated = yes` |
+| `large_integration` | Technology is "Early" | Opportunity flag `large_integration = yes` |
+| `adoption_dependent` | People is "Early" | Opportunity flag `adoption_dependent = yes` |
+
+If no matched archetype is loaded (generic skeleton), fall back to per-run judgment using the
+criteria below and tag the applied adjustment as `[Inferred]`:
 - If Data is "Early" → reduce feasibility by 1 for any ML-heavy or multi-source initiative
 - If Governance is "Early" → reduce feasibility by 1 for regulated or high-risk automated decisions
 - If People is "Early" → reduce feasibility by 1 for solutions requiring widespread adoption

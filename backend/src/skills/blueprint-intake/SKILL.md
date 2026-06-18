@@ -302,6 +302,17 @@ JUSTIFICATION block heading (H2 — do NOT use bold or triple-hyphens):
 
 JUSTIFICATION entry format (use `#### N. [Tag] Label` — this is the canonical format parsed by the
 dashboard and required by `../methodology-and-contracts/SKILL.md`):
+
+> **CRITICAL — format rule enforced by the parser:** The `[Tag]` (`[Inferred]` or `[Assumption]`)
+> MUST be the first bracket token after the number and period. Entries missing the `[Tag]` prefix
+> fall through to the body-count fallback and produce inflated LC counts (the v24 P3a defect).
+>
+> CORRECT: `#### 1. [Inferred] Revenue per delivery FTE estimate [floor]`
+> WRONG:   `#### 1. Revenue per delivery FTE estimate [floor]`  ← no [Tag] → entry is unparsed
+> WRONG:   `#### 1. [floor] Revenue per delivery FTE estimate`  ← [floor] is not a tag
+>
+> The `[floor]` suffix (after the label) is optional advisory metadata — it is NOT the confidence tag.
+
 ```markdown
 #### 1. [Inferred] Revenue per delivery FTE estimate [floor]
 - **Claim:** "Revenue per delivery FTE is estimated at £103,000"
@@ -602,6 +613,10 @@ Before finalising the dossier, scan for and remove (per `references/preflight.md
   and the first `#### 1.` entry that reads as internal reasoning (`Re-reading Checkpoint 2…`,
   `Producing [JUSTIFICATION] first…`, `Let me review…`, etc.). The appendix must open directly
   with `### Confidence Overview` then `#### 1. [Tag]`. This was the v11_t1 defect class.
+- **JUSTIFICATION entries missing the `[Tag]` prefix** — any entry of the form
+  `#### N. Label [floor]` where no `[Inferred]` or `[Assumption]` appears between the period
+  and the label. These entries are not parsed by the dashboard and fall through to body-count
+  (v24 P3a defect). Correct to `#### N. [Tag] Label [floor]` before finalising.
 
 These patterns disqualify a dossier from client or pipeline use.
 

@@ -101,6 +101,17 @@ No low-confidence items. All data points in this output are backed by uploaded d
 [END JUSTIFICATION]
 ```
 
+**Entry format — enforced by the parser (R19 contract):**
+Every numbered entry MUST open with `#### N. [Tag] Label` where `[Tag]` is `[Inferred]` or `[Assumption]`.
+The `[Tag]` is the FIRST bracket token after the period. Omitting it causes the entry to be silently
+skipped by the parser and fall through to body-count, inflating LC counts (v24 P3a root cause).
+
+```
+CORRECT:  #### 1. [Inferred] Revenue per FTE estimate [floor]
+WRONG:    #### 1. Revenue per FTE estimate [floor]      ← missing [Tag] — entry is unparsed
+WRONG:    #### 1. [floor] Revenue per FTE estimate      ← [floor] is not a confidence tag
+```
+
 **Non-negotiable rules:**
 - EVERY `[Inferred]` or `[Assumption]` tag used in the output above must have a numbered entry here
 - `[Document-Backed]` and `[Form-Stated]` items are NOT listed here — only low-confidence ones

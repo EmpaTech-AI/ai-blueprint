@@ -194,20 +194,34 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   let inferred: number;
   let assumption: number;
 
-  if (stepKey === 'stepB' && entries.length > 0) {
-    // P3: Positive LC counting for stepB.
-    //
-    // Body-section [Inferred] and [Assumption] tags include structural scaffolding:
-    // overview-enumeration items (e.g. "H-RT-02 ([Inferred] — …)"), appendix cross-references
-    // ("[Inferred — derivation per appendix item N]"), and text-mention false-positives —
-    // all present in sections A–G at positions that vary run-to-run, making any negative
-    // (strip-based) approach position-keyed and non-deterministic.
-    //
-    // The justification block enumerates only genuine LC claims in a stable #### N. [Tag]
-    // format. Using entry count is format-keyed and run-stable (measured: 8 across all 4 v16
-    // runs). Fall back to body counting below only when no structured block is present.
-    inferred  = entries.filter(e => e.tag === 'Inferred').length;
-    assumption = entries.filter(e => e.tag === 'Assumption').length;
+  // P3c: Positive LC counting for stepB, stepC, and stepD.
+  //
+  // Body-section [Inferred] and [Assumption] tags include structural scaffolding:
+  // overview-enumeration items (e.g. "H-RT-02 ([Inferred] — …)"), appendix cross-references
+  // ("[Inferred — derivation per appendix item N]"), and text-mention false-positives —
+  // all present in sections A–G at positions that vary run-to-run, making any negative
+  // (strip-based) approach position-keyed and non-deterministic.
+  //
+  // The justification block enumerates only genuine LC claims in a stable #### N. [Tag]
+  // format. Using entry count is format-keyed and run-stable (measured: 8 across all 4 v16
+  // runs for stepB; extended to stepC/stepD to fix Stage-2/Stage-3 duplicate-count inflation
+  // visible in the v24 batch: one Stage-2 element counted 3× in T3 vs 1× in T4).
+  //
+  // Dedup by normalised label prevents the same logical claim from being counted N times
+  // when the LLM emits duplicate entries in the JUSTIFICATION block (Stage-2 T3 defect).
+  // Fall back to body counting only when no structured block is present.
+  const POSITIVE_COUNT_STEPS = new Set(['stepB', 'stepC', 'stepD']);
+
+  if (POSITIVE_COUNT_STEPS.has(stepKey ?? '') && entries.length > 0) {
+    const seen = new Set<string>();
+    const dedupedEntries = entries.filter(e => {
+      const key = e.label.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    inferred  = dedupedEntries.filter(e => e.tag === 'Inferred').length;
+    assumption = dedupedEntries.filter(e => e.tag === 'Assumption').length;
   } else {
     inferred  = (contentOnly.match(TAG_PATTERNS.inferred)  || []).length;
     assumption = (contentOnly.match(TAG_PATTERNS.assumption) || []).length;

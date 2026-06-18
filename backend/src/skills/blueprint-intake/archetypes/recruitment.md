@@ -83,21 +83,39 @@ The 5 form-stated pain points always make the list. The selection algorithm pick
 
 Common AI opportunities for recruitment firms. Each has a typical Impact × Feasibility × Alignment range; actual scores come from `hypothesis_selection.md`.
 
-| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class |
-|---|---|---|---|---|---|
-| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder |
-| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win |
-| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) |
-| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder |
-| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win |
-| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder |
-| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder |
-| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet |
-| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet |
-| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder |
-| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder |
-| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win |
-| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet |
+### Readiness Adjustment Eligibility Flags (D6 — pending Practice ratification)
+
+The five flags below determine whether the Stage 3 Readiness Adjustment Rule fires for each
+hypothesis. When a flag is `yes` AND the corresponding maturity dimension is "Early", the
+Opportunity Harvester MUST reduce Feasibility by 1 for that opportunity — it is a deterministic
+lookup, not a per-run judgment. This makes the −1 rule stable across runs.
+
+| Flag | Maturity dimension | Fires when |
+|------|--------------------|-----------|
+| `ml_heavy` | Data | The opportunity requires ML inference, model training, or multi-dataset joins |
+| `multi_source` | Data | The opportunity requires data from 2+ distinct systems or pipelines |
+| `regulated` | Governance | The opportunity makes automated decisions in a regulated or high-risk context |
+| `large_integration` | Technology | The opportunity requires a substantial API or systems integration |
+| `adoption_dependent` | People | The opportunity requires widespread user adoption or change-management investment |
+
+**Status: PROPOSED — flag values below require Practice sign-off before going live.**
+See Decisions Required §D6 in the v24 Re-run + Stage 3 reports.
+
+| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder | yes | yes | no | yes | yes |
+| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win | no | no | no | no | no |
+| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) | no | no | no | no | no |
+| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder | yes | yes | no | no | yes |
+| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win | no | no | no | no | no |
+| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder | no | yes | no | yes | no |
+| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes |
+| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes |
+| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes |
+| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no |
+| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes |
+| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no |
+| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no |
 
 The selection algorithm picks 7. Coverage rules ensure all 4 strategic priorities have at least one selected hypothesis.
 

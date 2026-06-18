@@ -134,10 +134,13 @@ comment block for downstream pipeline consumption:
 ```
 **Scores:** Impact 5/5 | Feasibility 4/5 | Alignment 5/5
 **Classification:** Quick Win
-<!-- score: impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
 ```
 
+`id` — canonical archetype library ID (required; matches the Stage 1 hypothesis `id=` field).
 `class` values: `QuickWin`, `FoundationBuilder`, `BigBet` (no spaces, CamelCase).
+`product` — must equal `impact × feasibility × alignment` exactly; the pipeline auto-patches
+arithmetic errors and logs a reviewer flag (GATE 3).
 
 ---
 

@@ -19,6 +19,7 @@ import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { calculateConfidence, stripJustification, stripForDelivery } from '../utils/confidenceScorer';
+import { validateOpportunityScores } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -217,11 +218,20 @@ export async function runPipeline(jobId: string): Promise<void> {
     // Step D — blueprint-opportunities
     assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'D');
-    const opportunities = await runStepWithGate(
+    const opportunitiesRaw = await runStepWithGate(
       'Stage 3 (Opportunity Mapping)', 'stepD',
       (corrective?) => runStepD(dossierClean, maturityClean, corrective),
       confidenceScores, reviewerFlags,
     );
+
+    // GATE 3: validate product arithmetic, classification consistency, and portfolio shape.
+    // Auto-patches product field arithmetic errors; flags classification violations for manual review.
+    const { corrected: opportunities, reviewerFlags: gate3Flags } = validateOpportunityScores(opportunitiesRaw);
+    if (gate3Flags.length > 0) {
+      reviewerFlags.push(...gate3Flags);
+      log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
+    }
+
     await saveStepOutput(jobId, 'D', opportunities);
     const opportunitiesClean = stripJustification(opportunities);
 

@@ -316,9 +316,9 @@ describe('P0 Freeze guards — threshold stability', () => {
     expect(result.justificationEntries?.[1].tag).toBe('Assumption');
   });
 
-  it('other step keys always use body-tag counting, not entry count', () => {
-    // For stepC: body has 3 [Inferred] but justification block has only 1 entry.
-    // All 3 body tags must be counted (positive-counting is stepB-only).
+  it('stepC with structured block uses entry count (P3c — Stage-2 duplicate-count fix)', () => {
+    // Body has 3 [Inferred] tags; justification block has 1 entry.
+    // P3c: positive counting is now active for stepC — entry count (1) is used, not body count (3).
     const input = [
       'Revenue [Document-Backed] is strong.',
       'Risk A [Inferred] noted.',
@@ -327,13 +327,91 @@ describe('P0 Freeze guards — threshold stability', () => {
       '',
       '## [JUSTIFICATION]',
       '### Confidence Overview',
-      'Three risks.',
+      'One genuine inference.',
       '#### 1. [Inferred] First risk',
       '- **Claim**: "Risk A."',
       '- **Why inferred**: Indirect evidence.',
       '[END JUSTIFICATION]',
     ].join('\n');
     const result = calculateConfidence(input, 'stepC');
-    expect(result.breakdown.inferred).toBe(3);     // body count, not entry count (1)
+    expect(result.breakdown.inferred).toBe(1);  // entry count, not body count (3)
+    expect(result.score).toBe(50);               // 1 high / 2 total
+  });
+
+  it('stepC deduplicates entries with the same normalised label (Stage-2 T3=3/T4=1 defect)', () => {
+    // The LLM emits the same element three times in the JUSTIFICATION block (T3 defect).
+    // Dedup collapses them to 1 — the score should match a run that emits it once (T4).
+    const input = [
+      'Revenue [Document-Backed] stable.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'One real inference, listed three times.',
+      '#### 1. [Assumption] Absence of formal AI training programme',
+      '- **Claim**: "No formal AI training exists."',
+      '- **Why assumed**: Not documented.',
+      '#### 2. [Assumption] Absence of formal AI training programme',
+      '- **Claim**: "No formal AI training exists."',
+      '- **Why assumed**: Not documented.',
+      '#### 3. [Assumption] Absence of formal AI training programme',
+      '- **Claim**: "No formal AI training exists."',
+      '- **Why assumed**: Not documented.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepC');
+    expect(result.breakdown.assumption).toBe(1);  // deduped: 3 entries → 1 distinct
+    expect(result.score).toBe(50);                 // 1 high / 2 total
+  });
+
+  it('stepC falls back to body-tag counting when no structured block is present', () => {
+    // Confirms body-count fallback is preserved when the LLM produces no JUSTIFICATION block.
+    const noBlock = 'Revenue [Document-Backed] is strong. Risk A [Inferred] noted. Risk B [Inferred] noted.';
+    const result = calculateConfidence(noBlock, 'stepC');
+    expect(result.breakdown.inferred).toBe(2);  // body count (no block to count from)
+    expect(result.score).toBe(33);
+  });
+
+  it('stepD with structured block uses entry count (P3c — Stage-3 LC inflation fix)', () => {
+    // Same pattern as stepC — positive counting extended to stepD.
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Savings [Inferred] are estimated at 20%.',
+      'Timeline [Assumption] is 6 months.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'Two genuine items.',
+      '#### 1. [Inferred] Savings estimate',
+      '- **Claim**: "20% savings."',
+      '- **Why inferred**: Industry benchmark.',
+      '#### 2. [Assumption] Timeline',
+      '- **Claim**: "6-month timeline."',
+      '- **Why assumed**: No prior project data.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD');
+    expect(result.breakdown.inferred).toBe(1);
+    expect(result.breakdown.assumption).toBe(1);
+    // 1 Document-Backed (high) + 1 Inferred + 1 Assumption (low) = 3 total → 33%
+    expect(result.score).toBe(33);
+  });
+
+  it('stepD2 and stepE still use body-tag counting (not extended to positive counting)', () => {
+    // stepD2 and stepE are not in POSITIVE_COUNT_STEPS — body count is the correct fallback.
+    const input = [
+      'Revenue [Document-Backed] is strong.',
+      'Risk A [Inferred] noted.',
+      'Risk B [Inferred] noted.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'One entry.',
+      '#### 1. [Inferred] First risk',
+      '- **Claim**: "Risk A."',
+      '- **Why inferred**: Indirect.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD2');
+    expect(result.breakdown.inferred).toBe(2);  // body count, not entry count (1)
   });
 });

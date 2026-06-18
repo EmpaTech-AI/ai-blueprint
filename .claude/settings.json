@@ -152,7 +152,8 @@
       "Skill(gstack)",
       "Skill(gstack:*)",
       "WebFetch(domain:ai-blueprint-five-delta.vercel.app)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(npm test *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"
