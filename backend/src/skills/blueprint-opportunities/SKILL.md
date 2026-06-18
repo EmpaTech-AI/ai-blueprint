@@ -98,20 +98,29 @@ Every signal must have at least one citation to the dossier or snapshot.
    - Removing ideas requiring prerequisites that are clearly out of reach given maturity
 3. The final 5–7 should represent a mix of Quick Wins, Foundation Builders, and Big Bets
 
-### Step 3b — Cross-Check with Intake Dossier Hypothesis Scores (if available)
+### Step 3b — Lock to Intake Dossier Hypothesis Scores (mandatory)
 
 The intake dossier (Section D) includes a `<!-- score: ... -->` comment block after each
-hypothesis's Selection Score line. If present, these scores represent the intake analyst's
-evaluation for the corresponding opportunity. Use them as a starting point but apply the
-**Readiness Adjustment Rule** (Step 4 below) — intake scores do not account for maturity.
-To extract them, look for HTML comment lines of the form:
+hypothesis. These scores are the **authoritative base** for Impact, Feasibility, and Alignment
+at Stage 3. Do NOT re-score from scratch. Extract them and use them directly:
+
 ```
 <!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
 ```
-The `id=` field identifies which Stage 1 hypothesis this opportunity corresponds to. Use it to
-anchor the Stage 3 JUSTIFICATION entries to the same canonical element ID (e.g. `Element: H-RT-02`).
-If the `id=` field is absent, score from scratch per Step 4 and assign the H-RT-XX ID from the
-archetype's Hypothesis Library table.
+
+**Why locked:** Stage 1 sees the same documents Stage 3 does, produces byte-identical scores
+across runs, and applies the archetype's scoring anchors. Re-scoring at Stage 3 introduces
+per-run variance with no new information to justify it — Stage 3 receives no new client documents.
+
+**Procedure:**
+1. Extract the `impact=`, `feasibility=`, and `alignment=` values from each Stage 1 score comment.
+2. Record them as the base scores. Do not adjust them at this step.
+3. Apply the **Readiness Adjustment Rule** (Step 4) as the only permitted modification.
+4. The Stage 3 score is: `(Stage 1 base) + (D6 adjustment)`. No other changes.
+
+The `id=` field anchors JUSTIFICATION entries to the canonical element ID (e.g. `Element: H-RT-02`).
+If a Stage 1 score comment is absent for a hypothesis, flag it and score from scratch per Step 4,
+tagging the result `[Inferred — no Stage 1 score marker found for this hypothesis]`.
 
 ### Step 4 — Score Each Opportunity
 
@@ -168,15 +177,24 @@ Note every adjustment explicitly: "Feasibility reduced from 4 to 3 due to Early 
 
 **Rank** by (Impact × Feasibility), using Alignment as tiebreaker.
 
-### Step 5 — Classify
+### Step 5 — Classify (D6b — pinned classifier, strictly ordered)
 
-Assign each opportunity to one of three categories:
+Apply the following decision tree **in order**. Stop at the first match. No qualitative
+criteria, no judgment calls — the post-adjustment Feasibility and Impact values are sufficient.
 
-- **Quick Win** — Feasibility ≥ 4, can start immediately, delivers visible value within weeks
-- **Foundation Builder** — Enables future initiatives, addresses maturity gaps, moderate effort; Feasibility 2–4 and Impact ≤ 3
-- **Big Bet** — Impact ≥ 4 AND feasibility ≤ 3, requires significant investment or maturity growth
+```
+STEP 1: IF post-adjustment Feasibility ≥ 4  →  Quick Win.        STOP.
+STEP 2: IF Impact ≥ 4 AND post-adjustment Feasibility ≤ 3  →  Big Bet.  STOP.
+STEP 3: (all remaining cases)  →  Foundation Builder.             STOP.
+```
 
-**Tiebreaker — Big Bet beats Foundation Builder:** If an opportunity has Impact ≥ 4 AND post-adjustment Feasibility ≤ 3, classify it as a Big Bet even if it also addresses a maturity gap. Foundation Builder applies only when Feasibility ≥ 4 or Impact ≤ 3.
+**Unit assertion — verify before writing the score marker:**
+- post-adjustment Feasibility ≥ 4 → `class=QuickWin`. Any other label is a contract violation.
+- Impact ≥ 4 AND post-adjustment Feasibility ≤ 3 → `class=BigBet`. Any other label is a contract violation.
+- All other (Impact, Feasibility) combinations → `class=FoundationBuilder`.
+
+Note: Step 1 is checked first, so Feasibility ≥ 4 always yields Quick Win regardless of Impact.
+Note: Step 2 is reached only when Feasibility < 4, so Big Bet and Quick Win are mutually exclusive.
 
 The final set should ideally include at least 1 Quick Win, at least 1 Foundation Builder,
 and at least 1 Big Bet — showing the client the range of what's possible.
@@ -327,6 +345,26 @@ Before finalising the Opportunity Map, scan for and remove:
 - Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 3 output`, `this skill produces`, etc.)
 - Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
 - Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+
+**Score marker completeness check (mandatory — run before emitting output):**
+
+Count the `<!-- score: id=... -->` markers in the output. The count must equal the number
+of hypotheses in the intake dossier Section D (typically 7 for a recruitment engagement).
+If any hypothesis ID is missing a marker, add it before finalising — even if the opportunity
+appears only in prose. A prose card without a machine-readable score marker is invisible to
+downstream pipeline steps (Stage 4, Stage 5, and all validators).
+
+Example gap to catch: "H-RT-08 (RPO Product Infrastructure)" described in a card but no
+`<!-- score: id=H-RT-08 ... -->` line beneath the Scores line. This is a pre-flight FAIL.
+
+**Classification conformance check (mandatory — run before emitting output):**
+
+For each score marker, verify the `class=` value is consistent with the pinned decision tree:
+- `feasibility ≥ 4` → `class` must be `QuickWin`
+- `impact ≥ 4` AND `feasibility ≤ 3` → `class` must be `BigBet`
+- All other combinations → `class` must be `FoundationBuilder`
+
+Any marker that fails this check must be corrected before output is emitted.
 
 These patterns disqualify output from pipeline use.
 

@@ -98,12 +98,63 @@ Review the 6-dimension snapshot. Verify scores have rationale and conservative b
 snapshot. Review opportunity scores and classifications. Verify readiness adjustment rule
 was applied. The opportunity inventory must correspond to the 7 hypotheses produced by Step 1.
 
+**GATE 3 (MANDATORY — NON-SKIPPABLE):** Before proceeding to Step 4, the operator MUST verify
+all of the following. Do NOT invoke `blueprint-roadmap` until every check passes.
+
+```
+GATE 3 checklist:
+
+[ ] Score marker count: exactly N <!-- score: id=... --> markers present, where N = the number
+    of hypotheses in the Step 1 dossier Section D (typically 7 for recruitment engagements).
+    A missing marker means the downstream roadmap and assembly will silently drop that opportunity.
+
+[ ] Classification conformance: for every score marker, verify the class= value obeys the
+    D6b pinned decision tree:
+      · feasibility ≥ 4  →  class must be QuickWin
+      · impact ≥ 4 AND feasibility ≤ 3  →  class must be BigBet
+      · all other combinations  →  class must be FoundationBuilder
+    Any mislabelled marker is a GATE 3 FAIL — regenerate the Step 3 output, do not hand-correct.
+
+[ ] Portfolio completeness: at least 1 QuickWin, 1 FoundationBuilder, 1 BigBet in the marker set.
+
+[ ] Score consistency: the class= label in each marker matches the **Classification:** field
+    in the corresponding opportunity card. Discrepancies indicate the pre-flight check was skipped.
+```
+
+If any check fails: return to Step 3, identify and fix the defect, and re-run this checklist.
+Do not proceed to Step 4 with a failing Gate 3.
+
 **Step 4 — Roadmap:** Invoke `blueprint-roadmap` with the scored opportunities + maturity
 snapshot. Review the Now/Next/Later sequence. Verify maturity gating was respected and that
 Quick Wins from Step 3 are sequenced first.
 
-**Step 5 — Assembly:** Invoke `blueprint-assembly` with all outputs from Steps 1–4. This
-produces the final client-facing DOCX deliverable.
+**Step 5 — Assembly:** Invoke `blueprint-assembly` with all outputs from Steps 1–4. The assembly
+skill uses a **3-chunk workflow** — the operator MUST actively trigger all three chunks.
+
+```
+Assembly completion protocol:
+
+1. Provide all 4 upstream outputs. The skill produces Chunk 1 (Sections 1–2) and stops.
+2. Reply "continue to chunk 2". The skill produces Chunk 2 (Sections 3–4) and stops.
+3. Reply "continue to chunk 3". The skill produces Chunk 3 (Sections 5–8 + JUSTIFICATION + Final marker).
+4. Concatenate Chunks 1–3 into the final document, removing the CHECKPOINT 1 and CHECKPOINT 2
+   blocks but keeping the Final marker.
+```
+
+**GATE 5 — Assembly completion check (mandatory before DOCX conversion):**
+
+```
+[ ] All 7 section headers present (Executive Summary, AI Readiness Snapshot, Key Findings,
+    AI Opportunity Map, Recommended Action Sequence, Readiness Gaps, Recommended Next Steps)
+[ ] Appendix / Methodology Note present
+[ ] Final marker present: "End of AI Value Blueprint. Chunks 1–3 complete."
+[ ] No CHECKPOINT block in the deliverable (search for "CHECKPOINT 1" or "CHECKPOINT 2")
+[ ] No operator preamble in the deliverable (search for "I have all" or "continue to chunk")
+[ ] Word count within 12–18 page equivalent (~5,000–7,000 words)
+```
+
+If any check fails, the deliverable is incomplete. Trigger the missing chunk(s) and re-assemble
+before DOCX conversion. A document that stops after Section 2 is a fragment, not a Blueprint.
 
 ## Quality Checks Between Steps
 

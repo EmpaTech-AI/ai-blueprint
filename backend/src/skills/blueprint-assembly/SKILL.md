@@ -340,6 +340,36 @@ Before finalising each chunk, scan for and remove:
 - **Test metadata** — no `TEST`, `DEBUG`, `DRAFT`, temp markers in any heading or body
 - **Methodology meta-references** — no "per the methodology", "this skill produces", "the SKILL.md requires"
 - **Currency inconsistency** — EUR throughout; replace any `€` symbol with `EUR`
+- **Operator preamble** — remove any confirmation block at the top of the assembled document
+  (e.g., "I have all four upstream outputs…", "I have confirmed receipt of…"). These blocks are
+  working memory, not deliverable content. Search for "I have all" and "I have confirmed" as signals.
+- **Checkpoint blocks** — CHECKPOINT 1 and CHECKPOINT 2 blocks must NOT appear in the final
+  concatenated document. If they appear in the output, strip them before DOCX conversion. They
+  are scaffold only — the operator assembles the three chunks by removing these blocks and keeping
+  everything else.
+
+**Final document completeness check (run after chunk concatenation, before DOCX conversion):**
+
+Verify all of the following before accepting the document as complete:
+
+```
+[ ] Section 1: Executive Summary present
+[ ] Section 2: AI Readiness Snapshot present
+[ ] Section 3: Key Findings present
+[ ] Section 4: AI Opportunity Map present
+[ ] Section 5: Recommended Action Sequence present
+[ ] Section 6: Readiness Gaps present
+[ ] Section 7: Recommended Next Steps present
+[ ] Section 8: Appendix / Methodology Note present
+[ ] JUSTIFICATION block present
+[ ] Final marker present: "End of AI Value Blueprint. Chunks 1–3 complete."
+[ ] No CHECKPOINT block anywhere in the document
+[ ] No operator preamble anywhere in the document
+[ ] Word count ~5,000–7,000 words (12–18 page equivalent)
+```
+
+If any section is missing, the corresponding chunk was not executed. Trigger it and re-assemble.
+A document that passes these checks is complete and safe for DOCX conversion.
 
 These patterns produce unprofessional client deliverables and must be removed before DOCX conversion.
 

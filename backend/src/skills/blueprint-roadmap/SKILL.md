@@ -193,6 +193,29 @@ numbered entry.
 **Element IDs for Stage 4:** Reuse the H-RT-XX IDs from Stage 1. Each sequencing decision
 maps to the hypothesis being sequenced. No new ID namespace is introduced at Stage 4.
 
+**LC dedup discipline (P3c — mandatory for Stage 4):**
+
+Stage 4 inherits all grounded claims from Stages 1–3. Do NOT re-tag or re-justify claims that
+were already established upstream. The JUSTIFICATION block must contain only claims that are
+**new at Stage 4** — specifically, sequencing judgments and phase-placement rationales that
+introduce uncertainty not present in the Stage 3 output.
+
+Rules:
+1. **One entry per element ID.** If H-RT-02 appears in both the Now rationale and the
+   "What unlocks this" explanation, write one JUSTIFICATION entry for it, not two.
+2. **No re-tagging inherited scores.** Feasibility and Impact scores were justified in Stage 3.
+   Do not add a new `[Inferred]` entry for a score that Stage 3 already justified — reference
+   it instead: "Inherits Stage 3 JUSTIFICATION item N."
+3. **Only positive new claims.** A phase placement is a new claim. An upstream maturity score
+   restated in a rationale is not — cite it as established, do not re-enter it.
+4. **Dedup within Stage 4.** If the same uncertainty (e.g., "no capacity data to confirm
+   timeline") applies to multiple opportunities, write one entry and list all affected H-RT-XX
+   IDs in the **Element:** field, separated by commas.
+
+The goal: the Stage 4 JUSTIFICATION block should be materially shorter than the Stage 3 block,
+reflecting the smaller number of genuinely new inferences. A Mixed grounding badge at Stage 4
+usually means LC inflation — too many re-tagged upstream claims, not too many new uncertainties.
+
 **JUSTIFICATION entry format for Stage 4 (example — use `#### N. [Tag]` canonical format):**
 
 ```

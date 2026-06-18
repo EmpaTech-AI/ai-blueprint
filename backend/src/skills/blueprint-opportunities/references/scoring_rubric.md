@@ -92,21 +92,37 @@ that names this opportunity's mechanism? If yes → 5. If you need to paraphrase
 
 ## Classification Rules
 
-After scoring, classify each opportunity into one of three categories:
+After scoring, apply the following **strictly ordered decision tree** (D6b — pinned classifier).
+Evaluate each check in sequence. Stop at the first match. No qualitative criteria, no judgment.
 
-| Class | Criteria |
-|-------|---------|
-| **Quick Win** | Feasibility ≥ 4 (post-adjustment) AND can deliver visible value within 4–8 weeks |
-| **Foundation Builder** | Addresses a maturity gap or enables future opportunities; moderate effort; Feasibility 2–4 **and Impact ≤ 3** |
-| **Big Bet** | Impact ≥ 4 AND Feasibility ≤ 3; requires significant investment, change management, or maturity growth |
+```
+STEP 1: IF post-adjustment Feasibility ≥ 4  →  Quick Win.        STOP.
+STEP 2: IF Impact ≥ 4 AND post-adjustment Feasibility ≤ 3  →  Big Bet.  STOP.
+STEP 3: (all remaining cases)  →  Foundation Builder.             STOP.
+```
 
-**Edge cases:**
-- An opportunity with Feasibility 4 and very high Impact may still be a Foundation Builder if
-  it is primarily about fixing an infrastructure gap (e.g., data governance). Use judgment and
-  document the classification rationale. **This edge case applies only when Feasibility ≥ 4.**
-- **Big Bet takes precedence over Foundation Builder when Impact ≥ 4 AND Feasibility ≤ 3.** The fact that an opportunity also addresses a maturity gap does not change the classification — if Impact ≥ 4 and post-adjustment Feasibility ≤ 3, it is a Big Bet. Classify as Foundation Builder only when Feasibility ≥ 4 or Impact ≤ 3.
-- An opportunity cannot be BOTH a Quick Win and a Big Bet. If scores suggest both, re-check
-  the Feasibility score — Feasibility ≥ 4 and Impact ≥ 4 is a Quick Win, not a Big Bet.
+| Class | Trigger condition |
+|-------|------------------|
+| **Quick Win** | post-adjustment Feasibility ≥ 4 |
+| **Big Bet** | Impact ≥ 4 AND post-adjustment Feasibility ≤ 3 |
+| **Foundation Builder** | all remaining cases (Impact ≤ 3, or Feasibility 1–3 with Impact ≤ 3) |
+
+**Why strictly ordered:** Big Bet takes precedence over Foundation Builder because the decision
+tree reaches Step 2 only when Feasibility < 4 (Step 1 already failed). There is no overlap
+between Quick Win and Big Bet — Feasibility cannot simultaneously be ≥ 4 and ≤ 3.
+
+**Unit assertion (verify before emitting the score marker):**
+- Impact ≥ 4 AND post-adjustment Feasibility ≤ 3 → class MUST be `BigBet`. Any other label is wrong.
+- post-adjustment Feasibility ≥ 4 → class MUST be `QuickWin`. Any other label is wrong.
+- If these two conditions both fail → class MUST be `FoundationBuilder`.
+
+**Design note — H-RT-02 and the regulated flag interaction:**
+CV formatting (H-RT-02) carries `regulated = no` in the archetype flags. This is correct:
+CV formatting is rule-based reformatting, not an automated decision in a regulated context.
+Do NOT set `regulated = yes` for CV formatting — doing so would drop Feasibility from 4 to 3
+and the pinned classifier would then force a Big Bet label for an opportunity the practice
+team has classified as a Quick Win. The two fixes (D6 flags + D6b classifier) constrain each
+other at this exact point. Verify H-RT-02 flags are `no`/`no`/`no`/`no`/`no` in any archetype.
 
 **Portfolio balance requirement:**
 The final 5–7 opportunities SHOULD include at least 1 Quick Win, 1 Foundation Builder, and 1 Big Bet.

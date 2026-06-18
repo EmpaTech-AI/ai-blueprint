@@ -83,7 +83,7 @@ The 5 form-stated pain points always make the list. The selection algorithm pick
 
 Common AI opportunities for recruitment firms. Each has a typical Impact × Feasibility × Alignment range; actual scores come from `hypothesis_selection.md`.
 
-### Readiness Adjustment Eligibility Flags (D6 — pending Practice ratification)
+### Readiness Adjustment Eligibility Flags (D6 — ACTIVE, ratified 2026-06-18)
 
 The five flags below determine whether the Stage 3 Readiness Adjustment Rule fires for each
 hypothesis. When a flag is `yes` AND the corresponding maturity dimension is "Early", the
@@ -98,8 +98,13 @@ lookup, not a per-run judgment. This makes the −1 rule stable across runs.
 | `large_integration` | Technology | The opportunity requires a substantial API or systems integration |
 | `adoption_dependent` | People | The opportunity requires widespread user adoption or change-management investment |
 
-**Status: PROPOSED — flag values below require Practice sign-off before going live.**
-See Decisions Required §D6 in the v24 Re-run + Stage 3 reports.
+**Status: ACTIVE — ratified by Practice team (Viktor Serafimov) on 2026-06-18.**
+
+**Design note — H-RT-02 `regulated = no`:** CV formatting is rule-based reformatting, not an
+automated decision in a regulated context. Keep this flag `no`. Setting it `yes` would drop
+Feasibility from 4 to 3, and the D6b pinned classifier would then force `class=BigBet` for
+an opportunity the practice team has confirmed is a Quick Win. The two fixes (D6 flags + D6b
+classifier) constrain each other at this exact point.
 
 | ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` |
 |---|---|---|---|---|---|---|---|---|---|---|
