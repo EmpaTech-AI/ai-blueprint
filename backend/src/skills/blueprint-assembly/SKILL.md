@@ -231,6 +231,7 @@ and only supported mode.
 ```markdown
 ---
 
+<!-- build: date=YYYY-MM-DD pipeline=v28 sha=unset -->
 *End of AI Value Blueprint. Chunks 1–3 complete. Engagement: [reference]. Document ready for DOCX conversion and client delivery.*
 ```
 
@@ -340,9 +341,16 @@ Before finalising each chunk, scan for and remove:
 - **Test metadata** — no `TEST`, `DEBUG`, `DRAFT`, temp markers in any heading or body
 - **Methodology meta-references** — no "per the methodology", "this skill produces", "the SKILL.md requires"
 - **Currency inconsistency** — EUR throughout; replace any `€` symbol with `EUR`
-- **Operator preamble** — remove any confirmation block at the top of the assembled document
-  (e.g., "I have all four upstream outputs…", "I have confirmed receipt of…"). These blocks are
-  working memory, not deliverable content. Search for "I have all" and "I have confirmed" as signals.
+- **Positional boundary (mandatory — stronger than phrase-matching):** The assembled document
+  must begin at the first `#` section header and end at and including the Final marker line.
+  Nothing may appear before the first `#` header — no confirmation preambles, no chunk
+  announcements, no progress statements, no "I have received…" blocks regardless of phrasing.
+  Nothing may appear after the Final marker — no status lines, no "ready for DOCX conversion"
+  confirmations. This rule is positional: it catches every form of preamble leak without
+  needing to enumerate phrases. When assembling, scan for any non-header content before the
+  first `#` line and delete it. Scan for any content after the Final marker line and delete it.
+  (The phrase-based signals below are supplementary aids for finding the preamble block, not a
+  substitute for the positional check.)
 - **Checkpoint blocks** — CHECKPOINT 1 and CHECKPOINT 2 blocks must NOT appear in the final
   concatenated document. If they appear in the output, strip them before DOCX conversion. They
   are scaffold only — the operator assembles the three chunks by removing these blocks and keeping
@@ -362,6 +370,7 @@ Verify all of the following before accepting the document as complete:
 [ ] Section 7: Recommended Next Steps present
 [ ] Section 8: Appendix / Methodology Note present
 [ ] JUSTIFICATION block present
+[ ] Build stamp present: `<!-- build: date=... pipeline=... -->`
 [ ] Final marker present: "End of AI Value Blueprint. Chunks 1–3 complete."
 [ ] No CHECKPOINT block anywhere in the document
 [ ] No operator preamble anywhere in the document

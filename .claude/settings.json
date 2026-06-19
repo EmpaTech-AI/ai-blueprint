@@ -158,7 +158,9 @@
       "Skill(artifact-design:*)",
       "Bash(powershell -Command \"Get-ChildItem -Recurse -Force | Select-Object FullName, PSIsContainer | ConvertTo-Json\")",
       "Bash(powershell -Command \"Get-ChildItem -Path . -Depth 1 | Select-Object Name, PSIsContainer\")",
-      "Bash(powershell -Command \"Get-ChildItem -Path backend\\\\src -Depth 2 -Include *.ts -Exclude node_modules | Select-Object FullName\")"
+      "Bash(powershell -Command \"Get-ChildItem -Path backend\\\\src -Depth 2 -Include *.ts -Exclude node_modules | Select-Object FullName\")",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\Bozhidar\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Shiz-AI-Assist-BG-AI-Blueprint\\\\b049919c-0d14-46b9-8069-f68d9b58e991\\\\scratchpad\\\\justification-report.html\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\outputs\\\\blueprint-v28-justification-report.html\" -Force)",
+      "Bash(git checkout *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

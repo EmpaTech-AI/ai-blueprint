@@ -285,13 +285,17 @@ back to alias-normalised title matching, which is less reliable.
 
 **Chunk 3 production — triggered when operator says "continue to chunk 3" (or equivalent):**
 
-**Production order for Chunk 3 (mandatory):** Produce [JUSTIFICATION] *before* Section H. This is the reverse of the schema's reading order — it is intentional. Producing the appendix first commits each derivation chain before writing Section H, which prevents "did I already tag this?" variance between runs. Section H must not introduce new inline citation tags; its references are limited to "appendix item N" pointers to items already created in [JUSTIFICATION].
+**Production order for Chunk 3 (mandatory):** E → F → G → H → I → [JUSTIFICATION] → Final marker.
+The [JUSTIFICATION] block is always the absolute last substantive content before the Final marker
+(per `../methodology-and-contracts/SKILL.md`). Section H must not introduce new inline citation
+tags — its references are limited to "appendix item N" pointers to items tagged in Chunks 1–2.
 
 1. Reference Checkpoint 2 to know which Inferred and Assumption tags were used in Chunks 1–2
-2. Produce: Section E (5 org bullets + 5 process bullets), Section F (Document Index table),
-   Section G (3–6 Open Questions), then the complete [JUSTIFICATION] block (one entry per
-   Inferred/Assumption tag from Chunks 1–2), then Section H (Reviewer Checklist, 5 categories,
-   referencing appendix items by number — no new citation tags in Section H)
+2. Produce in this exact order: Section E (5 org bullets + 5 process bullets), Section F
+   (Document Index table), Section G (3–6 Open Questions), Section H (Reviewer Checklist,
+   5 categories — no new citation tags), Section I (INTAKE_FACTS HTML comment block — see
+   §I below), then the complete [JUSTIFICATION] block (one entry per Inferred/Assumption
+   tag from Chunks 1–2)
 
 **Chunk 3 mandatory formats:**
 
@@ -544,6 +548,34 @@ If a stated priority is NOT in the top 7: For each unrepresented priority, inclu
 - One algorithm-positioning sentence: "Our scoring algorithm evaluated [Priority] via [Hypothesis Title] and determined that [specific factor — typically feasibility score] prevents it from qualifying at this time. This reflects the execution conditions documented in this engagement, not a gap in strategic understanding."
 
 This is not an apology for the algorithm's decision — it is a demonstration of the algorithm's intelligence. A senior consultant reviewing the Blueprint should be able to read this section and immediately understand why the algorithm made the trade-off it made.
+
+### I) INTAKE_FACTS Canonical Block (Mandatory — Machine-Readable, Last Section Before [JUSTIFICATION])
+
+Emit the following HTML comment block as the **last section** of the dossier, immediately after
+Section H and before the `[JUSTIFICATION]` block. It canonicalises the key client facts so
+every downstream stage (2–5) reads them verbatim rather than re-deriving from memory or prose.
+
+```html
+<!-- INTAKE_FACTS
+CLIENT_NAME: {legal entity name as it appears in documents — not a trade name}
+CEO_NAME: {surname exactly as it appears in the org chart or form — this spelling is authoritative downstream}
+INDUSTRY: {as stated in intake form Section 1}
+HEADCOUNT: {number — use "unknown" if not provided}
+REVENUE_RANGE: {exact range as stated e.g. "€5M–€8M" — do NOT narrow, round, or restate as approximate}
+JURISDICTION_LIST: {comma-separated country codes e.g. "BG, RO, PL"}
+TOP_PRIORITIES: {semicolons separating top 3 verbatim from form Section 2}
+KEY_METRIC_1: {label + value from documents e.g. "CV-saving-hours: 175–250/month"}
+KEY_METRIC_2: {second quantitative claim if present — omit field entirely if no second metric}
+-->
+```
+
+**Rules:**
+- Every field must reflect what was actually provided in form or documents — no inferences, estimates, or paraphrasing.
+- If a field is absent from the materials, write the literal value `unknown`.
+- Downstream stages that re-derive CEO_NAME or REVENUE_RANGE from prose rather than reading this block are violating the data contract — this block is the single source of truth for those fields.
+- The validation harness checks for presence of this block. A dossier missing it fails schema validation (`intake_v1.0` §4.9).
+
+**Chunk 3 production note:** Produce Section I after Section H and before the `[JUSTIFICATION]` block.
 
 ### [JUSTIFICATION] Block
 

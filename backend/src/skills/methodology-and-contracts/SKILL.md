@@ -187,7 +187,7 @@ Each applicable dimension reduces Feasibility **independently** — never collap
 
 | Handoff | What Must Be Present | Quality Gate |
 |---------|---------------------|-------------|
-| Intake → Maturity | Sections A–D complete; pain points (C) with `<!-- pp-id: PP-RT-XX -->` comment; hypotheses (D) with `<!-- score: id=H-RT-XX ... -->` comment; ID-keyed `[JUSTIFICATION]` Confidence Overview (H-RT-XX / PP-RT-XX IDs, not item positions) | All sections present. H-RT-XX `id=` field present on all 7 hypotheses. Confidence Overview uses element IDs. |
+| Intake → Maturity | Sections A–D complete; pain points (C) with `<!-- pp-id: PP-RT-XX -->` comment; hypotheses (D) with `<!-- score: id=H-RT-XX ... -->` comment; ID-keyed `[JUSTIFICATION]` Confidence Overview (H-RT-XX / PP-RT-XX IDs, not item positions); Section I `<!-- INTAKE_FACTS -->` block present | All sections present. H-RT-XX `id=` field present on all 7 hypotheses. Confidence Overview uses element IDs. INTAKE_FACTS block present (§4.9). |
 | Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + `[CONFIDENCE_PROPAGATION]` field + **confidence annotations** on inferred-score dimensions | `[CONFIDENCE_PROPAGATION]` present and well-formed. All 6 dimensions present. Confidence annotations present. |
 | Opportunities → Roadmap | Scored opportunities with `<!-- score: id=H-RT-XX ... -->` comment on each card; ID-keyed `[JUSTIFICATION]` Confidence Overview using H-RT-XX IDs | `id=H-RT-XX` present on all opportunity score comments. At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels. |
 | Roadmap → Assembly | Phase assignments with H-RT-XX references in placement rationales; ID-keyed `[JUSTIFICATION]` Confidence Overview | All opportunities assigned to a phase. Inherited LC items reference upstream stage (e.g. `Element: H-RT-05 (S3)`). |
@@ -218,6 +218,40 @@ Under compression, an untagged inference is treated as fact at the first stage b
 ### Output Design Standard
 
 All substage outputs (Maturity Assessment) and the final output (AI Value Blueprint) must render to the **AI Assist BG Corporate Consulting Design System** (validated on the Baros Vision client deliverable). Key tokens: Dark Navy `#1B2A4A` for H1/title/table headers; Medium Blue `#2E5090` for H2; Teal-Blue `#4A6FA5` for H3; Body Charcoal `#2D3748`; Gold Accent `#C17B2C` for callout headers. Typography: Calibri/Carlito (body, H1–H3), Georgia italic (subtitles), Arial (metadata/headers/footers). Severity labels are inline coloured bold text — never coloured cell fills. These are correctness requirements for client-facing parity, not stylistic preferences.
+
+## Reproducibility Pinned Definitions
+
+These definitions exist so that identical inputs produce identical outputs. They are reproducibility
+contracts — they must not be overridden by per-run judgment.
+
+### D5 — LC Count (Canonical Definition)
+
+The **LC count** for a stage is the number of **unique element IDs** covered by at least one
+`[JUSTIFICATION]` entry in that stage's output, counted via the `Element:` field — deduplicated
+by element ID.
+
+Rules:
+- If the same element ID (`H-RT-XX` or `PP-RT-XX`) appears in multiple JUSTIFICATION entries,
+  count the ID once — not once per entry.
+- The count is derived from structured `Element:` fields, not from raw entry count or prose.
+- This count is what `check_stability.py` uses for the floor gate (B4). A stage that re-tags
+  an element already counted upstream inflates LC counts — do not re-justify upstream claims.
+
+The parser enforces this: entries without `#### N. [Tag]` prefix are skipped (v24 P3a root
+cause). The D5 definition is the prose contract; the harness enforces it mechanically.
+
+### INTAKE_FACTS Block — Downstream Reading Contract
+
+Stages 2–5 must read the `<!-- INTAKE_FACTS -->` block in the Stage 1 dossier for:
+`CLIENT_NAME`, `CEO_NAME`, `REVENUE_RANGE`, `JURISDICTION_LIST`, and `TOP_PRIORITIES`.
+
+These fields must NOT be re-derived from prose memory or Section A narrative — those are
+compressed and may rephrase the original. The INTAKE_FACTS block is the single source of
+truth. A stage that spells the CEO name differently from INTAKE_FACTS has a consistency
+violation regardless of what the narrative says.
+
+If the INTAKE_FACTS block is absent (schema gap), downstream stages flag it and derive
+from Section A with a `[Form-Stated]` tag, noting the missing block in their JUSTIFICATION.
 
 ## Scope Boundary: What the Blueprint Does NOT Include
 

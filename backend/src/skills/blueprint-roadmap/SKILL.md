@@ -89,6 +89,59 @@ The gate condition does NOT change the D6b classification — the opportunity re
 It only controls which phase it is assigned to. Once the gate condition is documented as
 complete, the opportunity returns to "Now" eligibility on the next planning cycle.
 
+## Deterministic Phase Assignment Decision Tree (mandatory — apply before emitting output)
+
+The rules below supersede per-run judgment for phase placement. Apply them top-to-bottom,
+stop at the first match. For identical inputs, these rules must produce the same phase map
+every run — phase assignments are not a judgment surface.
+
+### Quick Win opportunities
+
+| Condition | Phase |
+|---|---|
+| Quick Win + **no named prerequisite** in the opportunity card | **Now** |
+| Quick Win + **named external gate** (migration, compliance event, cutover — per D-GATE4 above) | **Next** |
+| Quick Win + **depends on another opportunity** not yet in Now | **Next** |
+
+No Quick Win may be placed in **Later**. If a Quick Win ends up Later after the capacity check,
+bump the lowest-impact Big Bet out of Next instead.
+
+### Foundation Builder opportunities
+
+| Condition | Phase |
+|---|---|
+| FB + regulatory or compliance deadline within ≤ Month 3 | **Now** |
+| FB + is a prerequisite for ≥ 2 opportunities already assigned to Now | **Now** |
+| FB + all other cases | **Next** |
+
+### Big Bet opportunities
+
+| Condition | Phase |
+|---|---|
+| Big Bet + depends only on Now-assigned items (no Next dependency) | **Next** |
+| Big Bet + depends on any Next-assigned item | **Later** |
+| Big Bet + no explicit dependency documented | **Later** |
+
+### Phase capacity check (apply after all assignments above)
+
+Maximum **3 items per phase**. If a phase has more than 3 after the decision tree:
+
+1. Find the item with the lowest (Impact × Feasibility) product in the over-capacity phase.
+2. Bump it to the next phase (Now → Next, Next → Later).
+3. Re-apply the capacity check to the receiving phase recursively.
+4. **Tie-break:** when products are equal, keep the item in the earlier phase (don't bump it).
+
+### GATE-4 self-check (run before producing output)
+
+Before writing the Action Sequence, verify:
+
+- [ ] At least 1 Quick Win is in **Now** OR (if all Quick Wins are D-GATE4-gated) at least 1 Quick Win is in **Next** — no Quick Win in Later
+- [ ] All 7 opportunities from Stage 3 are assigned to exactly one phase
+- [ ] No phase has more than 3 items after the capacity check
+- [ ] Every item in Next or Later has a rationale citing the specific gate condition, dependency, or maturity gap preventing earlier placement — tagged inline
+
+If GATE-4 fails, resolve before producing output. Document the failure in the [JUSTIFICATION] block.
+
 ## Operating Procedure
 
 ### Step 1 — Review Inputs
