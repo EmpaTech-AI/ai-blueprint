@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { GlassKit } from '@/components/ui/GlassKit';
-import { ShaderBackground } from '@/components/ui/ShaderBackground';
+import { StarBackground } from '@/components/ui/StarBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,8 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen">
-        {/* Fixed WebGL background — z-index 0, behind all page content */}
-        <ShaderBackground />
+        {/* Fixed star-field background — z-index 0, behind all page content */}
+        <StarBackground />
 
         {/* Page content — z-index 1, floats above the shader canvas */}
         <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
