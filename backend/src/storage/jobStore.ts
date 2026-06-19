@@ -33,6 +33,7 @@ db.exec(`
 try { db.exec('ALTER TABLE jobs ADD COLUMN outputDocxData TEXT'); }    catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN outputPdfData TEXT'); }     catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN outputTxtData TEXT'); }     catch { /* already exists */ }
+try { db.exec('ALTER TABLE jobs ADD COLUMN outputHtmlData TEXT'); }    catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN truncationMeta TEXT'); }    catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN userId TEXT'); }            catch { /* already exists */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN approvedByName TEXT'); }   catch { /* already exists */ }
@@ -146,6 +147,10 @@ export function saveTxtData(jobId: string, txt: string): void {
   db.prepare('UPDATE jobs SET outputTxtData = ? WHERE jobId = ?').run(txt, jobId);
 }
 
+export function saveHtmlData(jobId: string, html: string): void {
+  db.prepare('UPDATE jobs SET outputHtmlData = ? WHERE jobId = ?').run(html, jobId);
+}
+
 export function approveJob(jobId: string, approvedByName?: string): void {
   if (approvedByName) {
     db.prepare("UPDATE jobs SET status = 'approved', approvedByName = ? WHERE jobId = ?").run(approvedByName, jobId);
@@ -197,6 +202,7 @@ export function resetJobForRetry(jobId: string): void {
       outputDocxData = NULL,
       outputPdfData = NULL,
       outputTxtData = NULL,
+      outputHtmlData = NULL,
       errorLog = NULL
     WHERE jobId = ?
   `).run(jobId);

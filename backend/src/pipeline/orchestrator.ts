@@ -9,6 +9,7 @@ import {
   saveDocxData,
   savePdfData,
   saveTxtData,
+  saveHtmlData,
   jobExists,
 } from '../storage/jobStore';
 import { runStepA } from './stepA-parser';
@@ -18,6 +19,7 @@ import { runStepD } from './stepD-opportunities';
 import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
+import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { calculateConfidence, stripJustification, stripForDelivery } from '../utils/confidenceScorer';
 import { validateOpportunityScores, validateRoadmapPhases } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
@@ -280,6 +282,9 @@ export async function runPipeline(jobId: string): Promise<void> {
 
     const txtContent = generateBlueprintTxt(deliveryClientName, assembledForDelivery);
     await saveTxtData(jobId, txtContent);
+
+    const htmlContent = generateBlueprintHtml(deliveryClientName, assembledForDelivery);
+    await saveHtmlData(jobId, htmlContent);
 
     await updateConfidenceScores(jobId, confidenceScores);
     await updateReviewerFlags(jobId, reviewerFlags);

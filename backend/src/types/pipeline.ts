@@ -114,6 +114,7 @@ export interface PipelineJob {
   outputDocxData?: string;
   outputPdfData?: string;
   outputTxtData?: string;
+  outputHtmlData?: string;
   errorLog?: string[];
   truncationMeta?: TruncationMeta;
   userId?: string;

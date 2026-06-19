@@ -75,6 +75,23 @@ router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
+// HTML download
+router.get('/:jobId/html', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    if (!job.outputHtmlData) {
+      res.status(404).json({ error: 'HTML not available — re-run the pipeline to generate it' });
+      return;
+    }
+    const filename = `AI Value Blueprint - ${sanitizeFilename(job.clientName)}.html`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(job.outputHtmlData);
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
 // LC tags — helpers
 
 const LC_STEP_LABELS: Record<string, string> = {
