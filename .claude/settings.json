@@ -153,7 +153,12 @@
       "Skill(gstack:*)",
       "WebFetch(domain:ai-blueprint-five-delta.vercel.app)",
       "Bash(git stash *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Bash(powershell -Command \"Get-ChildItem -Recurse -Force | Select-Object FullName, PSIsContainer | ConvertTo-Json\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path . -Depth 1 | Select-Object Name, PSIsContainer\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path backend\\\\src -Depth 2 -Include *.ts -Exclude node_modules | Select-Object FullName\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

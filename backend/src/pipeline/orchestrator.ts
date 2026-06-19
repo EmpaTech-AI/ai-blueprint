@@ -19,7 +19,7 @@ import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { calculateConfidence, stripJustification, stripForDelivery } from '../utils/confidenceScorer';
-import { validateOpportunityScores } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -226,7 +226,7 @@ export async function runPipeline(jobId: string): Promise<void> {
 
     // GATE 3: validate product arithmetic, classification consistency, and portfolio shape.
     // Auto-patches product field arithmetic errors; flags classification violations for manual review.
-    const { corrected: opportunities, reviewerFlags: gate3Flags } = validateOpportunityScores(opportunitiesRaw);
+    const { corrected: opportunities, reviewerFlags: gate3Flags, scores: gate3Scores } = validateOpportunityScores(opportunitiesRaw);
     if (gate3Flags.length > 0) {
       reviewerFlags.push(...gate3Flags);
       log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
@@ -243,6 +243,13 @@ export async function runPipeline(jobId: string): Promise<void> {
       (corrective?) => runStepD2(opportunitiesClean, maturityClean, corrective),
       confidenceScores, reviewerFlags,
     );
+    // GATE 4: validate phase structure and Quick Win placement against Stage 3 scores.
+    const { reviewerFlags: gate4Flags } = validateRoadmapPhases(roadmap, gate3Scores);
+    if (gate4Flags.length > 0) {
+      reviewerFlags.push(...gate4Flags);
+      log('warn', 'GATE 4: Stage 4 roadmap validation issues detected', { jobId, count: gate4Flags.length });
+    }
+
     await saveStepOutput(jobId, 'D2', roadmap);
     const roadmapClean = stripJustification(roadmap);
 

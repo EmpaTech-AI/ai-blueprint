@@ -127,3 +127,59 @@ export function validateOpportunityScores(output: string): OpportunityValidation
 
   return { corrected, reviewerFlags, scores };
 }
+
+// ─── GATE 4: Roadmap phase-vector validator ────────────────────────────────────
+//
+// Checks structural completeness of the Stage 4 roadmap and cross-validates phase
+// assignments against the Stage 3 opportunity classifications. Key rules enforced:
+//
+//   1. All three phase sections must be present (Now / Next / Later)
+//   2. "Phase 1: Now" must contain at least one item
+//   3. Quick Wins (Feasibility ≥ 4) must NOT appear in "Phase 3: Later"
+//      — Quick Wins only belong in Now or Next (gated → Next per D-GATE4 SKILL rule)
+//
+// The D-GATE4 dependency-gate check (gated Quick Wins placed in Now vs Next) is
+// enforced by the blueprint-roadmap SKILL.md rule. GATE 4 here catches hard structural
+// violations that indicate output quality failures, not sequencing judgements.
+
+export interface RoadmapValidationResult {
+  reviewerFlags: string[];
+}
+
+export function validateRoadmapPhases(
+  roadmapOutput: string,
+  opportunityScores: OpportunityScore[],
+): RoadmapValidationResult {
+  const reviewerFlags: string[] = [];
+
+  const hasNow   = /###\s+Phase 1[:\s]/i.test(roadmapOutput);
+  const hasNext  = /###\s+Phase 2[:\s]/i.test(roadmapOutput);
+  const hasLater = /###\s+Phase 3[:\s]/i.test(roadmapOutput);
+
+  if (!hasNow)   reviewerFlags.push('GATE 4: Roadmap missing "Phase 1: Now" section — Stage 4 output is incomplete.');
+  if (!hasNext)  reviewerFlags.push('GATE 4: Roadmap missing "Phase 2: Next" section — Stage 4 output is incomplete.');
+  if (!hasLater) reviewerFlags.push('GATE 4: Roadmap missing "Phase 3: Later" section — Stage 4 output is incomplete.');
+
+  // "Now" must have at least one opportunity title (bold heading)
+  if (hasNow) {
+    const nowSection = roadmapOutput.match(/###\s+Phase 1[^\n]*\n([\s\S]*?)(?=###\s+Phase 2|###\s+Bridge|$)/i)?.[1] ?? '';
+    if (!/\*\*[^*]+\*\*/.test(nowSection)) {
+      reviewerFlags.push('GATE 4: "Phase 1: Now" appears empty — every roadmap must include at least one item in Now.');
+    }
+  }
+
+  // Quick Wins must not appear in "Phase 3: Later"
+  if (hasLater && opportunityScores.length > 0) {
+    const laterSection = roadmapOutput.match(/###\s+Phase 3[^\n]*\n([\s\S]*?)(?=###\s+Bridge|$)/i)?.[1] ?? '';
+    for (const opp of opportunityScores.filter(s => s.class === 'QuickWin')) {
+      if (laterSection.includes(opp.id)) {
+        reviewerFlags.push(
+          `GATE 4: Quick Win ${opp.id} appears in "Phase 3: Later" — ` +
+          `Quick Wins (Feasibility ≥ 4) must be in Now or Next. Verify Stage 4 phase assignment.`,
+        );
+      }
+    }
+  }
+
+  return { reviewerFlags };
+}

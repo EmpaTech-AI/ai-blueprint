@@ -48,9 +48,16 @@ export function stripBuildStamp(text: string): string {
   return text.replace(/^<!-- pipeline-build:.*?-->\n/m, '');
 }
 
-// Strips build stamp, justification block, and inline confidence tags — use before generating client documents.
+// Remove leading operator receipt/acknowledgement lines emitted before the document title.
+// The assembly skill's Pre-Flight Sanitization rule handles this on the model side; this is
+// a backend safety net for cases where the model includes them despite the instruction.
+export function stripOperatorPreamble(text: string): string {
+  return text.replace(/^(?:I (?:have|'ve)[^\n]*\n)+\n*/m, '').trimStart();
+}
+
+// Strips build stamp, justification block, operator preamble, and inline confidence tags — use before generating client documents.
 export function stripForDelivery(text: string): string {
-  return stripConfidenceTags(stripJustification(stripBuildStamp(text)));
+  return stripOperatorPreamble(stripConfidenceTags(stripJustification(stripBuildStamp(text))));
 }
 
 // ─── Justification block parser ───────────────────────────────────────────────
@@ -210,7 +217,13 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // Dedup by normalised label prevents the same logical claim from being counted N times
   // when the LLM emits duplicate entries in the JUSTIFICATION block (Stage-2 T3 defect).
   // Fall back to body counting only when no structured block is present.
-  const POSITIVE_COUNT_STEPS = new Set(['stepB', 'stepC', 'stepD']);
+  // stepD2 and stepE added (D-LC cross-stage contract):
+  // All pipeline stages use the same JUSTIFICATION block protocol. Body-counting inflates LC
+  // at Stages 4–5 because upstream inherited claims (score mentions, phase labels, H-RT-XX
+  // references) hit [Inferred] patterns in the body even though they were already justified
+  // upstream. JUSTIFICATION entry counting is format-keyed and counts only genuinely new
+  // claims. Dedup by label prevents double-counting when the same item is referenced twice.
+  const POSITIVE_COUNT_STEPS = new Set(['stepB', 'stepC', 'stepD', 'stepD2', 'stepE']);
 
   if (POSITIVE_COUNT_STEPS.has(stepKey ?? '') && entries.length > 0) {
     const seen = new Set<string>();

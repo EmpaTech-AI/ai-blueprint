@@ -11,8 +11,8 @@ description: >
   sequence without milestones, dependencies, or capacity planning. Those are reserved for the full
   AI Company Audit.
 schema_version: intake_v1.0
-skill_version: 1.0.0
-last_updated: 2026-05-27
+skill_version: 1.1.0
+last_updated: 2026-06-19
 ---
 
 # Blueprint Roadmap Composer
@@ -70,6 +70,24 @@ with nothing but foundation work will lose executive support.
 
 **No overload:** Each phase should contain 2–3 items maximum. If you have more Quick Wins
 than fit in "Now," the lower-impact ones move to "Next."
+
+**Dependency-gate default (D-GATE4 — mandatory):** A Quick Win that carries an explicit
+external gate — a migration cutover, a compliance prerequisite not yet met, or a tool
+adoption event that hasn't been completed — is placed in **Next** by default, even when its
+post-adjustment Feasibility is ≥ 4. Placement in "Now" is only valid when the gate condition
+is documented as already complete.
+
+Gate indicators: any language in the upstream dossier (dossier, maturity snapshot, or
+opportunity map) naming a completion dependency such as "Vincere migration", "Q2 2026
+cutover", "GDPR sprint completion", or "post-cutover". Also triggered when the archetype
+class label includes a conditional qualifier such as "Quick Win (post-cutover)".
+
+When this rule fires, name the gate condition explicitly in the placement rationale and tag it:
+"Placed in Next because the Vincere ATS migration must complete first [Form-Stated]."
+
+The gate condition does NOT change the D6b classification — the opportunity remains a Quick Win.
+It only controls which phase it is assigned to. Once the gate condition is documented as
+complete, the opportunity returns to "Now" eligibility on the next planning cycle.
 
 ## Operating Procedure
 

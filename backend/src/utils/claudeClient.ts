@@ -332,12 +332,14 @@ export async function invokeSkillChunked(
   skillName: string,
   userMessage: string,
   maxTokensPerChunk: number = 8192,
+  chunk3Marker: string = 'End of Compressed Client Dossier',
 ): Promise<string> {
   const systemPrompt = loadSkillSystemPrompt(skillName);
 
   log('info', `Invoking skill (chunked 3-pass): ${skillName}`, {
     maxTokensPerChunk,
     userMessageLength: userMessage.length,
+    chunk3Marker,
   });
 
   // Chunk 1 — Header + Document Receipt + Sections A & B + CHECKPOINT 1
@@ -373,6 +375,8 @@ export async function invokeSkillChunked(
   await sleep(CHUNK_PAUSE_MS);
 
   // Chunk 3 — Sections E–H + [JUSTIFICATION] + final marker
+  // chunk3Marker is skill-specific: intake uses 'End of Compressed Client Dossier',
+  // assembly uses 'End of AI Value Blueprint'.
   const chunk3 = await buildChunkUntilMarker(
     systemPrompt,
     [
@@ -383,7 +387,7 @@ export async function invokeSkillChunked(
       { role: 'user',      content: 'continue to chunk 3' },
     ],
     maxTokensPerChunk, skillName, 3,
-    'End of Compressed Client Dossier',
+    chunk3Marker,
   );
   log('info', `${skillName} chunk 3 complete`, { length: chunk3.length });
 
