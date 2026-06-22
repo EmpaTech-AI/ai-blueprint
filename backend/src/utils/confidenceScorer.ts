@@ -45,14 +45,21 @@ export function stripConfidenceTags(text: string): string {
 }
 
 export function stripBuildStamp(text: string): string {
-  return text.replace(/^<!-- pipeline-build:.*?-->\n/m, '');
+  // Matches both legacy `<!-- pipeline-build: ... -->` and v28 `<!-- build: ... -->` format
+  return text.replace(/<!--\s*(?:pipeline-build|build):.*?-->\n?/gm, '');
 }
 
-// Remove leading operator receipt/acknowledgement lines emitted before the document title.
-// The assembly skill's Pre-Flight Sanitization rule handles this on the model side; this is
-// a backend safety net for cases where the model includes them despite the instruction.
+// Remove leading operator receipt/acknowledgement and pre-flight status blocks emitted before
+// the document title. The assembly skill's Pre-Flight Sanitization rule handles this on the model
+// side; this is a backend safety net. Catches "I have...", "I've...", and the bullet-style
+// pre-flight checklist ("• Step 1 — ...") that sometimes leaks before the first `# ` heading.
 export function stripOperatorPreamble(text: string): string {
-  return text.replace(/^(?:I (?:have|'ve)[^\n]*\n)+\n*/m, '').trimStart();
+  // Strip leading "I have/I've" acknowledgement lines
+  let result = text.replace(/^(?:I (?:have|'ve)[^\n]*\n)+\n*/m, '').trimStart();
+  // Strip pre-flight status block if it appears before any `# ` heading
+  // Pattern: bullet-list status lines ending with "Proceeding to Chunk N."
+  result = result.replace(/^(?:•[^\n]*\n|\*[^\n]*\n|[Nn]o missing[^\n]*\n|[Pp]roceeding to[^\n]*\n)+\n*/m, '').trimStart();
+  return result;
 }
 
 // Strips build stamp, justification block, operator preamble, and inline confidence tags — use before generating client documents.

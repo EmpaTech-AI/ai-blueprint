@@ -106,21 +106,25 @@ Feasibility from 4 to 3, and the D6b pinned classifier would then force `class=B
 an opportunity the practice team has confirmed is a Quick Win. The two fixes (D6 flags + D6b
 classifier) constrain each other at this exact point.
 
-| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` |
-|---|---|---|---|---|---|---|---|---|---|---|
-| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder | yes | yes | no | yes | yes |
-| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win | no | no | no | no | no |
-| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) | no | no | no | no | no |
-| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder | yes | yes | no | no | yes |
-| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win | no | no | no | no | no |
-| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder | no | yes | no | yes | no |
-| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes |
-| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes |
-| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes |
-| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no |
-| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes |
-| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no |
-| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no |
+The `d_gate4` column flags opportunities that require a named external prerequisite (migration,
+cutover, compliance event) before they can enter the "Now" phase. When `d_gate4=yes`, the
+blueprint-roadmap skill MUST place the opportunity in **Next** regardless of its Feasibility score.
+
+| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` | `d_gate4` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder | yes | yes | no | yes | yes | no |
+| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win | no | no | no | no | no | no |
+| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) | no | no | no | no | no | yes |
+| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder | yes | yes | no | no | yes | no |
+| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win | no | no | no | no | no | no |
+| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder | no | yes | no | yes | no | no |
+| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes | no |
+| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes | no |
+| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes | no |
+| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no | no |
+| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes | no |
+| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no | no |
+| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no | no |
 
 The selection algorithm picks 7. Coverage rules ensure all 4 strategic priorities have at least one selected hypothesis.
 

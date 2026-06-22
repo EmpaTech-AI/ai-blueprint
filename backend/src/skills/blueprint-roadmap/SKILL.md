@@ -77,10 +77,16 @@ adoption event that hasn't been completed — is placed in **Next** by default, 
 post-adjustment Feasibility is ≥ 4. Placement in "Now" is only valid when the gate condition
 is documented as already complete.
 
-Gate indicators: any language in the upstream dossier (dossier, maturity snapshot, or
-opportunity map) naming a completion dependency such as "Vincere migration", "Q2 2026
-cutover", "GDPR sprint completion", or "post-cutover". Also triggered when the archetype
-class label includes a conditional qualifier such as "Quick Win (post-cutover)".
+**Machine-readable trigger (primary):** Read the `<!-- score: id=H-RT-XX ... d_gate4=yes ... -->`
+comment from the dossier Section D for this hypothesis. When `d_gate4=yes`, D-GATE4 fires
+automatically — do NOT re-evaluate the gate condition. This flag is the Practice team's
+determination and is stable across runs.
+
+**Text-pattern trigger (fallback):** When the score comment lacks `d_gate4` (older dossier format),
+scan for gate indicators: language in the dossier or opportunity card naming a completion
+dependency such as "Vincere migration", "Q2 2026 cutover", "GDPR sprint completion",
+or "post-cutover". Also triggered when the archetype class label includes a conditional
+qualifier such as "Quick Win (post-cutover)".
 
 When this rule fires, name the gate condition explicitly in the placement rationale and tag it:
 "Placed in Next because the Vincere ATS migration must complete first [Form-Stated]."
@@ -113,6 +119,14 @@ bump the lowest-impact Big Bet out of Next instead.
 | FB + regulatory or compliance deadline within ≤ Month 3 | **Now** |
 | FB + is a prerequisite for ≥ 2 opportunities already assigned to Now | **Now** |
 | FB + all other cases | **Next** |
+
+**Compliance deadline criterion (strict):** "Regulatory or compliance deadline within ≤ Month 3"
+requires **explicit documentary evidence** of a specific enforcement date or a legally-mandated
+deadline cited in the dossier, maturity snapshot, or opportunity card. "Early Governance maturity"
+alone does NOT constitute a compliance deadline — it is a maturity gap, not a deadline. Without
+a specific deadline cited in evidence, apply "all other cases → Next." Tag the placement:
+"Placed in Next — no specific compliance deadline cited; Early Governance indicates gap but
+no enforcement date documented [Inferred]."
 
 ### Big Bet opportunities
 

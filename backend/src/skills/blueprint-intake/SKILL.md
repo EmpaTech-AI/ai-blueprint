@@ -239,7 +239,7 @@ Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3
 Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
-<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no -->
 ```
 
 The HTML comment is invisible in rendered output. It allows downstream skills and the stability
@@ -248,6 +248,25 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   archetype's Hypothesis Library table. This is the **primary key** `check_stability.py` uses
   for cross-run selected-set comparison — it is immune to all title paraphrase variation.
 - `class` values: `QuickWin`, `FoundationBuilder`, `BigBet` (no spaces).
+- **D6 readiness adjustment flags (mandatory — copy verbatim from archetype Hypothesis Library):**
+  - `ml_heavy` — `yes` if the opportunity requires ML inference, model training, or multi-dataset joins
+  - `multi_source` — `yes` if the opportunity requires data from 2+ distinct systems or pipelines
+  - `regulated` — `yes` if the opportunity makes automated decisions in a regulated/high-risk context
+  - `large_integration` — `yes` if the opportunity requires a substantial API or systems integration
+  - `adoption_dependent` — `yes` if the opportunity requires widespread user adoption or change management
+  
+- `d_gate4` — `yes` if the opportunity has a named external gate (ATS migration cutover, compliance
+  event, tool adoption) that must complete before it can enter the "Now" phase. Corresponds to the
+  `d_gate4` column in the archetype's Hypothesis Library. When `yes`, blueprint-roadmap will place
+  the opportunity in **Next** regardless of its Feasibility score.
+
+  **How to populate:** Look up this hypothesis ID in the matched archetype's Hypothesis Library table
+  (Section 3) and copy the flag values (`yes`/`no`) verbatim. Do NOT judge eligibility yourself —
+  the flags are the Practice team's determination and are fixed per archetype. These fields are read
+  by Stage 3 (blueprint-opportunities) to apply the Readiness Adjustment Rule, and by Stage 4
+  (blueprint-roadmap) to apply the D-GATE4 rule, both deterministically without loading the archetype
+  again. Missing or incorrect flags will cause downstream stages to fall back to per-run judgment,
+  which introduces cross-run variance.
 
 **`id=` is mandatory for all new dossiers.** Omitting it forces the stability harness to fall
 back to alias-normalised title matching, which is less reliable.
@@ -560,6 +579,7 @@ every downstream stage (2–5) reads them verbatim rather than re-deriving from 
 CLIENT_NAME: {legal entity name as it appears in documents — not a trade name}
 CEO_NAME: {surname exactly as it appears in the org chart or form — this spelling is authoritative downstream}
 INDUSTRY: {as stated in intake form Section 1}
+ARCHETYPE: {archetype filename loaded e.g. "recruitment" — use "generic" if no archetype matched}
 HEADCOUNT: {number — use "unknown" if not provided}
 REVENUE_RANGE: {exact range as stated e.g. "€5M–€8M" — do NOT narrow, round, or restate as approximate}
 JURISDICTION_LIST: {comma-separated country codes e.g. "BG, RO, PL"}
@@ -569,7 +589,10 @@ KEY_METRIC_2: {second quantitative claim if present — omit field entirely if n
 -->
 ```
 
-**Rules:**
+**Rules (T-14 — strict verbatim-copy enforcement):**
+- **REVENUE_RANGE, TOP_PRIORITIES, KEY_METRIC_1/2 must be copied character-for-character from the source material.** Do NOT reformat, reorder, normalize punctuation, abbreviate, or paraphrase. If the form says "€5M–€8M", write exactly `€5M–€8M`. If the form says "Grow revenue by 25%", write exactly `Grow revenue by 25%`. Any deviation produces cross-run variance in downstream stages that read this block verbatim.
+- **TOP_PRIORITIES:** Copy the three priority strings from form Section 2 exactly as written, separated by semicolons. Do not rephrase, expand, or summarize.
+- **KEY_METRIC_1/2:** Select the first and second most prominent quantitative claims found in the documents (in document order — do NOT select by impact rank, which varies per run). If only one is present, omit KEY_METRIC_2 entirely.
 - Every field must reflect what was actually provided in form or documents — no inferences, estimates, or paraphrasing.
 - If a field is absent from the materials, write the literal value `unknown`.
 - Downstream stages that re-derive CEO_NAME or REVENUE_RANGE from prose rather than reading this block are violating the data contract — this block is the single source of truth for those fields.

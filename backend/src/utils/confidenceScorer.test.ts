@@ -396,8 +396,10 @@ describe('P0 Freeze guards — threshold stability', () => {
     expect(result.score).toBe(33);
   });
 
-  it('stepD2 and stepE still use body-tag counting (not extended to positive counting)', () => {
-    // stepD2 and stepE are not in POSITIVE_COUNT_STEPS — body count is the correct fallback.
+  it('stepD2 uses entry-based counting (POSITIVE_COUNT_STEPS) when a structured block is present', () => {
+    // stepD2 is in POSITIVE_COUNT_STEPS — entry count (1) is used, not body count (2).
+    // Body-counting would inflate LC at Stage 4 because upstream inherited claims
+    // (phase labels, H-RT-XX references) hit [Inferred] patterns erroneously.
     const input = [
       'Revenue [Document-Backed] is strong.',
       'Risk A [Inferred] noted.',
@@ -412,6 +414,6 @@ describe('P0 Freeze guards — threshold stability', () => {
       '[END JUSTIFICATION]',
     ].join('\n');
     const result = calculateConfidence(input, 'stepD2');
-    expect(result.breakdown.inferred).toBe(2);  // body count, not entry count (1)
+    expect(result.breakdown.inferred).toBe(1);  // entry count (not body count of 2)
   });
 });

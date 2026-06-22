@@ -268,6 +268,14 @@ export async function runPipeline(jobId: string): Promise<void> {
     // Strip confidence tags and justification block before generating client documents.
     const assembledForDelivery = stripForDelivery(assembled);
 
+    // T-07: Record pipeline build stamp unconditionally in reviewer metadata so every run
+    // carries a traceable date+sha regardless of whether the assembly model emitted one.
+    const buildStampDate = new Date().toISOString().split('T')[0];
+    const buildStampSha = process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unset';
+    log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha}`, { jobId });
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v28 sha=${buildStampSha}`);
+
+
     // Generate DOCX
     fs.mkdirSync(JOBS_DIR, { recursive: true });
     const docxFilename = `AI Value Blueprint - ${sanitizeName(job.clientName)}.docx`;

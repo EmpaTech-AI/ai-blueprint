@@ -19,25 +19,32 @@ function inlineFormat(text: string): string {
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
+function stripCheckpointBlocks(text: string): string {
+  return text.replace(/\n*---\n\n## CHECKPOINT \d+[\s\S]*?(?=\n# |\n---\n\n## CHECKPOINT |\[END JUSTIFICATION\]|$)/g, '').trim();
+}
+
 function parseAssembledContent(content: string): Section[] {
+  const cleanContent = stripCheckpointBlocks(content);
   const sections: Section[] = [];
-  const lines = content.split('\n');
-  let currentHeading = 'Executive Summary';
+  const lines = cleanContent.split('\n');
+  let currentHeading = '';
   let currentContent: string[] = [];
+  let seenFirstHeading = false;
 
   for (const line of lines) {
     if (line.startsWith('# ') && !line.startsWith('## ')) {
-      if (currentContent.length > 0) {
+      if (seenFirstHeading && currentContent.length > 0) {
         sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
         currentContent = [];
       }
       currentHeading = line.slice(2).trim();
-    } else {
+      seenFirstHeading = true;
+    } else if (seenFirstHeading) {
       currentContent.push(line);
     }
   }
 
-  if (currentContent.length > 0) {
+  if (seenFirstHeading && currentContent.length > 0) {
     sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
   }
 
@@ -141,7 +148,6 @@ export function generateBlueprintHtml(clientName: string, assembledContent: stri
   log('info', `Generating HTML for ${clientName}`);
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const year  = new Date().getFullYear();
   const sections = parseAssembledContent(assembledContent);
 
   const sectionPages = sections.map((section, idx) => {
@@ -181,18 +187,13 @@ export function generateBlueprintHtml(clientName: string, assembledContent: stri
 
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 :root {
-  --navy:  #13243F;
-  --blue:  #214A93;
-  --teal:  #0FA6CC;
-  --teal2: #06637F;
-  --gold:  #C2851A;
-  --body:  #1A2035;
-  --muted: #5C6880;
-  --rule:  #CDD5E1;
-  --bg:    #EEF2F8;
-  --light: #F4F7FC;
-  --sans:  Calibri, Carlito, 'Trebuchet MS', Arial, sans-serif;
-  --serif: Georgia, 'Times New Roman', serif;
+  --blue:  #2E5FA1;
+  --body:  #404040;
+  --muted: #A6A6A6;
+  --rule:  #D0D7E3;
+  --bg:    #EAEFF6;
+  --light: #F5F7FB;
+  --sans:  Arial, Calibri, 'Trebuchet MS', sans-serif;
 }
 
 /* ── Screen shell ────────────────────────────────────────────────────────── */
@@ -208,7 +209,7 @@ body {
 
 /* ── Toolbar (screen only) ───────────────────────────────────────────────── */
 .toolbar {
-  background: var(--navy);
+  background: #1c3561;
   color: #fff;
   padding: 9px 24px;
   display: flex;
@@ -223,7 +224,7 @@ body {
 .toolbar-sep { opacity: .35; }
 .toolbar-spacer { flex: 1; }
 .btn-print {
-  background: var(--gold);
+  background: var(--blue);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -235,8 +236,8 @@ body {
   letter-spacing: .02em;
   transition: background .15s;
 }
-.btn-print:hover { background: #a56515; }
-.btn-print:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.btn-print:hover { background: #1c3e70; }
+.btn-print:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* ── A4 sheet ────────────────────────────────────────────────────────────── */
 .sheet, .cover {
@@ -278,63 +279,42 @@ body {
 
 /* ── Cover ───────────────────────────────────────────────────────────────── */
 .cover {
-  background: var(--navy);
-  padding: 0;
+  background: #fff;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 .cover-body {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 36mm 18mm 22mm;
-}
-.cover-logo {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 18mm;
-}
-.cover-eyebrow {
-  font-size: 8pt;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--teal);
-  margin-bottom: 6mm;
-  font-weight: 700;
+  align-items: center;
+  padding: 20mm 18mm;
 }
 .cover-title {
-  font-family: var(--serif);
-  font-size: 34pt;
-  font-weight: 400;
-  color: #fff;
-  line-height: 1.18;
-  margin-bottom: 4mm;
+  font-family: var(--sans);
+  font-size: 32pt;
+  font-weight: 700;
+  color: var(--blue);
+  line-height: 1.15;
+  margin-bottom: 8mm;
+  letter-spacing: .02em;
 }
-.cover-gold-rule {
-  width: 38mm;
+.cover-blue-rule {
+  width: 60mm;
   height: 2pt;
-  background: var(--gold);
-  margin: 7mm 0;
+  background: var(--blue);
+  margin: 0 auto 10mm;
 }
 .cover-client {
-  font-size: 17pt;
+  font-size: 18pt;
   font-weight: 700;
-  color: rgba(255,255,255,.88);
-  margin-bottom: 14mm;
+  color: var(--body);
+  margin-bottom: 18mm;
 }
 .cover-meta {
-  font-size: 9pt;
-  color: rgba(255,255,255,.50);
-  line-height: 1.9;
-}
-.cover-meta strong { color: rgba(255,255,255,.72); font-weight: 600; }
-.cover-foot {
-  border-top: .5pt solid rgba(255,255,255,.15);
-  padding: 7mm 18mm;
-  display: flex;
-  justify-content: space-between;
-  font-size: 8pt;
-  color: rgba(255,255,255,.30);
-  flex-shrink: 0;
+  font-size: 10pt;
+  color: var(--muted);
+  line-height: 2;
 }
 
 /* ── Section heading ─────────────────────────────────────────────────────── */
@@ -342,21 +322,21 @@ body {
   font-size: 8pt;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--muted);
   margin-bottom: 3mm;
   font-weight: 700;
 }
 .sec-title {
-  font-family: var(--serif);
-  font-size: 22pt;
-  font-weight: 400;
-  color: var(--navy);
+  font-family: var(--sans);
+  font-size: 20pt;
+  font-weight: 700;
+  color: var(--blue);
   line-height: 1.2;
   margin-bottom: 3mm;
 }
 .sec-rule {
   height: 1.5pt;
-  background: linear-gradient(to right, var(--teal), transparent 70%);
+  background: var(--blue);
   margin-bottom: 10mm;
 }
 .sec-content { flex: 1; }
@@ -374,7 +354,7 @@ body {
   color: var(--blue);
   margin: 11pt 0 4pt;
   padding-left: 7pt;
-  border-left: 2.5pt solid var(--teal);
+  border-left: 2.5pt solid var(--blue);
 }
 .sh3 {
   font-size: 11pt;
@@ -411,7 +391,7 @@ body {
   width: 5pt;
   height: 5pt;
   border-radius: 50%;
-  background: var(--teal);
+  background: var(--blue);
 }
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
@@ -425,7 +405,7 @@ body {
   font-size: 10pt;
 }
 .dtbl th {
-  background: var(--navy);
+  background: var(--blue);
   color: #fff;
   font-weight: 700;
   text-align: left;
@@ -474,24 +454,14 @@ body {
 <!-- Cover page -->
 <div class="cover" role="region" aria-label="Cover page">
   <div class="cover-body">
-    <svg class="cover-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="48" height="48" rx="8" fill="#0FA6CC" fill-opacity="0.18"/>
-      <path d="M12 36L24 12L36 36" stroke="#0FA6CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M16 28H32" stroke="#C2851A" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <div class="cover-eyebrow">AI Assist BG — Confidential</div>
-    <div class="cover-title">AI Value<br>Blueprint</div>
-    <div class="cover-gold-rule" aria-hidden="true"></div>
+    <div class="cover-title">AI VALUE BLUEPRINT</div>
+    <div class="cover-blue-rule" aria-hidden="true"></div>
     <div class="cover-client">${esc(clientName)}</div>
     <div class="cover-meta">
-      <strong>Prepared by</strong> AI Assist BG<br>
-      <strong>Date</strong> ${today}<br>
-      <strong>Classification</strong> Confidential — Addressee Only
+      Prepared by AI Assist BG<br>
+      ${today}<br>
+      CONFIDENTIAL
     </div>
-  </div>
-  <div class="cover-foot">
-    <span>AI Assist BG · ai-assist.bg</span>
-    <span>© ${year} AI Assist BG. All rights reserved.</span>
   </div>
 </div>
 

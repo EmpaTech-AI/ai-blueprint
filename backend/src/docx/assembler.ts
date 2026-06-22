@@ -71,12 +71,14 @@ function buildDocxTable(tableLines: string[]): Table | null {
       children: cells.map(cell => new TableCell({
         children: [
           new Paragraph({
-            children: parseInlineRuns(cell.trim(), BRAND.smallSize),
+            children: rowIdx === 0
+              ? [new TextRun({ text: cell.trim(), bold: true, font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.white })]
+              : parseInlineRuns(cell.trim(), BRAND.smallSize),
             spacing: { before: 60, after: 60 },
           }),
         ],
         shading: rowIdx === 0
-          ? { type: ShadingType.SOLID, color: BRAND.lightBlue, fill: BRAND.lightBlue }
+          ? { type: ShadingType.SOLID, color: BRAND.primaryBlue, fill: BRAND.primaryBlue }
           : undefined,
         margins: { top: 60, bottom: 60, left: 80, right: 80 },
       })),
@@ -276,8 +278,10 @@ export async function generateBlueprintDocx(
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: 'Confidential  |  ', font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
-                  new TextRun({ children: [PageNumber.CURRENT] }),
+                  new TextRun({ text: 'Confidential  |  Page ', font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ children: [PageNumber.CURRENT], font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ text: ' of ', font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
                 ],
                 alignment: AlignmentType.CENTER,
               }),
@@ -423,7 +427,7 @@ export async function generateBlueprintPdf(
       h3:     { fontSize: 12, bold: true,  color: '#404040', margin: [0, 8,  0, 4]  },
       body:   { fontSize: 11, margin: [0, 0, 0, 6]   },
       bullet: { fontSize: 11, margin: [14, 0, 0, 4]  },
-      tableHeader: { fontSize: 10, bold: true, color: '#2E5FA1', fillColor: '#D6E4F7' },
+      tableHeader: { fontSize: 10, bold: true, color: '#FFFFFF', fillColor: '#2E5FA1' },
       tableCell:   { fontSize: 10, color: '#404040' },
     },
   };
@@ -525,25 +529,37 @@ function stripInlineMarkdown(text: string): string {
 
 // ─── Content parser ────────────────────────────────────────────────────────────
 
+function stripCheckpointBlocks(text: string): string {
+  // Remove CHECKPOINT 1 and CHECKPOINT 2 scaffold blocks emitted by blueprint-assembly chunking
+  return text.replace(/\n*---\n\n## CHECKPOINT \d+[\s\S]*?(?=\n# |\n---\n\n## CHECKPOINT |\[END JUSTIFICATION\]|$)/g, '').trim();
+}
+
 function parseAssembledContent(content: string): Section[] {
+  // Enforce positional boundary: skip everything before the first `# ` section heading.
+  // This strips pre-flight status blocks ("Step 1 — Compressed Dossier: ...") that the
+  // assembly model may emit before the document title despite the SKILL.md boundary rule.
+  const cleanContent = stripCheckpointBlocks(content);
   const sections: Section[] = [];
-  const lines = content.split('\n');
-  let currentHeading = 'Executive Summary';
+  const lines = cleanContent.split('\n');
+  let currentHeading = '';
   let currentContent: string[] = [];
+  let seenFirstHeading = false;
 
   for (const line of lines) {
     if (line.startsWith('# ') && !line.startsWith('## ')) {
-      if (currentContent.length > 0) {
+      if (seenFirstHeading && currentContent.length > 0) {
         sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
         currentContent = [];
       }
       currentHeading = line.slice(2).trim();
-    } else {
+      seenFirstHeading = true;
+    } else if (seenFirstHeading) {
       currentContent.push(line);
     }
+    // else: pre-heading content — skip (positional boundary enforcement)
   }
 
-  if (currentContent.length > 0) {
+  if (seenFirstHeading && currentContent.length > 0) {
     sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
   }
 

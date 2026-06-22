@@ -147,27 +147,31 @@ For each of the 5–7 opportunities, score on three dimensions:
 **Strategic Alignment (1–5)**
 How strongly the opportunity supports the client's stated strategic goals and priorities.
 
-**Apply the Readiness Adjustment Rule (mandatory):**
+**Apply the Readiness Adjustment Rule (mandatory — read flags from dossier score comment):**
 
-When a matched archetype is loaded, check the hypothesis's D6 adjustment eligibility flags in the
-archetype's Hypothesis Library. Each flag is a deterministic trigger — if the flag is `yes` AND
-the corresponding dimension is "Early", apply the −1 adjustment. Do not re-judge eligibility;
-the flags encode the Practice team's decision for this archetype.
+The D6 adjustment flags are embedded in the dossier's `<!-- score: ... -->` comment for each
+hypothesis (encoded by Stage 1 from the archetype's Hypothesis Library). Read them directly —
+do NOT re-judge eligibility, do NOT load the archetype separately.
 
-| Flag | Maturity dimension | When to reduce Feasibility by 1 |
-|------|--------------------|---------------------------------|
-| `ml_heavy` | Data is "Early" | Opportunity flag `ml_heavy = yes` |
-| `multi_source` | Data is "Early" | Opportunity flag `multi_source = yes` |
-| `regulated` | Governance is "Early" | Opportunity flag `regulated = yes` |
-| `large_integration` | Technology is "Early" | Opportunity flag `large_integration = yes` |
-| `adoption_dependent` | People is "Early" | Opportunity flag `adoption_dependent = yes` |
+**How to extract flags:** Find the `<!-- score: id=H-RT-XX ... -->` comment for this hypothesis
+in the dossier Section D. The fields `ml_heavy`, `multi_source`, `regulated`, `large_integration`,
+and `adoption_dependent` are already set to `yes` or `no`. Use them verbatim.
 
-If no matched archetype is loaded (generic skeleton), fall back to per-run judgment using the
-criteria below and tag the applied adjustment as `[Inferred]`:
-- If Data is "Early" → reduce feasibility by 1 for any ML-heavy or multi-source initiative
-- If Governance is "Early" → reduce feasibility by 1 for regulated or high-risk automated decisions
-- If People is "Early" → reduce feasibility by 1 for solutions requiring widespread adoption
-- If Technology is "Early" → reduce feasibility by 1 for large integrations
+| Flag in score comment | Maturity dimension | When to reduce Feasibility by 1 |
+|-----------------------|--------------------|---------------------------------|
+| `ml_heavy=yes` | Data is "Early" | Apply −1 |
+| `multi_source=yes` | Data is "Early" | Apply −1 |
+| `regulated=yes` | Governance is "Early" | Apply −1 |
+| `large_integration=yes` | Technology is "Early" | Apply −1 |
+| `adoption_dependent=yes` | People is "Early" | Apply −1 |
+
+Each flag is an independent deterministic trigger — check all five for each hypothesis. If two
+flags both fire (e.g. `ml_heavy=yes` AND `multi_source=yes`, both with Data "Early"), apply both
+reductions (−2 total), unless the result would drop below 1.
+
+**If the score comment is missing one or more D6 flags** (dossier produced before this format was
+adopted), fall back to per-run judgment using the archetype Hypothesis Library if available, and tag
+the applied adjustment as `[Inferred]`. This fallback must be flagged in the JUSTIFICATION block.
 
 **Two common errors to avoid:**
 1. **Never skip one adjustment because another "already covers it."** Data Early and Governance Early are independent constraints (data quality vs. legal/compliance risk). If both conditions are met, both reductions apply — even if reducing by one seems to "capture the core problem."
