@@ -410,25 +410,25 @@ export async function generateBlueprintPdf(
     defaultStyle: { font: 'Roboto', fontSize: 11, color: '#404040', lineHeight: 1.5 },
     header: (pg: number) => pg > 1 ? {
       text: 'AI Assist BG  |  AI Value Blueprint',
-      alignment: 'right', margin: [72, 24, 72, 0], fontSize: 9, color: '#2E5FA1',
+      alignment: 'right', margin: [72, 24, 72, 0], fontSize: 9, color: '#214A93',
     } : undefined,
     footer: (pg: number, total: number) => pg > 1 ? {
       text: `Confidential  |  Page ${pg} of ${total}`,
-      alignment: 'center', margin: [72, 0, 72, 24], fontSize: 9, color: '#A6A6A6',
+      alignment: 'center', margin: [72, 0, 72, 24], fontSize: 9, color: '#44526B',
     } : undefined,
     content,
     styles: {
-      coverTitle:        { fontSize: 28, bold: true,  color: '#2E5FA1', margin: [0, 0, 0, 16] },
-      coverClient:       { fontSize: 20, bold: true,  color: '#404040', margin: [0, 0, 0, 24] },
-      coverMeta:         { fontSize: 12,               color: '#A6A6A6', margin: [0, 0, 0, 6]  },
-      coverConfidential: { fontSize: 10, bold: true,  color: '#A6A6A6'                          },
-      h1:     { fontSize: 18, bold: true,  color: '#2E5FA1', margin: [0, 16, 0, 4]  },
-      h2:     { fontSize: 14, bold: true,  color: '#404040', margin: [0, 12, 0, 6]  },
-      h3:     { fontSize: 12, bold: true,  color: '#404040', margin: [0, 8,  0, 4]  },
-      body:   { fontSize: 11, margin: [0, 0, 0, 6]   },
-      bullet: { fontSize: 11, margin: [14, 0, 0, 4]  },
-      tableHeader: { fontSize: 10, bold: true, color: '#FFFFFF', fillColor: '#2E5FA1' },
-      tableCell:   { fontSize: 10, color: '#404040' },
+      coverTitle:        { fontSize: 28, bold: true,  color: '#214A93', margin: [0, 0, 0, 16] },
+      coverClient:       { fontSize: 20, bold: true,  color: '#161B26', margin: [0, 0, 0, 24] },
+      coverMeta:         { fontSize: 12,               color: '#44526B', margin: [0, 0, 0, 6]  },
+      coverConfidential: { fontSize: 10, bold: true,  color: '#A82E29', letterSpacing: 2       },
+      h1:     { fontSize: 18, bold: true,  color: '#13243F', margin: [0, 16, 0, 4]  },
+      h2:     { fontSize: 14, bold: true,  color: '#214A93', margin: [0, 12, 0, 6]  },
+      h3:     { fontSize: 12, bold: true,  color: '#214A93', margin: [0, 8,  0, 4]  },
+      body:   { fontSize: 11, color: '#161B26', margin: [0, 0, 0, 6]   },
+      bullet: { fontSize: 11, color: '#161B26', margin: [14, 0, 0, 4]  },
+      tableHeader: { fontSize: 10, bold: true, color: '#FFFFFF', fillColor: '#0D1A30' },
+      tableCell:   { fontSize: 10, color: '#161B26' },
     },
   };
 
@@ -460,7 +460,7 @@ function buildPdfTable(tableLines: string[]): unknown | null {
   const body = dataRows.map((line, rowIdx) => {
     const cells = line.split('|').slice(1, -1);
     return cells.map(cell => ({
-      text: cell.trim(),
+      text: rowIdx === 0 ? cell.trim() : parsePdfInline(cell.trim()),
       style: rowIdx === 0 ? 'tableHeader' : 'tableCell',
       margin: [4, 4, 4, 4],
     }));

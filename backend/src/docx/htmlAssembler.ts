@@ -5,6 +5,8 @@ interface Section {
   content: string;
 }
 
+const ORDINALS = ['One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'];
+
 function esc(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -151,24 +153,27 @@ export function generateBlueprintHtml(clientName: string, assembledContent: stri
   const sections = parseAssembledContent(assembledContent);
 
   const sectionPages = sections.map((section, idx) => {
-    const num = String(idx + 1).padStart(2, '0');
+    const ordinal = ORDINALS[idx] ?? `${idx + 1}`;
+    const num = idx + 1;
     const body = renderSectionContent(section.content);
     return `
-<div class="sheet" id="section-${idx + 1}">
+<div class="sheet" id="section-${num}">
   <div class="sheet-header">
-    <span class="sh-brand">AI Assist BG — AI Value Blueprint</span>
+    <span class="sh-brand">AI Assist BG &nbsp;|&nbsp; AI Value Blueprint</span>
     <span class="sh-client">${esc(clientName)}</span>
   </div>
   <div class="sheet-body">
-    <div class="sec-eyebrow">Section ${num}</div>
-    <h1 class="sec-title">${esc(section.heading)}</h1>
-    <div class="sec-rule"></div>
+    <div class="sec-eyebrow">Section ${ordinal}</div>
+    <div class="sec-head">
+      <div class="sec-accent-rule" aria-hidden="true"></div>
+      <h1 class="sec-title"><span class="sec-no">${num}</span>&nbsp;${esc(section.heading)}</h1>
+    </div>
     <div class="sec-content">
       ${body}
     </div>
   </div>
   <div class="sheet-footer">
-    <span>Confidential — Addressee Only</span>
+    <span>Confidential &mdash; Addressee Only</span>
     <span>AI Assist BG</span>
   </div>
 </div>`;
@@ -179,28 +184,38 @@ export function generateBlueprintHtml(clientName: string, assembledContent: stri
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Value Blueprint — ${esc(clientName)}</title>
+<title>AI Value Blueprint &mdash; ${esc(clientName)}</title>
 <style>
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Design tokens ───────────────────────────────────────────────────────── */
+/* ── Design tokens (matched to Baros Vision Master Deliverable) ──────────── */
 :root {
-  --blue:  #2E5FA1;
-  --body:  #404040;
-  --muted: #A6A6A6;
-  --rule:  #D0D7E3;
-  --bg:    #EAEFF6;
-  --light: #F5F7FB;
-  --sans:  Arial, Calibri, 'Trebuchet MS', sans-serif;
+  --navy:        #13243F;
+  --navy-deep:   #0D1A30;
+  --blue:        #214A93;
+  --teal:        #0FA6CC;
+  --teal-deep:   #06637F;
+  --gold:        #C2851A;
+  --gold-deep:   #946212;
+  --gold-tint:   #FBF2DD;
+  --ink:         #161B26;
+  --muted:       #44526B;
+  --line:        #CED7E6;
+  --tint:        #E9EFF8;
+  --tint-2:      #F1F4FA;
+  --confidential:#A82E29;
+  --page:        #ffffff;
+  --bg:          #4a5568;
+  --sans:        "Carlito", "Calibri", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
 }
 
 /* ── Screen shell ────────────────────────────────────────────────────────── */
 body {
   background: var(--bg);
   font-family: var(--sans);
-  color: var(--body);
+  color: var(--ink);
   font-size: 11pt;
   line-height: 1.55;
   -webkit-print-color-adjust: exact;
@@ -209,7 +224,7 @@ body {
 
 /* ── Toolbar (screen only) ───────────────────────────────────────────────── */
 .toolbar {
-  background: #1c3561;
+  background: var(--navy-deep);
   color: #fff;
   padding: 9px 24px;
   display: flex;
@@ -234,21 +249,20 @@ body {
   cursor: pointer;
   font-family: var(--sans);
   letter-spacing: .02em;
-  transition: background .15s;
 }
-.btn-print:hover { background: #1c3e70; }
-.btn-print:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.btn-print:hover { background: var(--teal-deep); }
+.btn-print:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
-/* ── A4 sheet ────────────────────────────────────────────────────────────── */
+/* ── A4 sheet + cover ────────────────────────────────────────────────────── */
 .sheet, .cover {
   width: 210mm;
   min-height: 297mm;
-  background: #fff;
+  background: var(--page);
   margin: 20px auto;
   padding: 14mm 18mm;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 18px rgba(0,0,0,.10);
+  box-shadow: 0 6px 26px rgba(0,0,0,.28);
   page-break-after: always;
   break-after: page;
 }
@@ -263,81 +277,119 @@ body {
   flex-shrink: 0;
 }
 .sheet-header {
-  border-bottom: .5pt solid var(--rule);
+  border-bottom: .5pt solid var(--line);
   padding-bottom: 5pt;
-  margin-bottom: 12pt;
+  margin-bottom: 10pt;
 }
-.sh-brand { color: var(--blue); font-weight: 600; letter-spacing: .02em; }
+.sh-brand { color: var(--blue); font-weight: 700; letter-spacing: .02em; }
+.sh-client { color: var(--muted); }
 
 .sheet-body { flex: 1; display: flex; flex-direction: column; }
 
 .sheet-footer {
-  border-top: .5pt solid var(--rule);
+  border-top: .5pt solid var(--line);
   padding-top: 5pt;
-  margin-top: 12pt;
+  margin-top: 10pt;
 }
 
 /* ── Cover ───────────────────────────────────────────────────────────────── */
 .cover {
-  background: #fff;
-  justify-content: center;
+  background: var(--page);
+  justify-content: flex-start;
   align-items: center;
   text-align: center;
+  padding-top: 18mm;
 }
-.cover-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20mm 18mm;
+.cover-eyebrow {
+  color: var(--blue);
+  font-weight: 700;
+  letter-spacing: .34em;
+  font-size: 11pt;
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+.cover-logo {
+  width: 120px;
+  height: 72px;
+  margin: 0 auto 20px;
+  display: block;
 }
 .cover-title {
-  font-family: var(--sans);
-  font-size: 32pt;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36pt;
   font-weight: 700;
-  color: var(--blue);
-  line-height: 1.15;
-  margin-bottom: 8mm;
-  letter-spacing: .02em;
+  color: var(--ink);
+  line-height: 1.1;
+  margin-bottom: 0;
+  letter-spacing: .01em;
 }
-.cover-blue-rule {
-  width: 60mm;
-  height: 2pt;
-  background: var(--blue);
-  margin: 0 auto 10mm;
+.cover-gold-rule {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+  border-radius: 2px;
+  margin: 16px auto 0;
 }
 .cover-client {
   font-size: 18pt;
   font-weight: 700;
-  color: var(--body);
-  margin-bottom: 18mm;
+  color: var(--navy);
+  margin-top: 14px;
 }
 .cover-meta {
   font-size: 10pt;
   color: var(--muted);
   line-height: 2;
+  margin-top: 24px;
+}
+.cover-prepared {
+  color: var(--blue);
+  font-weight: 600;
+  font-size: 10pt;
+  margin-top: 20px;
+}
+.cover-confidential {
+  color: var(--confidential);
+  font-weight: 700;
+  letter-spacing: .18em;
+  font-size: 9pt;
+  text-transform: uppercase;
+  margin-top: 16px;
 }
 
-/* ── Section heading ─────────────────────────────────────────────────────── */
+/* ── Section heading (signature structure) ───────────────────────────────── */
 .sec-eyebrow {
-  font-size: 8pt;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 3mm;
+  color: var(--blue);
   font-weight: 700;
+  letter-spacing: .22em;
+  font-size: 8pt;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.sec-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.sec-accent-rule {
+  width: 5px;
+  align-self: stretch;
+  min-height: 28px;
+  background: linear-gradient(180deg, var(--teal), var(--teal-deep));
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 .sec-title {
   font-family: var(--sans);
   font-size: 20pt;
   font-weight: 700;
-  color: var(--blue);
+  color: var(--navy);
   line-height: 1.2;
-  margin-bottom: 3mm;
+  margin: 0;
 }
-.sec-rule {
-  height: 1.5pt;
-  background: var(--blue);
-  margin-bottom: 10mm;
+.sec-no {
+  color: var(--teal-deep);
 }
 .sec-content { flex: 1; }
 
@@ -345,27 +397,27 @@ body {
 .body {
   font-size: 11pt;
   line-height: 1.68;
-  color: var(--body);
-  margin-bottom: 5pt;
+  color: var(--ink);
+  margin-bottom: 6pt;
 }
 .sh2 {
-  font-size: 12.5pt;
+  font-size: 13pt;
   font-weight: 700;
   color: var(--blue);
-  margin: 11pt 0 4pt;
-  padding-left: 7pt;
-  border-left: 2.5pt solid var(--blue);
+  margin: 14pt 0 5pt;
+  padding-left: 9pt;
+  border-left: 3pt solid var(--blue);
 }
 .sh3 {
   font-size: 11pt;
   font-weight: 700;
-  color: var(--body);
-  margin: 8pt 0 3pt;
+  color: var(--navy);
+  margin: 10pt 0 4pt;
 }
 .nlist { padding-left: 14pt; }
 .divider {
   border: none;
-  border-top: .5pt solid var(--rule);
+  border-top: .5pt solid var(--line);
   margin: 8pt 0;
 }
 
@@ -373,31 +425,31 @@ body {
 .blist {
   list-style: none;
   padding: 0;
-  margin: 3pt 0 6pt;
+  margin: 4pt 0 8pt;
 }
 .blist li {
   position: relative;
-  padding-left: 13pt;
+  padding-left: 14pt;
   font-size: 11pt;
   line-height: 1.65;
-  margin-bottom: 3pt;
-  color: var(--body);
+  margin-bottom: 4pt;
+  color: var(--ink);
 }
 .blist li::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 6.5pt;
+  top: 7pt;
   width: 5pt;
   height: 5pt;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--teal-deep);
 }
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
 .tbl-wrap {
   overflow-x: auto;
-  margin: 5pt 0 10pt;
+  margin: 6pt 0 12pt;
 }
 .dtbl {
   width: 100%;
@@ -405,21 +457,22 @@ body {
   font-size: 10pt;
 }
 .dtbl th {
-  background: var(--blue);
+  background: var(--navy-deep);
   color: #fff;
   font-weight: 700;
   text-align: left;
-  padding: 6pt 8pt;
+  padding: 7pt 10pt;
   border: none;
   font-size: 9pt;
   letter-spacing: .02em;
 }
 .dtbl td {
-  padding: 5pt 8pt;
-  border-bottom: .5pt solid var(--rule);
+  padding: 6pt 10pt;
+  border-bottom: .5pt solid var(--line);
   vertical-align: top;
+  color: var(--ink);
 }
-.dtbl tr:nth-child(even) td { background: var(--light); }
+.dtbl tr:nth-child(even) td { background: var(--tint-2); }
 
 /* ── Print ───────────────────────────────────────────────────────────────── */
 @media print {
@@ -445,7 +498,7 @@ body {
 
 <nav class="toolbar" role="toolbar">
   <span class="toolbar-title">AI Value Blueprint</span>
-  <span class="toolbar-sep">—</span>
+  <span class="toolbar-sep">&mdash;</span>
   <span>${esc(clientName)}</span>
   <span class="toolbar-spacer"></span>
   <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
@@ -453,16 +506,28 @@ body {
 
 <!-- Cover page -->
 <div class="cover" role="region" aria-label="Cover page">
-  <div class="cover-body">
-    <div class="cover-title">AI VALUE BLUEPRINT</div>
-    <div class="cover-blue-rule" aria-hidden="true"></div>
-    <div class="cover-client">${esc(clientName)}</div>
-    <div class="cover-meta">
-      Prepared by AI Assist BG<br>
-      ${today}<br>
-      CONFIDENTIAL
-    </div>
+  <div class="cover-eyebrow">AI Value Blueprint</div>
+  <svg class="cover-logo" viewBox="0 0 120 72" aria-label="AI Assist BG mark" role="img">
+    <defs>
+      <linearGradient id="lg" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" stop-color="#06637F"/>
+        <stop offset="1" stop-color="#0FA6CC"/>
+      </linearGradient>
+    </defs>
+    <rect x="4"  y="34" width="19" height="34" rx="2" fill="url(#lg)"/>
+    <rect x="29" y="20" width="19" height="48" rx="2" fill="url(#lg)"/>
+    <rect x="54" y="7"  width="35" height="16" rx="2" fill="url(#lg)"/>
+    <rect x="54" y="28" width="45" height="16" rx="2" fill="url(#lg)"/>
+    <rect x="54" y="49" width="62" height="17" rx="2" fill="url(#lg)"/>
+  </svg>
+  <div class="cover-title">AI Value Blueprint</div>
+  <div class="cover-gold-rule" aria-hidden="true"></div>
+  <div class="cover-client">${esc(clientName)}</div>
+  <div class="cover-meta">
+    Prepared by AI Assist BG<br>
+    ${today}
   </div>
+  <div class="cover-confidential">Confidential</div>
 </div>
 
 ${sectionPages}
