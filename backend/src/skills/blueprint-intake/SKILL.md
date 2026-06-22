@@ -239,7 +239,7 @@ Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3
 Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
-<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none phase_dependency=n/a -->
 ```
 
 The HTML comment is invisible in rendered output. It allows downstream skills and the stability
@@ -260,13 +260,28 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   `d_gate4` column in the archetype's Hypothesis Library. When `yes`, blueprint-roadmap will place
   the opportunity in **Next** regardless of its Feasibility score.
 
+- `compliance_deadline` — `YYYY-MM-DD` (exact date) or `none`. The specific regulatory or legal
+  enforcement date documented in the client's materials for this opportunity's compliance requirement.
+  A system migration date, contract renewal, or internal project deadline does NOT qualify — only a
+  legally-mandated enforcement date (e.g. a GDPR audit deadline with a specific fine trigger, a
+  sector-specific regulatory cutover). Set to `none` if no such date is documented. Stage 4
+  (blueprint-roadmap) reads this as a machine-readable trigger for the FB compliance-deadline rule —
+  when `none`, the rule applies "all other cases → Next" without re-judging.
+
+- `phase_dependency` — `strict`, `flexible`, or `n/a`. Applies to Big Bet opportunities only (class=BigBet
+  after D6 adjustment). `strict`: the dependency-phase rule is unconditional — if the antecedent is
+  Next-assigned, the Big Bet is placed in Later with no pilot-scope or partial-delivery exception.
+  `flexible`: a scoped pilot may begin independently regardless of the antecedent's phase — only set
+  `flexible` when the archetype explicitly documents this. `n/a`: not applicable (Quick Win or
+  Foundation Builder). Stage 4 reads this field and enforces it without re-judgment.
+
   **How to populate:** Look up this hypothesis ID in the matched archetype's Hypothesis Library table
-  (Section 3) and copy the flag values (`yes`/`no`) verbatim. Do NOT judge eligibility yourself —
+  (Section 3) and copy the flag values verbatim. Do NOT judge eligibility yourself —
   the flags are the Practice team's determination and are fixed per archetype. These fields are read
   by Stage 3 (blueprint-opportunities) to apply the Readiness Adjustment Rule, and by Stage 4
-  (blueprint-roadmap) to apply the D-GATE4 rule, both deterministically without loading the archetype
-  again. Missing or incorrect flags will cause downstream stages to fall back to per-run judgment,
-  which introduces cross-run variance.
+  (blueprint-roadmap) to apply the D-GATE4, compliance-deadline, and dependency-phase rules,
+  all deterministically without loading the archetype again. Missing or incorrect flags will cause
+  downstream stages to fall back to per-run judgment, which introduces cross-run variance.
 
 **`id=` is mandatory for all new dossiers.** Omitting it forces the stability harness to fall
 back to alias-normalised title matching, which is less reliable.
@@ -591,8 +606,8 @@ KEY_METRIC_2: {second quantitative claim if present — omit field entirely if n
 
 **Rules (T-14 — strict verbatim-copy enforcement):**
 - **REVENUE_RANGE, TOP_PRIORITIES, KEY_METRIC_1/2 must be copied character-for-character from the source material.** Do NOT reformat, reorder, normalize punctuation, abbreviate, or paraphrase. If the form says "€5M–€8M", write exactly `€5M–€8M`. If the form says "Grow revenue by 25%", write exactly `Grow revenue by 25%`. Any deviation produces cross-run variance in downstream stages that read this block verbatim.
-- **TOP_PRIORITIES:** Copy the three priority strings from form Section 2 exactly as written, separated by semicolons. Do not rephrase, expand, or summarize.
-- **KEY_METRIC_1/2:** Select the first and second most prominent quantitative claims found in the documents (in document order — do NOT select by impact rank, which varies per run). If only one is present, omit KEY_METRIC_2 entirely.
+- **TOP_PRIORITIES:** Copy the first three complete priority statements from form Section 2 character-for-character, ending each at its first sentence boundary (period or semicolon). Separate with semicolons. Do not add additional sentences, expand abbreviations, or summarize. If the form lists fewer than three priorities, copy what is present.
+- **KEY_METRIC_1/2:** Select the first quantitative claim encountered in the uploaded documents that contains both a number and a unit (%, hours, days, €, count, ratio). Copy the claim character-for-character including its surrounding clause up to the next period — do not truncate, abbreviate, or extend. KEY_METRIC_2 is the next such claim encountered after KEY_METRIC_1 in the same document read-sequence. If only one quantitative claim is present, omit KEY_METRIC_2 entirely. Do NOT select by perceived impact or significance — first-encountered in document order is the stable, reproducible rule.
 - Every field must reflect what was actually provided in form or documents — no inferences, estimates, or paraphrasing.
 - If a field is absent from the materials, write the literal value `unknown`.
 - Downstream stages that re-derive CEO_NAME or REVENUE_RANGE from prose rather than reading this block are violating the data contract — this block is the single source of truth for those fields.

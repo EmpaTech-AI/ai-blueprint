@@ -120,11 +120,28 @@ bump the lowest-impact Big Bet out of Next instead.
 | FB + is a prerequisite for ≥ 2 opportunities already assigned to Now | **Now** |
 | FB + all other cases | **Next** |
 
-**Compliance deadline criterion (strict):** "Regulatory or compliance deadline within ≤ Month 3"
-requires **explicit documentary evidence** of a specific enforcement date or a legally-mandated
-deadline cited in the dossier, maturity snapshot, or opportunity card. "Early Governance maturity"
-alone does NOT constitute a compliance deadline — it is a maturity gap, not a deadline. Without
-a specific deadline cited in evidence, apply "all other cases → Next." Tag the placement:
+**Machine-readable trigger (primary — T-17):** Read the `compliance_deadline` field from the
+`<!-- score: id=H-RT-XX ... compliance_deadline=<value> ... -->` comment in the dossier Section D.
+
+- When `compliance_deadline=none` → apply "all other cases → **Next**" unconditionally. Do NOT
+  re-evaluate whether a system migration date, contract renewal, or maturity gap qualifies as a
+  compliance deadline. The archetype has already made that determination.
+- When `compliance_deadline=YYYY-MM-DD` → check whether that date falls within Month 1–3 of the
+  engagement. If yes → **Now**. If no → **Next**.
+
+Tag the placement: "Placed in Next — compliance_deadline=none in score comment; no specific
+enforcement date documented [Form-Stated]."
+
+**Text-pattern trigger (fallback — older dossier format without `compliance_deadline` field):**
+When the score comment lacks the `compliance_deadline` field, apply the criterion below.
+
+**Compliance deadline criterion (fallback — strict):** "Regulatory or compliance deadline within
+≤ Month 3" requires **explicit documentary evidence** of a specific enforcement date or a
+legally-mandated deadline cited in the dossier, maturity snapshot, or opportunity card.
+"Early Governance maturity" alone does NOT constitute a compliance deadline — it is a maturity
+gap, not a deadline. A system migration date (e.g. ATS cutover) does NOT qualify unless it is
+accompanied by a documented regulatory enforcement consequence with a specific date. Without a
+specific enforcement date cited in evidence, apply "all other cases → Next." Tag the placement:
 "Placed in Next — no specific compliance deadline cited; Early Governance indicates gap but
 no enforcement date documented [Inferred]."
 
@@ -135,6 +152,24 @@ no enforcement date documented [Inferred]."
 | Big Bet + depends only on Now-assigned items (no Next dependency) | **Next** |
 | Big Bet + depends on any Next-assigned item | **Later** |
 | Big Bet + no explicit dependency documented | **Later** |
+
+**Strict dependency rule (T-18 — mandatory when `phase_dependency=strict`):**
+
+Read the `phase_dependency` field from the `<!-- score: id=H-RT-XX ... phase_dependency=<value> ... -->`
+comment in the dossier Section D.
+
+- When `phase_dependency=strict` and the antecedent opportunity is assigned to **Next** → this Big
+  Bet is placed in **Later** unconditionally. Do NOT apply a pilot-scope or partial-delivery
+  exception ("a scoped pilot can begin independently"). The `strict` flag exists precisely to
+  prevent that judgment call — applying it here re-introduces the fork this rule was designed to
+  close.
+- When `phase_dependency=flexible` → a scoped pilot may begin independently of the antecedent's
+  phase; apply standard dependency judgment.
+- When `phase_dependency=n/a` or the field is absent → apply the table rules above without the
+  strict override.
+
+Tag the placement when strict fires: "Placed in Later — phase_dependency=strict and antecedent
+[H-RT-XX] is in Next; no pilot-scope exception applies [Form-Stated]."
 
 ### Phase capacity check (apply after all assignments above)
 

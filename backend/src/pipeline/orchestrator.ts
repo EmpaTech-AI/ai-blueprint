@@ -140,14 +140,21 @@ export async function runPipeline(jobId: string): Promise<void> {
   // npm run build was executed after this process started, dist/ is newer than the loaded
   // modules. Reject the run immediately so the operator gets a clear error rather than
   // silently running stale code for another full batch.
-  const distScorerPath = path.join(__dirname, '../utils/confidenceScorer.js');
-  if (fs.existsSync(distScorerPath)) {
-    const buildMtime = fs.statSync(distScorerPath).mtimeMs;
-    if (buildMtime > SERVER_START_TIME_MS) {
-      throw new Error(
-        'D8 STALE BUILD: dist/utils/confidenceScorer.js was rebuilt after this server process started. ' +
-        'Restart the server (npm start) to load the latest compiled code before running new pipeline jobs.',
-      );
+  const distFilesToCheck = [
+    path.join(__dirname, '../utils/confidenceScorer.js'),
+    path.join(__dirname, '../docx/assembler.js'),
+    path.join(__dirname, '../docx/htmlAssembler.js'),
+  ];
+  for (const distPath of distFilesToCheck) {
+    if (fs.existsSync(distPath)) {
+      const buildMtime = fs.statSync(distPath).mtimeMs;
+      if (buildMtime > SERVER_START_TIME_MS) {
+        const filename = path.basename(distPath);
+        throw new Error(
+          `D8 STALE BUILD: dist/${filename} was rebuilt after this server process started. ` +
+          'Restart the server (npm start) to load the latest compiled code before running new pipeline jobs.',
+        );
+      }
     }
   }
 
