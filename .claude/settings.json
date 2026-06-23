@@ -160,7 +160,16 @@
       "Bash(powershell -Command \"Get-ChildItem -Path . -Depth 1 | Select-Object Name, PSIsContainer\")",
       "Bash(powershell -Command \"Get-ChildItem -Path backend\\\\src -Depth 2 -Include *.ts -Exclude node_modules | Select-Object FullName\")",
       "PowerShell(Copy-Item \"C:\\\\Users\\\\Bozhidar\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Shiz-AI-Assist-BG-AI-Blueprint\\\\b049919c-0d14-46b9-8069-f68d9b58e991\\\\scratchpad\\\\justification-report.html\" -Destination \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\\\\outputs\\\\blueprint-v28-justification-report.html\" -Force)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote -v)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" config --list)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" branch -vv)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote set-url origin https://github.com/EmpaTech-AI/ai-blueprint.git)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" branch --set-upstream-to=origin/main main)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" fetch origin)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove AI-Blueprint)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove ai-blueprint)",
+      "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove aiblueprint)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"
