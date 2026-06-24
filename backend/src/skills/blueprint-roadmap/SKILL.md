@@ -116,24 +116,47 @@ bump the lowest-impact Big Bet out of Next instead.
 
 | Condition | Phase |
 |---|---|
+| FB + system-event deadline within ≤ Month 3 | **Now** |
 | FB + regulatory or compliance deadline within ≤ Month 3 | **Now** |
 | FB + is a prerequisite for ≥ 2 opportunities already assigned to Now | **Now** |
 | FB + all other cases | **Next** |
 
-**Machine-readable trigger (primary — T-17):** Read the `compliance_deadline` field from the
-`<!-- score: id=H-RT-XX ... compliance_deadline=<value> ... -->` comment in the dossier Section D.
+**Machine-readable triggers (primary — T-17 + system-event extension):** Read both deadline
+fields from the `<!-- score: id=H-RT-XX ... -->` comment in the dossier Section D. Either field,
+if set to a date within Month 1–3 of the engagement, places the Foundation Builder in **Now**.
+Evaluate in order:
 
-- When `compliance_deadline=none` → apply "all other cases → **Next**" unconditionally. Do NOT
-  re-evaluate whether a system migration date, contract renewal, or maturity gap qualifies as a
-  compliance deadline. The archetype has already made that determination.
-- When `compliance_deadline=YYYY-MM-DD` → check whether that date falls within Month 1–3 of the
-  engagement. If yes → **Now**. If no → **Next**.
+**Step 1 — `system_event_deadline` field:**
+- When `system_event_deadline=YYYY-MM-DD` → check whether that date falls within Month 1–3 of
+  the engagement. If yes → **Now**; stop. If no → proceed to Step 2.
+- When `system_event_deadline=none` → proceed to Step 2.
 
-Tag the placement: "Placed in Next — compliance_deadline=none in score comment; no specific
-enforcement date documented [Form-Stated]."
+`system_event_deadline` captures a named system migration or technology cutover (e.g. ATS
+go-live, platform replacement) that this Foundation Builder must precede. It is a client-specific
+field set by Stage 3 from documented dates in the client's materials. The archetype default is
+`none` for all rows; Stage 3 overrides it when a concrete cutover date is present in the client
+documents.
 
-**Text-pattern trigger (fallback — older dossier format without `compliance_deadline` field):**
-When the score comment lacks the `compliance_deadline` field, apply the criterion below.
+Tag when this fires: "Placed in Now — system_event_deadline=YYYY-MM-DD within Month 1–3;
+[opportunity] must be established before [system event] [Form-Stated]."
+
+**Step 2 — `compliance_deadline` field (T-17):**
+- When `compliance_deadline=YYYY-MM-DD` → check whether that date falls within Month 1–3 of
+  the engagement. If yes → **Now**; stop. If no → proceed to Step 3.
+- When `compliance_deadline=none` → proceed to Step 3.
+
+Tag when this fires: "Placed in Now — compliance_deadline=YYYY-MM-DD within Month 1–3;
+legally-mandated enforcement date documented [Form-Stated]."
+
+**Step 3 — prerequisite check and default:**
+- If this Foundation Builder is a prerequisite for ≥ 2 opportunities already assigned to Now
+  → **Now**.
+- All other cases → **Next**. Tag: "Placed in Next — system_event_deadline=none and
+  compliance_deadline=none in score comment; no dated trigger documented [Form-Stated]."
+
+**Text-pattern trigger (fallback — older dossier format without deadline fields):**
+When the score comment lacks both `system_event_deadline` and `compliance_deadline` fields,
+apply the criterion below.
 
 **Compliance deadline criterion (fallback — strict):** "Regulatory or compliance deadline within
 ≤ Month 3" requires **explicit documentary evidence** of a specific enforcement date or a

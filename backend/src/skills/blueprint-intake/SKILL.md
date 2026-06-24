@@ -239,7 +239,7 @@ Revenue per delivery FTE is estimated at £103,000 [Inferred — appendix item 3
 Selection score line (mandatory at the end of each hypothesis — two lines, copy both exactly):
 ```markdown
 **Selection score:** Impact 5 × Feasibility 4 × Alignment 5 = **100** | Quick Win
-<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none phase_dependency=n/a -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->
 ```
 
 The HTML comment is invisible in rendered output. It allows downstream skills and the stability
@@ -267,6 +267,17 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   sector-specific regulatory cutover). Set to `none` if no such date is documented. Stage 4
   (blueprint-roadmap) reads this as a machine-readable trigger for the FB compliance-deadline rule —
   when `none`, the rule applies "all other cases → Next" without re-judging.
+
+- `system_event_deadline` — `YYYY-MM-DD` (exact date) or `none`. The specific date of a named
+  system migration or technology cutover documented in the client's materials that directly affects
+  this opportunity's implementation readiness (e.g. an ATS go-live date, a platform migration
+  cutover, a database system replacement). This is a **client-specific field** — the archetype
+  default is `none`; override it only when the client's materials provide a concrete, named date
+  for a system event that this opportunity must precede or be sequenced around. Stage 4
+  (blueprint-roadmap) reads this as a machine-readable trigger: if the date falls within Month 1–3
+  of the engagement, a Foundation Builder is placed in Now. A date must be read directly from
+  client documents (contract, project plan, technical brief, board pack) — do NOT infer or
+  estimate dates. If the materials mention a migration but provide no specific date, set `none`.
 
 - `phase_dependency` — `strict`, `flexible`, or `n/a`. Applies to Big Bet opportunities only (class=BigBet
   after D6 adjustment). `strict`: the dependency-phase rule is unconditional — if the antecedent is

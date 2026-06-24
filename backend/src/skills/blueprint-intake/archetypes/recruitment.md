@@ -120,21 +120,31 @@ after D6 adjustment). `strict`: the "depends on any Next-assigned item → Later
 unconditional — no pilot-scope exception. `flexible`: scoped pilot can begin independently.
 `n/a`: not applicable (Quick Win or Foundation Builder that does not become a Big Bet).
 
-| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` | `d_gate4` | `compliance_deadline` | `phase_dependency` |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder | yes | yes | no | yes | yes | no | none | strict |
-| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win | no | no | no | no | no | no | none | n/a |
-| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) | no | no | no | no | no | yes | none | n/a |
-| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder | yes | yes | no | no | yes | no | none | strict |
-| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win | no | no | no | no | no | no | none | n/a |
-| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder | no | yes | no | yes | no | no | none | n/a |
-| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes | no | none | n/a |
-| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes | no | none | strict |
-| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes | no | none | strict |
-| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no | no | none | n/a |
-| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes | no | none | n/a |
-| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no | no | none | n/a |
-| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no | no | none | strict |
+The `system_event_deadline` column carries the date (`YYYY-MM-DD`) of a named system migration
+or technology cutover that directly affects this opportunity's implementation readiness, or `none`.
+The archetype default is `none` for all rows — this is a **client-specific field** that Stage 3
+overrides when the client's materials document a concrete cutover date for this opportunity. A
+Foundation Builder with `system_event_deadline` within Month 1–3 of the engagement is placed in
+**Now** by blueprint-roadmap. The date must be read verbatim from client documents; do not infer
+or estimate. For recruitment clients undergoing an ATS migration, H-RT-07 (Data Protection
+Compliance Foundation) commonly receives this date because governance infrastructure must be
+established before the new ATS goes live.
+
+| ID | Hypothesis | Typical Impact | Typical Feasibility | Typical Alignment | Default Class | `ml_heavy` | `multi_source` | `regulated` | `large_integration` | `adoption_dependent` | `d_gate4` | `compliance_deadline` | `system_event_deadline` | `phase_dependency` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| H-RT-01 | AI-Assisted Specialist Sourcing (Loxo/Gem/Fetcher/native ATS) | 5 | 3 | 5 | Foundation Builder | yes | yes | no | yes | yes | no | none | none | strict |
+| H-RT-02 | AI-Powered CV Formatting + Summary Generation | 5 | 4 | 5 | Quick Win | no | no | no | no | no | no | none | none | n/a |
+| H-RT-03 | ATS-Driven Automated Client Status Updates | 4 | 4 | 5 | Quick Win (post-cutover) | no | no | no | no | no | yes | none | none | n/a |
+| H-RT-04 | Candidate Database Revival + AI Matching | 4 | 3 | 4 | Foundation Builder | yes | yes | no | no | yes | no | none | none | strict |
+| H-RT-05 | Interview Scheduling Standardisation (Calendly/equivalent) | 3 | 5 | 4 | Quick Win | no | no | no | no | no | no | none | none | n/a |
+| H-RT-06 | Pipeline Visibility Dashboard (Power BI + ATS API) | 4 | 3 | 3 | Foundation Builder | no | yes | no | yes | no | no | none | none | n/a |
+| H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes | no | none | none | n/a |
+| H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes | no | none | none | strict |
+| H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes | no | none | none | strict |
+| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no | no | none | none | n/a |
+| H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes | no | none | none | n/a |
+| H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no | no | none | none | n/a |
+| H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no | no | none | none | strict |
 
 The selection algorithm picks 7. Coverage rules ensure all 4 strategic priorities have at least one selected hypothesis.
 
