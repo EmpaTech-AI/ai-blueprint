@@ -39,6 +39,12 @@ Strategic Value Score = Impact × Feasibility × Alignment
 
 Each component scored 1–5. Multiplicative (not additive) because a hypothesis weak on any single dimension should not score highly.
 
+**Score anchor rule (T-21 — mandatory):** For each hypothesis drawn from the archetype Hypothesis Library, start from the archetype's **Typical Impact**, **Typical Feasibility**, and **Typical Alignment** columns as the base score. Use those values unchanged unless a specific passage in the client's uploaded documents provides direct evidence that the client's situation differs from the typical case. If you adjust a component, cite the verbatim document passage that justifies it. If no adjustment evidence exists, use the archetype value as-is — do NOT re-derive from scratch.
+
+For hypotheses not in the archetype library (document-surfaced candidates only), score from scratch using the anchored definitions below.
+
+This anchor eliminates per-run score variance on library hypotheses — the same archetype inputs always produce the same base scores, so the same top-7 ranking. It is the Stage-1 equivalent of the T-02 lock that Stage 3 applies to Stage-1 scores.
+
 ### Impact (1–5)
 
 Scores are INTEGER ONLY (1, 2, 3, 4, or 5). No fractional scores. Apply the first matching rule.

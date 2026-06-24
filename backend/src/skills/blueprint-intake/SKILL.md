@@ -167,15 +167,16 @@ The 3-chunk workflow is the default and only supported mode:
 
 | Chunk | Contains | Expected words | Stops when |
 |-------|----------|----------------|------------|
-| 1 | Header + Document Receipt + Section A + Section B | ~1,500 | Section B complete + Checkpoint 1 emitted |
+| 1 | Header + Document Receipt + Section A + Section B + **Section I (INTAKE_FACTS)** | ~1,700 | Section I complete + Checkpoint 1 emitted |
 | 2 | Section C (8 pain points) + Section D (7 hypotheses) | ~2,200 | Section D complete + Checkpoint 2 emitted |
-| 3 | Section E + Section F + Section G + [JUSTIFICATION] + Section H | ~800 | Final marker emitted |
+| 3 | Section E + Section F + Section G + Section H + [JUSTIFICATION] | ~800 | Final marker emitted |
 
 **Chunk 1 production — first response when invoked:**
 
 1. Produce: Header block, Document Receipt table, Section A (Executive Summary), Section B (Key Data Points table)
-2. End with the Checkpoint 1 block (format below)
-3. Stop. Do not begin Section C.
+2. Produce: **Section I (INTAKE_FACTS HTML comment block — see §I below)**. All INTAKE_FACTS fields are derived directly from the uploaded documents and intake form — no downstream analytical sections are required. Producing Section I here means that Chunk 2 score comments can copy `SYSTEM_EVENT_CUTOVER` verbatim rather than re-deriving it, eliminating the within-run two-point divergence (T-22).
+3. End with the Checkpoint 1 block (format below)
+4. Stop. Do not begin Section C.
 
 **Citation requirement for Section B:** Every data row in the Section B table must carry exactly one citation tag in its row. Use `[Document-Backed — <source artifact, page>]` if the value comes from an uploaded document, `[Form-Stated — <Section Name>]` if it comes from the intake form, or `[Document-Backed + Form-Stated — <source>, <Section Name>]` if both. Do not place multiple tags on a single row — if a value has two supporting sources, choose the higher-confidence one. Do not omit the tag — if no source can be cited, the value should not appear in the table. Rows where the value is genuinely unavailable may be written as "n/a" with no tag required.
 
@@ -277,14 +278,12 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   (blueprint-roadmap) reads this as a machine-readable trigger: if the date falls within Month 1–3
   of the engagement, a Foundation Builder is placed in Now.
 
-  **How to populate (T-20):** Apply the SYSTEM_EVENT_CUTOVER anchored extraction rule directly
-  to the client materials: look for an explicitly labelled cutover or go-live target date (e.g.
-  a field labelled "Cutover Target", "Go-Live Date", "System Go-Live", "ATS Go-Live"). If found,
-  use that date. If no labelled field exists, use the first date explicitly described as the
-  completion or go-live date of a named system migration. Do NOT use document header dates,
-  engagement start dates, audit dates, or planning dates. Record the same extracted value as
-  `SYSTEM_EVENT_CUTOVER` when producing Section I (Chunk 3) — extract once, record in both
-  places consistently. If no qualifying date is present, set `none` here and `none` in Section I.
+  **How to populate (T-20/T-22):** Copy the `SYSTEM_EVENT_CUTOVER` value verbatim from the
+  INTAKE_FACTS block you produced in Chunk 1. Do NOT re-read client documents or re-derive the
+  date at this step. If `SYSTEM_EVENT_CUTOVER=none` in Chunk 1, write `system_event_deadline=none`
+  here. If `SYSTEM_EVENT_CUTOVER=2026-07-31`, write `system_event_deadline=2026-07-31`. The
+  copy must be character-for-character — any re-derivation is a T-22 violation and will produce
+  within-run divergence between INTAKE_FACTS and the score comment.
 
 - `phase_dependency` — `strict`, `flexible`, or `n/a`. Applies to Big Bet opportunities only (class=BigBet
   after D6 adjustment). `strict`: the dependency-phase rule is unconditional — if the antecedent is
@@ -337,17 +336,17 @@ back to alias-normalised title matching, which is less reliable.
 
 **Chunk 3 production — triggered when operator says "continue to chunk 3" (or equivalent):**
 
-**Production order for Chunk 3 (mandatory):** E → F → G → H → I → [JUSTIFICATION] → Final marker.
+**Production order for Chunk 3 (mandatory):** E → F → G → H → [JUSTIFICATION] → Final marker.
 The [JUSTIFICATION] block is always the absolute last substantive content before the Final marker
 (per `../methodology-and-contracts/SKILL.md`). Section H must not introduce new inline citation
 tags — its references are limited to "appendix item N" pointers to items tagged in Chunks 1–2.
+Section I (INTAKE_FACTS) was produced in Chunk 1 — do NOT re-emit it here.
 
 1. Reference Checkpoint 2 to know which Inferred and Assumption tags were used in Chunks 1–2
 2. Produce in this exact order: Section E (5 org bullets + 5 process bullets), Section F
    (Document Index table), Section G (3–6 Open Questions), Section H (Reviewer Checklist,
-   5 categories — no new citation tags), Section I (INTAKE_FACTS HTML comment block — see
-   §I below), then the complete [JUSTIFICATION] block (one entry per Inferred/Assumption
-   tag from Chunks 1–2)
+   5 categories — no new citation tags), then the complete [JUSTIFICATION] block (one entry
+   per Inferred/Assumption tag from Chunks 1–2)
 
 **Chunk 3 mandatory formats:**
 
@@ -601,11 +600,13 @@ If a stated priority is NOT in the top 7: For each unrepresented priority, inclu
 
 This is not an apology for the algorithm's decision — it is a demonstration of the algorithm's intelligence. A senior consultant reviewing the Blueprint should be able to read this section and immediately understand why the algorithm made the trade-off it made.
 
-### I) INTAKE_FACTS Canonical Block (Mandatory — Machine-Readable, Last Section Before [JUSTIFICATION])
+### I) INTAKE_FACTS Canonical Block (Mandatory — Machine-Readable, Produced at End of Chunk 1)
 
-Emit the following HTML comment block as the **last section** of the dossier, immediately after
-Section H and before the `[JUSTIFICATION]` block. It canonicalises the key client facts so
-every downstream stage (2–5) reads them verbatim rather than re-deriving from memory or prose.
+Emit the following HTML comment block at the **end of Chunk 1**, immediately after Section B
+and before the Checkpoint 1 block. It canonicalises the key client facts so every downstream
+stage (2–5) reads them verbatim rather than re-deriving from memory or prose. Producing it
+in Chunk 1 means Chunk 2 score comments can copy `SYSTEM_EVENT_CUTOVER` as a true verbatim
+copy — not a re-derivation — eliminating within-run date divergence (T-22).
 
 ```html
 <!-- INTAKE_FACTS
@@ -632,7 +633,7 @@ SYSTEM_EVENT_CUTOVER: {look for an explicitly labelled cutover or go-live target
 - Downstream stages that re-derive CEO_NAME or REVENUE_RANGE from prose rather than reading this block are violating the data contract — this block is the single source of truth for those fields.
 - The validation harness checks for presence of this block. A dossier missing it fails schema validation (`intake_v1.0` §4.9).
 
-**Chunk 3 production note:** Produce Section I after Section H and before the `[JUSTIFICATION]` block.
+**Chunk 1 production note:** Section I is produced at the end of Chunk 1 (after Section B, before Checkpoint 1). Do NOT re-emit it in Chunk 3.
 
 ### [JUSTIFICATION] Block
 
