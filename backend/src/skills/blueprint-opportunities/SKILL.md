@@ -376,6 +376,16 @@ For each score marker, verify the `class=` value is consistent with the pinned d
 
 Any marker that fails this check must be corrected before output is emitted.
 
+**Phase-field completeness check (mandatory — T-19, run before emitting output):**
+
+For each score marker, verify all nine non-score phase fields are present verbatim from the
+Stage 1 score comment. Required fields: `ml_heavy`, `multi_source`, `regulated`,
+`large_integration`, `adoption_dependent`, `d_gate4`, `compliance_deadline`,
+`system_event_deadline`, `phase_dependency`. A marker missing any of these is a pre-flight
+FAIL — Stage 4 will fall back to text-pattern judgment for any absent field, introducing
+per-run variance in phase placement. Add the missing fields verbatim from the corresponding
+Stage 1 score comment before finalising output.
+
 These patterns disqualify output from pipeline use.
 
 ## First-Turn Behavior

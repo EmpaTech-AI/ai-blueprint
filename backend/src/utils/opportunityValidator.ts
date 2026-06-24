@@ -77,6 +77,20 @@ export function validateOpportunityScores(output: string): OpportunityValidation
     // Skip comments that are missing the three scoring components.
     if (isNaN(impact) || isNaN(feasibility) || isNaN(alignment)) continue;
 
+    // ── T-19 relay guard: all nine non-score phase fields must be present ──────
+    const REQUIRED_PHASE_FIELDS = [
+      'ml_heavy', 'multi_source', 'regulated', 'large_integration', 'adoption_dependent',
+      'd_gate4', 'compliance_deadline', 'system_event_deadline', 'phase_dependency',
+    ];
+    const missingPhaseFields = REQUIRED_PHASE_FIELDS.filter(f => !(f in fields));
+    if (missingPhaseFields.length > 0) {
+      reviewerFlags.push(
+        `GATE 3 FAIL T-19: ${id} score comment is missing phase fields: ` +
+        `${missingPhaseFields.join(', ')} — Stage 4 will fall back to text-pattern judgment. ` +
+        `T-19 relay incomplete; manual review required before delivery.`,
+      );
+    }
+
     const expectedProduct = impact * feasibility * alignment;
     // Insert at front to restore document order after right-to-left iteration.
     scores.unshift({ id, impact, feasibility, alignment, product: expectedProduct, class: cls });

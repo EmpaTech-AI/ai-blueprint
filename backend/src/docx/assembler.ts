@@ -535,6 +535,7 @@ function stripCheckpointBlocks(text: string): string {
 }
 
 function parseAssembledContent(content: string): Section[] {
+  console.log('[T15-DIAGNOSTIC] parseAssembledContent entered');
   // Enforce positional boundary: skip everything before the first `# ` section heading.
   // This strips pre-flight status blocks ("Step 1 — Compressed Dossier: ...") that the
   // assembly model may emit before the document title despite the SKILL.md boundary rule.

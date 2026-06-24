@@ -163,9 +163,12 @@ legally-mandated enforcement date documented [Form-Stated]."
 **Field authority rule (T-20):** When `system_event_deadline` or `compliance_deadline` fields
 are present in the score comment, they are the **sole input** for the machine-readable trigger
 evaluation. Prose in the opportunity card, dossier, or maturity snapshot is not consulted, does
-not validate, and cannot override the field value. A field set to `none` means the trigger does
-not fire — do NOT re-read prose to look for dates or infer urgency. The fallback text-pattern
-trigger below applies only when both fields are absent from the score comment entirely.
+not validate, and cannot override the field value. A field set to a `YYYY-MM-DD` date activates
+the machine-readable trigger — if that date falls within Month 1–3 of the engagement, the
+Foundation Builder is placed in **Now** (follow Steps 1 and 2 above). A field set to `none`
+means the trigger does not fire — do NOT re-read prose to look for dates or infer urgency from
+surrounding context. The fallback text-pattern trigger below applies only when both fields are
+absent from the score comment entirely.
 
 **Text-pattern trigger (fallback — older dossier format without deadline fields):**
 When the score comment lacks both `system_event_deadline` and `compliance_deadline` fields,
