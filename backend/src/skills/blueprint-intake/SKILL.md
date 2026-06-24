@@ -275,9 +275,11 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   default is `none`; override it only when the client's materials provide a concrete, named date
   for a system event that this opportunity must precede or be sequenced around. Stage 4
   (blueprint-roadmap) reads this as a machine-readable trigger: if the date falls within Month 1–3
-  of the engagement, a Foundation Builder is placed in Now. A date must be read directly from
-  client documents (contract, project plan, technical brief, board pack) — do NOT infer or
-  estimate dates. If the materials mention a migration but provide no specific date, set `none`.
+  of the engagement, a Foundation Builder is placed in Now.
+
+  **How to populate (T-20):** Read the `SYSTEM_EVENT_CUTOVER` value from the INTAKE_FACTS
+  canonical block (Section I) and copy it verbatim into this field — do NOT re-read client
+  documents at this step. If `SYSTEM_EVENT_CUTOVER=none`, set `system_event_deadline=none`.
 
 - `phase_dependency` — `strict`, `flexible`, or `n/a`. Applies to Big Bet opportunities only (class=BigBet
   after D6 adjustment). `strict`: the dependency-phase rule is unconditional — if the antecedent is
@@ -612,6 +614,7 @@ JURISDICTION_LIST: {comma-separated country codes e.g. "BG, RO, PL"}
 TOP_PRIORITIES: {semicolons separating top 3 verbatim from form Section 2}
 KEY_METRIC_1: {label + value from documents e.g. "CV-saving-hours: 175–250/month"}
 KEY_METRIC_2: {second quantitative claim if present — omit field entirely if no second metric}
+SYSTEM_EVENT_CUTOVER: {first documented system migration or technology cutover date from client materials in document order; YYYY-MM-DD format; if only month documented, use last day of that month; if no date present in materials, write none}
 -->
 ```
 

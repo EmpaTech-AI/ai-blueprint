@@ -103,6 +103,12 @@ every run — phase assignments are not a judgment surface.
 
 ### Quick Win opportunities
 
+**Machine-readable trigger (primary — REG-9):** Before evaluating the table below, read the
+`d_gate4` field from the score comment. When `d_gate4=yes` → place in **Next** unconditionally.
+Do NOT re-evaluate whether the gate condition "could begin independently" or any other prose
+rationale — the field value is authoritative and no partial-delivery or text-pattern exception
+applies. When `d_gate4=no` → proceed to the table.
+
 | Condition | Phase |
 |---|---|
 | Quick Win + **no named prerequisite** in the opportunity card | **Now** |
@@ -153,6 +159,13 @@ legally-mandated enforcement date documented [Form-Stated]."
   → **Now**.
 - All other cases → **Next**. Tag: "Placed in Next — system_event_deadline=none and
   compliance_deadline=none in score comment; no dated trigger documented [Form-Stated]."
+
+**Field authority rule (T-20):** When `system_event_deadline` or `compliance_deadline` fields
+are present in the score comment, they are the **sole input** for the machine-readable trigger
+evaluation. Prose in the opportunity card, dossier, or maturity snapshot is not consulted, does
+not validate, and cannot override the field value. A field set to `none` means the trigger does
+not fire — do NOT re-read prose to look for dates or infer urgency. The fallback text-pattern
+trigger below applies only when both fields are absent from the score comment entirely.
 
 **Text-pattern trigger (fallback — older dossier format without deadline fields):**
 When the score comment lacks both `system_event_deadline` and `compliance_deadline` fields,

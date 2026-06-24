@@ -539,14 +539,20 @@ function parseAssembledContent(content: string): Section[] {
   // This strips pre-flight status blocks ("Step 1 — Compressed Dossier: ...") that the
   // assembly model may emit before the document title despite the SKILL.md boundary rule.
   const cleanContent = stripCheckpointBlocks(content);
+  const strippedChars = content.length - cleanContent.length;
+  console.log(`[T15-DIAGNOSTIC] stripCheckpointBlocks: ${strippedChars > 0 ? `removed ${strippedChars} chars` : 'no change'}`);
   const sections: Section[] = [];
   const lines = cleanContent.split('\n');
   let currentHeading = '';
   let currentContent: string[] = [];
   let seenFirstHeading = false;
+  let preHeadingContent = '';
 
   for (const line of lines) {
     if (line.startsWith('# ') && !line.startsWith('## ')) {
+      if (!seenFirstHeading && preHeadingContent.trim()) {
+        console.log(`[T15-DIAGNOSTIC] pre-heading content skipped (${preHeadingContent.length} chars): ${preHeadingContent.substring(0, 400)}`);
+      }
       if (seenFirstHeading && currentContent.length > 0) {
         sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
         currentContent = [];
@@ -555,8 +561,9 @@ function parseAssembledContent(content: string): Section[] {
       seenFirstHeading = true;
     } else if (seenFirstHeading) {
       currentContent.push(line);
+    } else {
+      preHeadingContent += line + '\n';
     }
-    // else: pre-heading content — skip (positional boundary enforcement)
   }
 
   if (seenFirstHeading && currentContent.length > 0) {

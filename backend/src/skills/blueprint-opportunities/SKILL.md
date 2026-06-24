@@ -105,7 +105,7 @@ hypothesis. These scores are the **authoritative base** for Impact, Feasibility,
 at Stage 3. Do NOT re-score from scratch. Extract them and use them directly:
 
 ```
-<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin -->
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->
 ```
 
 **Why locked:** Stage 1 sees the same documents Stage 3 does, produces byte-identical scores
@@ -117,6 +117,12 @@ per-run variance with no new information to justify it — Stage 3 receives no n
 2. Record them as the base scores. Do not adjust them at this step.
 3. Apply the **Readiness Adjustment Rule** (Step 4) as the only permitted modification.
 4. The Stage 3 score is: `(Stage 1 base) + (D6 adjustment)`. No other changes.
+5. **Re-emit ALL remaining fields from the Stage 1 score comment verbatim.** The fields
+   `ml_heavy`, `multi_source`, `regulated`, `large_integration`, `adoption_dependent`,
+   `d_gate4`, `compliance_deadline`, `system_event_deadline`, and `phase_dependency` MUST
+   appear in the Stage 3 score comment with their exact values from Stage 1. Do NOT omit,
+   re-judge, or default any of these fields — Stage 4 reads them as machine-readable triggers
+   and produces per-run variance when they are absent.
 
 The `id=` field anchors JUSTIFICATION entries to the canonical element ID (e.g. `Element: H-RT-02`).
 If a Stage 1 score comment is absent for a hypothesis, flag it and score from scratch per Step 4,
@@ -251,7 +257,7 @@ confidence tag — e.g. "Manual sourcing bottleneck (Dossier C.1) [Document-Back
 
 **Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5
 **Classification:** Quick Win / Foundation Builder / Big Bet
-<!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} -->
+<!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} ml_heavy={yes|no} multi_source={yes|no} regulated={yes|no} large_integration={yes|no} adoption_dependent={yes|no} d_gate4={yes|no} compliance_deadline={YYYY-MM-DD|none} system_event_deadline={YYYY-MM-DD|none} phase_dependency={strict|flexible|n/a} -->
 
 **Pilot suggestion:** (1–2 sentences — tag any assumptions about technology or process:
 e.g. "A pilot using an AI sourcing tool on 10 mandates would validate the time saving
