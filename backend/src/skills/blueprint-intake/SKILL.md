@@ -277,9 +277,14 @@ harness to parse scores without regex-matching the human-readable prose line. Fi
   (blueprint-roadmap) reads this as a machine-readable trigger: if the date falls within Month 1–3
   of the engagement, a Foundation Builder is placed in Now.
 
-  **How to populate (T-20):** Read the `SYSTEM_EVENT_CUTOVER` value from the INTAKE_FACTS
-  canonical block (Section I) and copy it verbatim into this field — do NOT re-read client
-  documents at this step. If `SYSTEM_EVENT_CUTOVER=none`, set `system_event_deadline=none`.
+  **How to populate (T-20):** Apply the SYSTEM_EVENT_CUTOVER anchored extraction rule directly
+  to the client materials: look for an explicitly labelled cutover or go-live target date (e.g.
+  a field labelled "Cutover Target", "Go-Live Date", "System Go-Live", "ATS Go-Live"). If found,
+  use that date. If no labelled field exists, use the first date explicitly described as the
+  completion or go-live date of a named system migration. Do NOT use document header dates,
+  engagement start dates, audit dates, or planning dates. Record the same extracted value as
+  `SYSTEM_EVENT_CUTOVER` when producing Section I (Chunk 3) — extract once, record in both
+  places consistently. If no qualifying date is present, set `none` here and `none` in Section I.
 
 - `phase_dependency` — `strict`, `flexible`, or `n/a`. Applies to Big Bet opportunities only (class=BigBet
   after D6 adjustment). `strict`: the dependency-phase rule is unconditional — if the antecedent is
@@ -614,7 +619,7 @@ JURISDICTION_LIST: {comma-separated country codes e.g. "BG, RO, PL"}
 TOP_PRIORITIES: {semicolons separating top 3 verbatim from form Section 2}
 KEY_METRIC_1: {label + value from documents e.g. "CV-saving-hours: 175–250/month"}
 KEY_METRIC_2: {second quantitative claim if present — omit field entirely if no second metric}
-SYSTEM_EVENT_CUTOVER: {first documented system migration or technology cutover date from client materials in document order; YYYY-MM-DD format; if only month documented, use last day of that month; if no date present in materials, write none}
+SYSTEM_EVENT_CUTOVER: {look for an explicitly labelled cutover or go-live target date in the client materials — e.g. a field or row labelled "Cutover Target", "Go-Live Date", "System Go-Live", "Migration Go-Live", or "ATS Go-Live". If found, use that date. If no labelled field exists, use the first date explicitly described as the completion or go-live date of a named system migration or technology cutover. Do NOT use: document or report header dates, project start dates, consultant engagement start dates, audit dates, planning review dates, or any date associated with a vendor proposal. YYYY-MM-DD format; if only month documented, use last day of that month; if no qualifying date is present, write none}
 -->
 ```
 
