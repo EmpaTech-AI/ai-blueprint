@@ -355,6 +355,17 @@ Before finalising each chunk, scan for and remove:
   concatenated document. If they appear in the output, strip them before DOCX conversion. They
   are scaffold only — the operator assembles the three chunks by removing these blocks and keeping
   everything else.
+- **Process-narration scaffold (mandatory — T-23)** — do NOT narrate the pipeline. Never emit a
+  step-by-step process recap such as "Step 1 (Intake): … Step 2 (Maturity): … Step 3 …" anywhere
+  in the document. The client reads a finished deliverable, not an account of how it was produced.
+  Any line beginning "Step N (…)" or "Stage N — …" describing the build process is scaffold and
+  must be removed. The Methodology Appendix (Section 8) describes the *framework* (the 6 dimensions,
+  the scoring approach) — it must not recount the pipeline run.
+- **Person names — single source of truth (mandatory — S-26)** — every person name (CEO,
+  directors, champions) must be copied verbatim from the Stage 1 `<!-- INTAKE_FACTS -->` block
+  (`CEO_NAME` etc.). Never substitute a name from an archetype example, a similar prior engagement,
+  or general recall. If a name is not in INTAKE_FACTS or the dossier, refer to the role
+  ("the CEO", "the Operations Director"), not an invented surname.
 
 **Final document completeness check (run after chunk concatenation, before DOCX conversion):**
 

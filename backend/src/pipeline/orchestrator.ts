@@ -20,8 +20,9 @@ import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
-import { calculateConfidence, stripJustification, stripForDelivery } from '../utils/confidenceScorer';
-import { validateOpportunityScores, validateRoadmapPhases } from '../utils/opportunityValidator';
+import { calculateConfidence, stripJustification, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
+// stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -241,6 +242,14 @@ export async function runPipeline(jobId: string): Promise<void> {
       log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
     }
 
+    // T-26 (S-29): cross-stage relay-field drift — the nine T-19 fields must be byte-identical
+    // Stage 1 → Stage 3, else Stage 4 phase placement can fork. Compares raw score comments by ID.
+    const { reviewerFlags: relayFlags } = validateRelayFields(dossier, opportunities);
+    if (relayFlags.length > 0) {
+      reviewerFlags.push(...relayFlags);
+      log('warn', 'GATE 3: relay-field drift detected', { jobId, count: relayFlags.length });
+    }
+
     await saveStepOutput(jobId, 'D', opportunities);
     const opportunitiesClean = stripJustification(opportunities);
 
@@ -272,15 +281,31 @@ export async function runPipeline(jobId: string): Promise<void> {
     );
     await saveStepOutput(jobId, 'E', assembled);
 
-    // Strip confidence tags and justification block before generating client documents.
-    const assembledForDelivery = stripForDelivery(assembled);
+    // T-23: Stage-5 delivery strip — shared scaffold strips PLUS the position-envelope guarantee
+    // (document begins at first section header, ends at the Final marker; margins removed wholesale).
+    const assembledForDelivery = stripForDeliveryStage5(assembled);
+
+    // T-23 detector (the scan): assert no scaffold form survived the strip+envelope. Observability —
+    // a residual flag means a relocation we did not anticipate; the envelope should make this empty.
+    const residualFlags = detectResidualScaffold(assembledForDelivery);
+    if (residualFlags.length > 0) {
+      reviewerFlags.push(...residualFlags);
+      log('warn', 'Stage 5: residual scaffold detected after delivery strip', { jobId, count: residualFlags.length });
+    }
+
+    // S-26 (WL-8): role-attributed CEO-name check against the pinned INTAKE_FACTS value (never-ship).
+    const { reviewerFlags: roleFlags } = validateRoleNames(assembledForDelivery, dossier);
+    if (roleFlags.length > 0) {
+      reviewerFlags.push(...roleFlags);
+      log('warn', 'Stage 5: role-attributed name mismatch detected', { jobId, count: roleFlags.length });
+    }
 
     // T-07: Record pipeline build stamp unconditionally in reviewer metadata so every run
     // carries a traceable date+sha regardless of whether the assembly model emitted one.
     const buildStampDate = new Date().toISOString().split('T')[0];
     const buildStampSha = process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v32 sha=${buildStampSha}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33 sha=${buildStampSha}`);
 
 
     // Generate DOCX

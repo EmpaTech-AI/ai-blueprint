@@ -13,9 +13,9 @@ import type { AuthUser } from '@/lib/auth';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────
 
-interface ConfidenceBreakdown { documentBacked: number; formStated: number; inferred: number; assumption: number; total: number }
+interface ConfidenceBreakdown { documentBacked: number; formStated: number; archetypeAnchored?: number; inferred: number; assumption: number; total: number }
 interface JustificationEntry { index: number; tag: 'Inferred' | 'Assumption'; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }
-interface StepConfidence { score: number; highConfidenceCount: number; lowConfidenceCount: number; needsReview: boolean; breakdown: ConfidenceBreakdown; documentVerifiedPercent?: number; formStatedSharePercent?: number; compositionDescriptor?: string; confidenceOverview?: string; justificationEntries?: JustificationEntry[]; inferredSnippets?: string[]; assumptionSnippets?: string[]; noTagsReason?: string; scoreContext?: string }
+interface StepConfidence { score: number; deliveryReadiness?: number; highConfidenceCount: number; lowConfidenceCount: number; needsReview: boolean; breakdown: ConfidenceBreakdown; documentVerifiedPercent?: number; formStatedSharePercent?: number; compositionDescriptor?: string; confidenceOverview?: string; justificationEntries?: JustificationEntry[]; inferredSnippets?: string[]; assumptionSnippets?: string[]; noTagsReason?: string; scoreContext?: string }
 interface TruncationSummary { field: string; originalLength: number; truncatedLength: number }
 
 interface JobSummary {
@@ -160,7 +160,7 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
           {full ? (
             <div className="flex flex-col items-end gap-0.5">
               <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{docVerifiedPct}% <span style={{ fontWeight: 400, opacity: 0.55, fontSize: '0.62rem' }}>doc</span></span>
-              <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.62rem' }}>{score}% blended</span>
+              <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.28)', fontSize: '0.62rem' }}>{score}% grounding{full.deliveryReadiness != null && full.deliveryReadiness !== score ? ` · ${full.deliveryReadiness}% ready` : ''}</span>
             </div>
           ) : (
             <span className="text-xs font-bold tabular-nums" style={{ color: colors.text }}>{score}%</span>
@@ -175,7 +175,7 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
         <div className="space-y-1.5">
           <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Citation breakdown — {full.breakdown.total} total tags</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-            {[['Document-Backed', full.breakdown.documentBacked, '#86efac'], ['Form-Stated', full.breakdown.formStated, '#a5f3fc'], ['Inferred', full.breakdown.inferred, '#fcd34d'], ['Assumption', full.breakdown.assumption, '#fca5a5']].map(([lbl, val, clr]) => (
+            {[['Document-Backed', full.breakdown.documentBacked, '#86efac'], ['Form-Stated', full.breakdown.formStated, '#a5f3fc'], ['Archetype-Anchored', full.breakdown.archetypeAnchored ?? 0, '#c4b5fd'], ['Inferred', full.breakdown.inferred, '#fcd34d'], ['Assumption', full.breakdown.assumption, '#fca5a5']].map(([lbl, val, clr]) => (
               <div key={String(lbl)} className="flex items-center justify-between">
                 <span style={{ color: 'rgba(255,255,255,0.45)' }}>{lbl}</span>
                 <span className="font-semibold tabular-nums" style={{ color: String(clr) }}>{val}</span>
@@ -188,7 +188,10 @@ function ConfidenceCard({ stepKey, data, riskSummary, isSummaryLoading, onReques
                 {full.breakdown.documentBacked} of {full.highConfidenceCount} high-confidence are documentary ({docVerifiedPct}%) · {full.breakdown.formStated} form-stated ({fsSharePct}%)
               </p>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                Blended: {full.highConfidenceCount} high-confidence ÷ {full.breakdown.total} total = {score}% (v14+ continuity)
+                Grounding: {full.highConfidenceCount} client-evidence (DB+FS) ÷ {full.breakdown.total} total = {score}%
+                {(full.breakdown.archetypeAnchored ?? 0) > 0 && full.deliveryReadiness != null
+                  ? ` · Delivery-readiness (incl. ${full.breakdown.archetypeAnchored} archetype-anchored): ${full.deliveryReadiness}%`
+                  : ''}
               </p>
             </div>
           )}

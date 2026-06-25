@@ -10,11 +10,20 @@
 //   • a fenced ``` ASCII portfolio diagram (the box-glyph / tofu case)
 //   • a markdown portfolio table
 //
+// It ALSO embeds the v32 scaffold-leak forms so the Document Lab visibly proves they are stripped
+// before delivery (stripForDelivery runs on this content in the preview path):
+//   • a leading "Step N (…)" process-narration block (T-23 / S-28)
+//   • a `<!-- score: id=H-RT-XX … -->` comment stub (T-26 / S-29)
+//   • a roadmap GATE-4 self-check block (T-25 / S-25)
+// A correct render shows NONE of these — only the clean deliverable.
+//
 // Keep it in sync with the section contract in Blueprint_Design_and_Assembly_Spec_v1.md.
 
 export const SAMPLE_CLIENT_NAME = 'Meridian Talent Partners OOD (SAMPLE)';
 
-export const SAMPLE_ASSEMBLED_CONTENT = `# Executive Summary
+export const SAMPLE_ASSEMBLED_CONTENT = `Step 1 (Intake): Compressed the client dossier into Sections A–D. Step 2 (Maturity): Scored six readiness dimensions. Step 3 (Opportunities): Identified and scored seven opportunities. Step 4 (Roadmap): Sequenced into Now/Next/Later. Step 5 (Assembly): Compiled this deliverable.
+
+# Executive Summary
 
 Meridian Talent Partners OOD is a Sofia-headquartered B2B recruitment and talent solutions firm operating across Bulgaria, Romania, and Poland. The firm generated **EUR 4,823,400** in revenue in FY2025, employs 68 people, and is targeting **EUR 6,000,000** in FY2026 — a 25% growth ambition.
 
@@ -65,6 +74,7 @@ A company-licensed AI writing tool with a standardised prompt library reduces CV
 
 **Classification:** Quick Win — start immediately
 **Opportunity score:** 20
+<!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} d_gate4=no system_event_deadline=none phase_dependency=n/a -->
 
 ### Opportunity 5: AI-Assisted Specialist Candidate Sourcing
 
@@ -98,6 +108,12 @@ NOW              NEXT                 LATER
 \`\`\`
 
 The GDPR Foundation and Vincere migration are the two parallel critical-path items.
+
+### GATE-4 self-check (run before producing output)
+
+- [ ] At least 1 Quick Win is in Now
+- [ ] All 7 opportunities assigned to exactly one phase
+- [ ] No phase has more than 3 items
 
 # Recommended Action Sequence
 

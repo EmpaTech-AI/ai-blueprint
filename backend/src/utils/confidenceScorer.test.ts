@@ -4,6 +4,13 @@ import {
   stripConfidenceTags,
   stripForDelivery,
   stripCheckpointScaffold,
+  stripHtmlComments,
+  stripProcessNarration,
+  stripGate4SelfCheck,
+  stripStatusAndMetaAsides,
+  stripToDeliveryEnvelope,
+  stripForDeliveryStage5,
+  detectResidualScaffold,
   BACKEND_COMPOSITION_THRESHOLDS,
   GROUNDING_GREEN,
 } from './confidenceScorer';
@@ -421,9 +428,10 @@ describe('P0 Freeze guards — threshold stability', () => {
 
 // ── S-23 archetype-anchored basis + T-04 element-keyed dedup ────────────────────
 
-describe('S-23 [Archetype-Anchored] tag', () => {
-  it('counts archetype-anchored basis in the high-confidence pool (not as low-confidence)', () => {
-    // A score basis tagged [Archetype-Anchored] must raise the blended score, not drag it down.
+describe('S-23 / D-9 (B′) [Archetype-Anchored] de-conflated metric', () => {
+  it('does NOT fold archetype-anchored into the grounding numerator (B′)', () => {
+    // grounding = (DB+FS)/total — AA stays in the denominator, NOT the numerator.
+    // delivery-readiness is the composite that also credits the reproducible AA basis.
     const input = [
       'Scores: Impact 5 | Feasibility 3 | Alignment 5 [Archetype-Anchored — locked at Stage 1].',
       'The client uses Vincere [Document-Backed].',
@@ -435,8 +443,12 @@ describe('S-23 [Archetype-Anchored] tag', () => {
     ].join('\n');
     const result = calculateConfidence(input, 'stepD');
     expect(result.breakdown.archetypeAnchored).toBe(1);
-    // 1 DB + 1 archetype-anchored = 2 grounded, 0 low → 100% blended
-    expect(result.score).toBe(100);
+    // 1 DB (grounding numerator) ÷ (1 DB + 1 AA) total = 50% grounding — AA NOT folded in.
+    expect(result.score).toBe(50);
+    // delivery-readiness DOES credit AA: (1 DB + 1 AA) / 2 = 100%.
+    expect(result.deliveryReadiness).toBe(100);
+    // AA is not low-confidence, so it must not appear in the low-confidence count.
+    expect(result.lowConfidenceCount).toBe(0);
   });
 
   it('archetype-anchored basis does not dilute the documentary composition split', () => {
@@ -558,5 +570,287 @@ describe('T-04 element-keyed LC dedup', () => {
     const result = calculateConfidence(input, 'stepD');
     expect(result.breakdown.inferred).toBe(1);
     expect(result.breakdown.assumption).toBe(1);  // not collapsed — different tag categories
+  });
+});
+
+// ── v33: T-23 / T-25 / T-26 scaffold-relocation strips ──────────────────────────
+
+describe('T-26 stripHtmlComments — score-stub / doubled-marker leak fix', () => {
+  it('removes the literal id=H-RT-XX placeholder stub (v32 S-29 leak)', () => {
+    const input = [
+      '## Opportunity 1',
+      '**Scores:** Impact 5/5 | Feasibility 4/5 | Alignment 5/5',
+      '<!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} class={QuickWin} -->',
+      'Body text continues.',
+    ].join('\n');
+    const out = stripHtmlComments(input);
+    expect(out).not.toContain('<!--');
+    expect(out).not.toContain('H-RT-XX');
+    expect(out).toContain('Body text continues.');
+  });
+
+  it('removes ALL comment forms (score, pp-id, INTAKE_FACTS, build) — not just build', () => {
+    const input = [
+      '<!-- INTAKE_FACTS CEO_NAME=Dimitar Popov -->',
+      '# Title',
+      'Pain point text. <!-- pp-id: PP-RT-01 -->',
+      '<!-- score: id=H-RT-02 impact=5 -->',
+      '<!-- build: date=2026-06-25 pipeline=v33 sha=unset -->',
+      'Real content.',
+    ].join('\n');
+    const out = stripHtmlComments(input);
+    expect(out).not.toContain('<!--');
+    expect(out).toContain('# Title');
+    expect(out).toContain('Real content.');
+  });
+});
+
+describe('T-23 stripProcessNarration — relocated leak (S-28)', () => {
+  it('removes a leading "Step N (Stage):" process-narration block', () => {
+    const input = [
+      'Step 1 (Intake): Compressed the dossier into Sections A–D. Step 2 (Maturity): Scored six dimensions.',
+      '',
+      '# Executive Summary',
+      'Real deliverable content.',
+    ].join('\n');
+    const out = stripProcessNarration(input);
+    expect(out).not.toMatch(/Step\s+1\s*\(Intake\)/i);
+    expect(out).not.toMatch(/Step\s+2\s*\(Maturity\)/i);
+    expect(out).toContain('# Executive Summary');
+    expect(out).toContain('Real deliverable content.');
+  });
+
+  it('removes narration in bold or bullet form, and the "Stage N — Name:" variant', () => {
+    const input = [
+      '**Step 3 (Opportunities):** Identified seven opportunities.',
+      '- Step 4 (Roadmap): Sequenced into Now/Next/Later.',
+      'Stage 5 — Assembly: Compiled the deliverable.',
+      'Kept body line.',
+    ].join('\n');
+    const out = stripProcessNarration(input);
+    expect(out).not.toMatch(/Step\s+3/i);
+    expect(out).not.toMatch(/Step\s+4/i);
+    expect(out).not.toMatch(/Stage\s+5/i);
+    expect(out).toContain('Kept body line.');
+  });
+
+  it('does NOT touch real headings or ordinary prose mentioning a step', () => {
+    const input = [
+      '# 1. Executive Summary',
+      '## Now — Months 1 to 3',
+      'The first step the client should take is to license a writing tool.',
+    ].join('\n');
+    expect(stripProcessNarration(input)).toBe(input);
+  });
+});
+
+describe('T-25 stripGate4SelfCheck — internal checklist leak (S-25)', () => {
+  it('removes a leaked GATE-4 self-check block but keeps surrounding sections', () => {
+    const input = [
+      '### Sequencing Rationale',
+      'This order builds momentum.',
+      '',
+      '### GATE-4 self-check (run before producing output)',
+      '- [ ] At least 1 Quick Win in Now',
+      '- [ ] All 7 opportunities assigned',
+      '',
+      '### Phase 1: Now (Months 1–3)',
+      'Deploy the writing tool.',
+    ].join('\n');
+    const out = stripGate4SelfCheck(input);
+    expect(out).not.toMatch(/GATE-?\s*4 self-check/i);
+    expect(out).toContain('Sequencing Rationale');
+    expect(out).toContain('Phase 1: Now');
+    expect(out).toContain('Deploy the writing tool.');
+  });
+});
+
+describe('stripForDelivery integration — all v33 scaffold forms in one pass', () => {
+  it('removes narration, comments, GATE-4 self-check, checkpoint, justification and tags together', () => {
+    const input = [
+      'Step 1 (Intake): Compressed the dossier.',
+      '',
+      '# Executive Summary',
+      'Revenue [Document-Backed] is strong.',
+      '<!-- score: id=H-RT-XX impact={x} -->',
+      '',
+      '### GATE-4 self-check (run before producing output)',
+      '- [ ] All opportunities assigned',
+      '',
+      '## Section B',
+      'More content [Form-Stated].',
+      '',
+      '---',
+      '',
+      '## CHECKPOINT 1 — Foundation Complete',
+      '**Engagement:** X',
+      '',
+      '## [JUSTIFICATION]',
+      '#### 1. [Inferred] Something',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const out = stripForDelivery(input);
+    expect(out).not.toMatch(/Step\s+1\s*\(Intake\)/i);
+    expect(out).not.toContain('<!--');
+    expect(out).not.toContain('H-RT-XX');
+    expect(out).not.toMatch(/GATE-?\s*4 self-check/i);
+    expect(out).not.toMatch(/CHECKPOINT/i);
+    expect(out).not.toContain('[JUSTIFICATION]');
+    expect(out).not.toMatch(/\[Document[- ]?Backed\]/i);
+    expect(out).toContain('# Executive Summary');
+    expect(out).toContain('Revenue');
+    expect(out).toContain('More content');
+  });
+});
+
+// ── T-24 / D-9: archetype-anchored count is PINNED (no 7/13/9/18 fork) ───────────
+
+describe('T-24 / D-9 archetype-anchored count pinning', () => {
+  const buildOppOutput = (aaTagCount: number, scoreMarkerIds: string[]) => {
+    const lines = ['# Opportunity Map'];
+    for (let i = 0; i < aaTagCount; i++) {
+      lines.push(`Scores line ${i} [Archetype-Anchored — locked at Stage 1].`);
+    }
+    lines.push('Vincere licensed [Document-Backed].');
+    for (const id of scoreMarkerIds) {
+      lines.push(`<!-- score: id=${id} impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->`);
+    }
+    return lines.join('\n');
+  };
+
+  it('pins AA to the number of UNIQUE scored hypothesis IDs regardless of raw tag count', () => {
+    // Two "runs": one over-tags AA 13×, one tags 7× — both have the same 7 scored markers.
+    const ids = ['H-RT-01', 'H-RT-02', 'H-RT-03', 'H-RT-04', 'H-RT-05', 'H-RT-07', 'H-RT-08'];
+    const run1 = calculateConfidence(buildOppOutput(13, ids), 'stepD');
+    const run2 = calculateConfidence(buildOppOutput(7, ids), 'stepD');
+    expect(run1.breakdown.archetypeAnchored).toBe(7);
+    expect(run2.breakdown.archetypeAnchored).toBe(7);   // no fork — both pin to 7
+  });
+
+  it('deduplicates a doubled marker (S-29) so it does not inflate the AA count', () => {
+    const ids = ['H-RT-02', 'H-RT-08', 'H-RT-08'];   // H-RT-08 doubled
+    const result = calculateConfidence(buildOppOutput(3, ids), 'stepD');
+    expect(result.breakdown.archetypeAnchored).toBe(2);  // 2 unique IDs, not 3
+  });
+
+  it('excludes the literal H-RT-XX placeholder stub from the pinned count', () => {
+    const ids = ['H-RT-02', 'H-RT-XX'];   // one real, one unsubstituted stub
+    const result = calculateConfidence(buildOppOutput(2, ids), 'stepD');
+    expect(result.breakdown.archetypeAnchored).toBe(1);  // stub excluded
+  });
+
+  it('falls back to raw tag count when no score markers are present (e.g. Stage 5 prose)', () => {
+    const input = [
+      'Feasibility 3/5 [Archetype-Anchored — locked at Stage 1].',
+      'Impact 5/5 [Archetype-Anchored — locked at Stage 1].',
+      'Vincere [Document-Backed].',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepE');
+    expect(result.breakdown.archetypeAnchored).toBe(2);  // raw count — no markers to pin to
+  });
+
+  it('reports grounding and delivery-readiness as separate numbers (the honest 77–84% case)', () => {
+    // The §40-I.1 shape: DB-dominant client evidence + a few AA + a couple of low-confidence.
+    // grounding = (DB+FS)/total must read ~84%, delivery-readiness higher, AA never folded in.
+    const dbLines = Array.from({ length: 7 }, (_, i) => `Fact ${i} [Document-Backed].`);
+    const input = [
+      ...dbLines,                                  // 7 DB
+      'Scores A [Archetype-Anchored].',            // 2 AA (no score markers → raw count)
+      'Scores B [Archetype-Anchored].',
+      'Estimate [Inferred]. Guess [Assumption].',  // 1 Inf + 1 Asm
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepE');
+    // total = 7 DB + 2 AA + 2 low = 11; grounding = 7/11 = 64%; readiness = 9/11 = 82%
+    expect(result.breakdown.archetypeAnchored).toBe(2);
+    expect(result.score).toBe(64);
+    expect(result.deliveryReadiness).toBe(82);
+    expect(result.score).toBeLessThan(result.deliveryReadiness as number);  // AA lifts readiness, not grounding
+  });
+});
+
+// ── v33: position envelope + status strips + residual-scaffold detector ─────────
+
+describe('T-23 stripStatusAndMetaAsides — mid-body relocation forms', () => {
+  it('strips Coverage/Confidence/Sections status lines and (Internal: …) asides', () => {
+    const input = [
+      '# Executive Summary',
+      'Coverage: A–H',
+      'Confidence: high',
+      'The firm processes 258 mandates (Internal: 8 pain points mapped) annually.',
+      'Real prose continues.',
+    ].join('\n');
+    const out = stripStatusAndMetaAsides(input);
+    expect(out).not.toMatch(/^Coverage:/m);
+    expect(out).not.toMatch(/^Confidence:/m);
+    expect(out).not.toContain('(Internal:');
+    expect(out).toContain('# Executive Summary');
+    expect(out).toContain('The firm processes 258 mandates');
+    expect(out).toContain('Real prose continues.');
+  });
+
+  it('does not strip ordinary prose that merely starts with a status word', () => {
+    const input = 'Confidence in these estimates is moderate given the data available.';
+    expect(stripStatusAndMetaAsides(input)).toBe(input);
+  });
+});
+
+describe('T-23 stripToDeliveryEnvelope — the credited KR5 guarantee', () => {
+  it('removes everything before the first section header and after the Final marker', () => {
+    const input = [
+      'I have received all four inputs and will now assemble.',
+      'Step 1 (Intake): compressed the dossier.',
+      '',
+      '# Executive Summary',
+      'Body content.',
+      '',
+      '*End of AI Value Blueprint. Chunks 1–3 complete.*',
+      '',
+      'Document ready for DOCX conversion — let me know if anything else is needed.',
+    ].join('\n');
+    const out = stripToDeliveryEnvelope(input);
+    expect(out.startsWith('# Executive Summary')).toBe(true);
+    expect(out).not.toMatch(/I have received/);
+    expect(out).not.toMatch(/Step 1 \(Intake\)/);
+    expect(out).not.toMatch(/Document ready for DOCX/);
+    expect(out.trimEnd().endsWith('Chunks 1–3 complete.*')).toBe(true);
+  });
+
+  it('is form-agnostic — strips a novel leading scaffold form the enumeration would miss', () => {
+    const input = '>>> ASSEMBLY TRACE v7 :: tokens=5123 ::\n\n# 1. Executive Summary\nReal content.';
+    const out = stripToDeliveryEnvelope(input);
+    expect(out.startsWith('# 1. Executive Summary')).toBe(true);
+    expect(out).not.toContain('ASSEMBLY TRACE');
+  });
+});
+
+describe('stripForDeliveryStage5 + detectResidualScaffold — guarantee then scan', () => {
+  it('produces a clean deliverable and an empty detector result', () => {
+    const input = [
+      'Step 1 (Intake): compressed the dossier.',
+      '',
+      '# Executive Summary',
+      'Revenue [Document-Backed] is strong.',
+      '<!-- score: id=H-RT-XX impact={x} -->',
+      'Coverage: A–H',
+      '',
+      '### GATE-4 self-check (run before producing output)',
+      '- [ ] All opportunities assigned',
+      '',
+      '## Methodology',
+      'Framework content.',
+      '',
+      '*End of AI Value Blueprint. Chunks 1–3 complete.*',
+    ].join('\n');
+    const out = stripForDeliveryStage5(input);
+    expect(detectResidualScaffold(out)).toEqual([]);   // scan confirms the guarantee
+    expect(out.startsWith('# Executive Summary')).toBe(true);
+    expect(out).toContain('Revenue');
+    expect(out).toContain('Framework content.');
+  });
+
+  it('detector flags a residual scaffold form if one survives', () => {
+    const flags = detectResidualScaffold('# Title\nSome CHECKPOINT 2 leaked here.');
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags[0]).toMatch(/CHECKPOINT/);
   });
 });

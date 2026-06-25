@@ -58,7 +58,8 @@ export interface JustificationEntry {
 }
 
 export interface ConfidenceResult {
-  score: number;                      // blended (DB+FS)/total — retained for v14+ continuity
+  score: number;                      // GROUNDING = (DB+FS)/total — client-evidence share (AA excluded from numerator; D-9/B′)
+  deliveryReadiness?: number;         // composite = (DB+FS+AA)/total — credits the reproducible archetype basis; never labelled "grounding"
   highConfidenceCount: number;
   lowConfidenceCount: number;
   needsReview: boolean;

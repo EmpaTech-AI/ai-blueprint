@@ -387,6 +387,23 @@ downstream pipeline steps (Stage 4, Stage 5, and all validators).
 Example gap to catch: "H-RT-08 (RPO Product Infrastructure)" described in a card but no
 `<!-- score: id=H-RT-08 ... -->` line beneath the Scores line. This is a pre-flight FAIL.
 
+**Score marker emission hygiene (mandatory — T-26, run before emitting output):**
+
+1. **No literal placeholder.** The `id=H-RT-XX` shown in the template above is a placeholder.
+   Every emitted marker MUST carry the real hypothesis ID copied from the Stage 1 score comment
+   (`id=H-RT-02`, `id=H-RT-07`, …). The literal token `H-RT-XX` (or any `XX`) must NEVER appear
+   in the output — emitting it is a pre-flight FAIL. Likewise never emit the field braces
+   (`impact={x}`, `class={QuickWin|...}`) — those are template syntax, not values.
+2. **Exactly one marker per ID.** Each hypothesis ID appears in exactly one `<!-- score: -->`
+   comment. A doubled marker for the same ID (e.g. two `id=H-RT-08` lines) is a pre-flight FAIL —
+   remove the duplicate.
+3. **Fields verbatim from Stage 1.** The nine non-score fields (`ml_heavy`, `multi_source`,
+   `regulated`, `large_integration`, `adoption_dependent`, `d_gate4`, `compliance_deadline`,
+   `system_event_deadline`, `phase_dependency`) MUST be byte-identical to the Stage 1 score
+   comment for that ID. Do NOT add, remove, re-judge, or re-date any field. In particular, do
+   NOT introduce a `system_event_deadline` date that Stage 1 had set to `none` — inventing a
+   dated field forks Stage 4 phase placement (the H-RT-04 fork observed at v32).
+
 **Classification conformance check (mandatory — run before emitting output):**
 
 For each score marker, verify the `class=` value is consistent with the pinned decision tree:

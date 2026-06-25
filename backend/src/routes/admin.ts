@@ -5,7 +5,7 @@ import { getAllUsers, createUser, deleteUser, updatePassword, getUserById, getUs
 import { requireAdmin } from '../middleware/auth';
 import { generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
-import { stripForDelivery } from '../utils/confidenceScorer';
+import { stripForDeliveryStage5 } from '../utils/confidenceScorer';
 import { SAMPLE_ASSEMBLED_CONTENT, SAMPLE_CLIENT_NAME } from '../docx/sampleBlueprint';
 
 const router = express.Router();
@@ -19,7 +19,7 @@ const router = express.Router();
 type PreviewFormat = 'html' | 'pdf' | 'txt';
 
 async function renderPreview(format: PreviewFormat, clientName: string, rawContent: string, res: Response): Promise<void> {
-  const content = stripForDelivery(rawContent);
+  const content = stripForDeliveryStage5(rawContent);
   const name = clientName.trim() || SAMPLE_CLIENT_NAME;
 
   if (format === 'pdf') {

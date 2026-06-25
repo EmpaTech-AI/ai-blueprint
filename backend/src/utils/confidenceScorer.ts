@@ -89,11 +89,148 @@ export function stripOperatorPreamble(text: string): string {
   return result;
 }
 
-// Strips build stamp, justification block, CHECKPOINT scaffold, operator preamble, and inline
-// confidence tags — use before generating client documents. Checkpoint stripping happens here,
-// centrally, so every emission path (DOCX/PDF/TXT/HTML) is covered at the source (T-15).
+// T-26 (S-29): Remove ALL HTML comments before delivery. The pipeline embeds internal
+// machine-readable markers as HTML comments — `<!-- score: id=H-RT-XX ... -->`,
+// `<!-- pp-id: PP-RT-XX -->`, `<!-- INTAKE_FACTS ... -->`, and the build stamp. None are
+// client-facing, yet the markdown renderers emit a stray comment as visible literal text.
+// stripBuildStamp only caught the `build:` form, so the v32 batch leaked a literal
+// `<!-- score: id=H-RT-XX ... -->` placeholder stub (3/4 runs) and a doubled marker (1/4).
+// Stripping every comment form here closes the whole class at the single delivery chokepoint.
+// (Scoring and inter-stage parsing read the RAW step output, never the delivery-stripped text,
+// so removing the markers here does not affect the confidence score or downstream handoffs.)
+export function stripHtmlComments(text: string): string {
+  return text.replace(/<!--[\s\S]*?-->[ \t]*\n?/g, '').replace(/\n{3,}/g, '\n\n');
+}
+
+// T-23 (S-28): Remove the step-by-step process-narration scaffold. The v32 leak fix made the
+// CHECKPOINT strip tolerant, and the defect relocated to a different scaffold FORM — a
+// "Step 1 (Intake): … Step 2 (Maturity): …" process recap that leaked into all four Stage-5
+// deliverables (and forked its own content, "Sections A–D" vs "A–H"). Per WL-11, integrity
+// strips must enumerate scaffold forms, not a single known marker. No client-facing section
+// ever begins "Step N (Name):" / "Stage N — Name:" — those headings are "# 1. Executive
+// Summary", "## Now — Months 1–3", etc. — so removing such lines cannot touch real content.
+// Markdown headings (lines starting with `#`) are never matched, so genuine sections survive.
+export function stripProcessNarration(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/i.test(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+// T-25 (S-25): Remove the roadmap GATE-4 self-check block if it reaches a deliverable. The
+// self-check is an internal pre-output validation checklist (like CHECKPOINT), not client
+// content; in v32 it leaked into 1/4 deliverables, forking Stage-4 structure. Same
+// position/format-tolerant shape as stripCheckpointScaffold: consume from the heading to the
+// next heading, horizontal rule, justification block, or EOF.
+export function stripGate4SelfCheck(text: string): string {
+  return text
+    .replace(
+      /\n*(?:-{3,}[ \t]*\n+)?#{1,4}[ \t]*GATE-?\s*4 self-check[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\n[ \t]*-{3,}[ \t]*\n|\[END JUSTIFICATION\]|$)/gi,
+      '',
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// T-23 enumeration defense (mid-body forms the position envelope cannot reach): whole-line status
+// markers ("Coverage: A–H", "Confidence: high", "Sections: …") and inline parenthetical meta-asides
+// ("(Internal: 8 pain points mapped)"). These are the relocation forms the Practice review named as
+// the next places the model narrates its process/grounding inside a section body. Whole-line filters
+// require the label to be immediately followed by a colon/dash, so ordinary prose ("Confidence in
+// these estimates …") is never matched. Markdown headings (`#`) are never matched.
+export function stripStatusAndMetaAsides(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !/^\s*(?:[-*•]\s*)?\*{0,2}(?:Coverage|Confidence|Sections?|Status|Internal)\s*[:—-]/i.test(line))
+    .join('\n')
+    .replace(/\s*\((?:Internal|Confidence|Coverage)\s*[:：][^)]*\)/gi, '')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+// T-23 (answer to §8 — the next relocation forms past the envelope): bracketed editorial
+// self-instructions the model leaves mid-body — `[Consultant: verify X]`, `[TODO: …]`,
+// `[NOTE: …]`, `[DRAFT]`, `[INSERT …]`, `[TBD]`, `[PLACEHOLDER]`. Scoped to these known editorial
+// keywords so real bracketed content (numeric citations, "[see appendix]") is untouched.
+export function stripEditorialBrackets(text: string): string {
+  return text
+    .replace(/\s*\[(?:Consultant|TODO|NOTE|DRAFT|INSERT|TBD|PLACEHOLDER)\b[^\]]*\]/gi, '')
+    .replace(/[ \t]+$/gm, '');
+}
+
+// Strips build stamp, justification block, CHECKPOINT scaffold, GATE-4 self-check, process
+// narration, status/meta-aside lines, editorial brackets, HTML comments, operator preamble, and
+// inline confidence tags — use before generating client documents. All scaffold stripping happens
+// here, centrally, so every emission path (DOCX/PDF/TXT/HTML) is covered (T-15 / T-23 / T-25 / T-26).
 export function stripForDelivery(text: string): string {
-  return stripOperatorPreamble(stripConfidenceTags(stripCheckpointScaffold(stripJustification(stripBuildStamp(text)))));
+  return stripOperatorPreamble(
+    stripEditorialBrackets(
+      stripStatusAndMetaAsides(
+        stripProcessNarration(
+          stripHtmlComments(
+            stripGate4SelfCheck(
+              stripConfidenceTags(
+                stripCheckpointScaffold(
+                  stripJustification(
+                    stripBuildStamp(text),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+// T-23 GUARANTEE (the credited KR5 chokepoint): the position envelope. The Stage-5 deliverable
+// must begin at its first top-level section header and end at (and including) the Final marker.
+// Everything OUTSIDE that envelope — leading preamble/narration, trailing status confirmations —
+// is removed wholesale. This is form-AGNOSTIC: unlike enumerating known scaffold strings, it
+// catches the NEXT relocation form at the margins too, because anything outside the section body
+// simply does not survive. (Mid-body novel forms remain the residual risk; the eventual fix is a
+// positive section-schema allowlist — on the roadmap, not v33.) Applied ONLY on the Stage-5 path,
+// where the document is known to start with a `# ` header — never on intermediate-stage previews.
+export function stripToDeliveryEnvelope(text: string): string {
+  let t = text;
+  const firstHeader = t.search(/^#[ \t]+\S/m);
+  if (firstHeader > 0) t = t.slice(firstHeader);
+  const marker = t.match(/^.*End of AI Value Blueprint.*$/im);
+  if (marker && marker.index != null) t = t.slice(0, marker.index + marker[0].length);
+  return t.trim();
+}
+
+// Stage-5 client-deliverable strip: the shared delivery strips PLUS the position-envelope guarantee.
+// Use this (not bare stripForDelivery) wherever the final client document is rendered.
+export function stripForDeliveryStage5(text: string): string {
+  return stripToDeliveryEnvelope(stripForDelivery(text));
+}
+
+// T-23 DETECTOR (the scan): after stripping, assert nothing scaffold-shaped survived. Returns a
+// reviewer flag per residual form found. The envelope is what we credit; this scan is the
+// observability net that proves it — enumerating every known form (Practice's complete list).
+export function detectResidualScaffold(text: string): string[] {
+  const forms: Array<[RegExp, string]> = [
+    [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
+    [/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/im,                          'process-narration "Step N (…)" line'],
+    [/GATE-?\s*4 self-check/i,                                                          'GATE-4 self-check'],
+    [/<!--/,                                                                            'HTML comment / machine marker'],
+    [/\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i, 'inline confidence tag'],
+    [/\[JUSTIFICATION\]/i,                                                              'JUSTIFICATION block'],
+    [/^\s*(?:Coverage|Confidence|Sections?|Status)\s*[:—-]/im,                          'Coverage/Confidence status line'],
+    [/\((?:Internal|Confidence|Coverage)\s*[:：]/i,                                     'mid-body meta-aside'],
+    [/\[(?:Consultant|TODO|NOTE|DRAFT|INSERT|TBD|PLACEHOLDER)\b/i,                      'editorial self-note bracket'],
+    [/^\s*\*{0,2}Quality check/im,                                                      'Quality-check self-grading line'],
+    [/H-RT-X{2,}/i,                                                                     'literal H-RT-XX placeholder'],
+  ];
+  const flags: string[] = [];
+  for (const [re, label] of forms) {
+    if (re.test(text)) {
+      flags.push(`Stage 5 residual scaffold (${label}) survived delivery strip+envelope — investigate before sending.`);
+    }
+  }
+  return flags;
 }
 
 // ─── Justification block parser ───────────────────────────────────────────────
@@ -231,9 +368,25 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // No structural spans exist among DB/FS tags, so body counting is reliable here.
   const documentBacked = (contentOnly.match(TAG_PATTERNS.documentBacked) || []).length;
   const formStated     = (contentOnly.match(TAG_PATTERNS.formStated)     || []).length;
-  // S-23: archetype-anchored score basis — body-counted like DB/FS (it is a high-confidence
-  // basis, not a low-confidence claim, so it is NOT enumerated in the JUSTIFICATION block).
-  const archetypeAnchored = (contentOnly.match(TAG_PATTERNS.archetypeAnchored) || []).length;
+  // S-23: archetype-anchored score basis — a high-confidence basis, not a low-confidence claim,
+  // so it is NOT enumerated in the JUSTIFICATION block.
+  //
+  // T-24 / D-9 (PINNED COUNT): the raw tag occurrences forked 7/13/9/18 across the v32 runs
+  // because the model sprinkles `[Archetype-Anchored]` a variable number of times. The score
+  // basis is conceptually ONE per scored opportunity, so when score-comment markers are present
+  // the canonical, run-stable count is the number of UNIQUE scored hypothesis IDs. Deduping the
+  // IDs also neutralises a doubled marker (S-29) and the literal `H-RT-XX` placeholder stub is
+  // excluded (an unsubstituted template, not a real opportunity). Stages without score markers
+  // (e.g. Stage 5 assembly prose) fall back to the raw tag count.
+  const rawArchetypeAnchored = (contentOnly.match(TAG_PATTERNS.archetypeAnchored) || []).length;
+  const scoredHypothesisIds = new Set(
+    [...contentOnly.matchAll(/<!--\s*score:\s*id=(H-RT-[A-Za-z0-9]+)/gi)]
+      .map(m => m[1].toUpperCase())
+      .filter(id => !/X{2,}/i.test(id)),
+  );
+  const archetypeAnchored = rawArchetypeAnchored > 0 && scoredHypothesisIds.size > 0
+    ? scoredHypothesisIds.size
+    : rawArchetypeAnchored;
 
   // Parse the justification block early — it is the authoritative LC source for stepB.
   const { overview, entries } = parseJustificationBlock(stepOutput);
@@ -289,16 +442,22 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
     assumption = (contentOnly.match(TAG_PATTERNS.assumption) || []).length;
   }
 
-  // evidenceHigh = client-evidence claims (DB + FS), used for the documentary-vs-form
-  // composition split. high = the full grounded pool for the blended score, which also
-  // includes archetype-anchored score basis (S-23: reproducible-by-construction = grounded).
+  // evidenceHigh = client-evidence claims (DB + FS) — this IS the grounding numerator.
   const evidenceHigh = documentBacked + formStated;
-  const high  = evidenceHigh + archetypeAnchored;
   const low   = inferred + assumption;
-  const total = high + low;
-  // Zero tags means the skill prompt was not followed at all — treat as Red (0),
-  // not a neutral 50. The noTagsReason field explains this to the consultant.
-  const score = total === 0 ? 0 : Math.round((high / total) * 100);
+  // total counts every tag, archetype-anchored included, so it sits in the denominator.
+  const total = evidenceHigh + archetypeAnchored + low;
+  // D-9 / B′ (de-conflated metric): GROUNDING is the client-evidence share, (DB+FS)/total.
+  // Archetype-anchored basis is NOT summed into this numerator — it measures *reproducibility*,
+  // not *grounding* (an archetype-typical value is byte-identical across runs but carries zero
+  // client-specific evidence). Folding it in is exactly what bought v32 a green "grounding" badge
+  // off an invisible, forking remainder. AA stays in the denominator so grounding reads honestly,
+  // and is surfaced on its own axis (breakdown.archetypeAnchored) + the delivery-readiness composite.
+  // Zero tags means the skill prompt was not followed at all — treat as Red (0), not a neutral 50.
+  const score = total === 0 ? 0 : Math.round((evidenceHigh / total) * 100);
+  // Delivery-readiness: the explicitly-named composite that also credits the reproducible archetype
+  // basis. Reported under its own name — never as "grounding"/"documentary" (the blocked conflation).
+  const deliveryReadiness = total === 0 ? 0 : Math.round(((evidenceHigh + archetypeAnchored) / total) * 100);
 
   // Fall back to raw snippet extraction if no structured block was produced
   const inferredSnippets   = !hasStructured && inferred   > 0 ? extractTaggedSnippets(contentOnly, TAG_PATTERNS.inferred)   : undefined;
@@ -312,7 +471,7 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
       : 'No citation tags found in AI output. The skill prompt for this step may not be applying confidence tags correctly.';
   }
 
-  const scoreContext = deriveScoreContext({ score, total, high, low, documentBacked, formStated, inferred, assumption, hasStructuredBlock: hasStructured });
+  const scoreContext = deriveScoreContext({ score, total, high: evidenceHigh, low, documentBacked, formStated, inferred, assumption, hasStructuredBlock: hasStructured });
 
   // Scenario C — compute split within the client-evidence pool (DB+FS), NOT against the
   // full grounded pool. Archetype-anchored basis is excluded here: it is not client
@@ -323,7 +482,8 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
 
   return {
     score,
-    highConfidenceCount: high,
+    deliveryReadiness,
+    highConfidenceCount: evidenceHigh,
     lowConfidenceCount: low,
     needsReview: score < 76,
     breakdown: { documentBacked, formStated, archetypeAnchored, inferred, assumption, total },
@@ -364,7 +524,7 @@ function deriveCompositionDescriptor(documentVerifiedPercent: number, high: numb
   // P3 factor-attribution: when composition quality is green but LC volume degrades the blended score,
   // make clear which factor is responsible so the consultant knows composition itself is not the issue.
   if (compositionGreen && blendedScore !== undefined && blendedScore < GROUNDING_GREEN) {
-    base += ` — overall badge degraded by LC volume (blended ${blendedScore}%), not composition quality`;
+    base += ` — overall badge degraded by LC volume (grounding ${blendedScore}%), not composition quality`;
   }
 
   return base;

@@ -219,7 +219,12 @@ Maximum **3 items per phase**. If a phase has more than 3 after the decision tre
 3. Re-apply the capacity check to the receiving phase recursively.
 4. **Tie-break:** when products are equal, keep the item in the earlier phase (don't bump it).
 
-### GATE-4 self-check (run before producing output)
+### GATE-4 self-check (INTERNAL — run before producing output, do NOT emit)
+
+This checklist is an internal pre-output validation step. **It must NOT appear in the emitted
+Action Sequence** — it is scaffold, like a CHECKPOINT block, and leaking it forks the Stage-4
+structure (the v32 S-25 defect: the self-check appeared in some runs and not others). Run it
+silently; emit only the Action Sequence and the [JUSTIFICATION] block.
 
 Before writing the Action Sequence, verify:
 
@@ -229,6 +234,7 @@ Before writing the Action Sequence, verify:
 - [ ] Every item in Next or Later has a rationale citing the specific gate condition, dependency, or maturity gap preventing earlier placement — tagged inline
 
 If GATE-4 fails, resolve before producing output. Document the failure in the [JUSTIFICATION] block.
+Do not transcribe this checklist into the output.
 
 ## Operating Procedure
 
@@ -306,9 +312,25 @@ documents to justify a placement the field already determines.
 
 ## Output Format: Recommended Action Sequence
 
+Produce **exactly** these elements, in this order, **every run**. The structure is fixed — do
+not add, omit, or reorder elements run-to-run (the v32 S-25 fork came from a variable structure).
+
 ### Sequencing Rationale (3–5 sentences)
 
 Why this order. What the overall logic is. Which maturity gaps most influence the sequence. Which phase delivers the first visible win and why that matters for building momentum. **Tag every maturity gap reference and sequencing constraint inline.**
+
+### Phase Summary (mandatory — emit this table every run, immediately after the rationale)
+
+A single table giving the at-a-glance phase map. Exactly one row per opportunity, ordered Now →
+Next → Later, with the canonical H-RT-XX ID so the assignment is machine-checkable. This table is
+**not optional** and its columns are fixed:
+
+| Opportunity | H-RT ID | Class | Phase | Primary placement driver |
+|---|---|---|---|---|
+| {Title} | H-RT-NN | Quick Win / Foundation Builder / Big Bet | Now / Next / Later | {field or gate that fixed the phase, e.g. "d_gate4=yes", "system_event_deadline within M1–3", "phase_dependency=strict"} |
+
+Every opportunity from Stage 3 appears in exactly one row. The per-phase detail below expands
+these rows; it must not contradict them.
 
 ### Phase 1: Now (Months 1–3)
 
@@ -438,6 +460,10 @@ Before finalising the Action Sequence, scan for and remove:
 - Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 4 output`, `this skill produces`, etc.)
 - Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
 - Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+- **Invented person names (S-26)** — any client/CEO/staff name in a rationale or the
+  [JUSTIFICATION] block must be the exact name from the Stage 1 `<!-- INTAKE_FACTS -->` block
+  (`CEO_NAME` etc.). Never use a surname from an archetype example or prior engagement. If unsure,
+  use the role, not a name.
 
 These patterns disqualify output from pipeline use.
 

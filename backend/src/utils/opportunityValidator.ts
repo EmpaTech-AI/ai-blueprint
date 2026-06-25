@@ -122,6 +122,36 @@ export function validateOpportunityScores(output: string): OpportunityValidation
     }
   }
 
+  // ── T-26 (S-29) emission-hygiene checks ───────────────────────────────────
+  // Literal placeholder stub: the model copied the SKILL.md template `id=H-RT-XX` verbatim
+  // instead of substituting the real hypothesis ID (leaked in 3/4 v32 runs). The comment is
+  // stripped from the client document at delivery, but the marker is invisible to downstream
+  // stages, so flag it for review.
+  const literalStubCount = (output.match(/<!--\s*score:\s*id=H-RT-X{2,}/gi) ?? []).length;
+  if (literalStubCount > 0) {
+    reviewerFlags.push(
+      `GATE 3 FAIL T-26: ${literalStubCount} score comment(s) carry the literal placeholder ` +
+      `id=H-RT-XX — the template was not substituted with a real hypothesis ID. Downstream stages ` +
+      `cannot key on this marker. Replace with the actual H-RT-NN ID before delivery.`,
+    );
+  }
+
+  // Doubled marker: the same hypothesis ID emitted more than once (doubled H-RT-08 in 1/4 v32
+  // runs). A duplicate inflates downstream counts and can fork phase assignment.
+  const idCounts = new Map<string, number>();
+  for (const s of scores) {
+    if (s.id && s.id !== '(unknown)' && !/X{2,}/i.test(s.id)) {
+      idCounts.set(s.id, (idCounts.get(s.id) ?? 0) + 1);
+    }
+  }
+  const duplicateIds = [...idCounts.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id} (×${n})`);
+  if (duplicateIds.length > 0) {
+    reviewerFlags.push(
+      `GATE 3 FAIL T-26: duplicate score marker(s): ${duplicateIds.join(', ')}. ` +
+      `Each hypothesis ID must carry exactly one score comment. Remove the duplicate before delivery.`,
+    );
+  }
+
   // ── Portfolio shape check (GATE 3) ────────────────────────────────────────
   if (scores.length > 0) {
     const classes = new Set(scores.map(s => s.class));
@@ -195,5 +225,86 @@ export function validateRoadmapPhases(
     }
   }
 
+  return { reviewerFlags };
+}
+
+// ─── T-26 (S-29): cross-stage relay-field validator ────────────────────────────
+//
+// The nine non-score phase fields (T-19 relay set) are pinned at Stage 1 and must be re-emitted
+// byte-identical at Stage 3. The v32 batch showed H-RT-04 gaining a spurious
+// `system_event_deadline` at Stage 3 that Stage 1 had set to `none` — a propagation failure that,
+// on a client where the dated field dominates placement, becomes a phase change. This validator is
+// the hard equality assertion the Practice review ordered built now: compare Stage-3 score comments
+// to Stage-1 by ID and flag any drift across the nine relay fields.
+const RELAY_FIELDS = [
+  'ml_heavy', 'multi_source', 'regulated', 'large_integration', 'adoption_dependent',
+  'd_gate4', 'compliance_deadline', 'system_event_deadline', 'phase_dependency',
+] as const;
+
+function parseScoreCommentsById(text: string): Map<string, Record<string, string>> {
+  const map = new Map<string, Record<string, string>>();
+  const re = new RegExp(SCORE_COMMENT_PATTERN.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const fields = parseScoreFields(m[1]);
+    if (fields.id && fields.id !== '(unknown)' && !/X{2,}/i.test(fields.id)) map.set(fields.id, fields);
+  }
+  return map;
+}
+
+export function validateRelayFields(stage1Dossier: string, stage3Opportunities: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const s1 = parseScoreCommentsById(stage1Dossier);
+  const s3 = parseScoreCommentsById(stage3Opportunities);
+
+  for (const [id, f3] of s3) {
+    const f1 = s1.get(id);
+    if (!f1) continue; // ID absent from Stage 1 is a separate (missing-source) concern
+    const drift: string[] = [];
+    for (const field of RELAY_FIELDS) {
+      const v1 = f1[field];
+      const v3 = f3[field];
+      if (v1 !== undefined && v3 !== undefined && v1 !== v3) drift.push(`${field}: Stage1=${v1} → Stage3=${v3}`);
+    }
+    if (drift.length > 0) {
+      reviewerFlags.push(
+        `GATE 3 FAIL T-26 (relay drift) for ${id}: ${drift.join('; ')}. ` +
+        `Stage 3 must re-emit the nine relay fields byte-identical to Stage 1 — drift forks Stage 4 phase placement.`,
+      );
+    }
+  }
+  return { reviewerFlags };
+}
+
+// ─── S-26 (WL-8): role-attributed name validator ───────────────────────────────
+//
+// A wrong CEO name in a client deliverable is never-ship severity. The v32 "Petrov" bleed was a
+// hallucination on the override-gate path violating the INTAKE_FACTS single-source rule. This is
+// the narrow, deterministic guard the Practice review ordered (NOT a broad "any unknown surname"
+// check, which false-positives on vendors): scan only role-attributed CEO mentions and flag any
+// name that does not match the pinned INTAKE_FACTS CEO_NAME.
+export function validateRoleNames(deliverable: string, stage1Dossier: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const factsBlock = stage1Dossier.match(/<!--\s*INTAKE_FACTS([\s\S]*?)-->/i)?.[1] ?? '';
+  const ceoName = factsBlock.match(/CEO_NAME\s*[:=]\s*([^\n|]+)/i)?.[1]?.trim();
+  if (!ceoName) return { reviewerFlags }; // no pinned name to validate against
+
+  const ceoTokens = new Set(ceoName.toLowerCase().split(/\s+/));
+  const roleRe = /\b(?:CEO|Chief Executive(?: Officer)?)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/g;
+  const flagged = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = roleRe.exec(deliverable)) !== null) {
+    const cited = m[1].trim();
+    const citedTokens = cited.toLowerCase().split(/\s+/);
+    // Accept if the cited name shares any token with the pinned CEO name (e.g. "Popov" ⊂ "Dimitar Popov").
+    const matches = citedTokens.some(t => ceoTokens.has(t));
+    if (!matches && !flagged.has(cited)) {
+      flagged.add(cited);
+      reviewerFlags.push(
+        `GATE 5 FAIL S-26 (role-name): deliverable names CEO "${cited}" but INTAKE_FACTS CEO_NAME is "${ceoName}". ` +
+        `A wrong leadership name is never-ship — correct before delivery.`,
+      );
+    }
+  }
   return { reviewerFlags };
 }

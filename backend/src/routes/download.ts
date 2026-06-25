@@ -1,13 +1,24 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
-import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery } from '../utils/confidenceScorer';
+import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5 } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
 const router = express.Router();
+
+// T-07: build provenance. parent_build anchors the fleet-uniformity check; fix_lineage records
+// which prior batch each surface descends from so a reviewer can trace a fix to its origin.
+const PARENT_BUILD = 'v32 (T-10⁴ acceptance run)';
+const FIX_LINEAGE: string[] = [
+  'T-23/S-28 (leak): v32 narration relocation → v33 position-envelope guarantee + enumerated scan',
+  'T-24/D-9 (grounding): v32 AA folded into numerator → v33 de-conflated (grounding = DB+FS/total; AA on reproducibility axis; pinned one-per-scored-ID)',
+  'T-25/S-25 (Stage-4 structure): v32 self-check fork → v33 self-check suppressed + mandatory Phase Summary table',
+  'T-26/S-29 (emission): v32 H-RT-XX stub / doubled marker / relay drift → v33 comment-class strip + GATE-3 stub/duplicate flags + cross-stage relay-field validator',
+  'S-26/WL-8 (CEO name): v32 "Petrov" hallucination → v33 role-attributed name validator + INTAKE_FACTS pin',
+];
 
 router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {
   try {
@@ -85,14 +96,25 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
     const flags = job.reviewerFlags ?? [];
     const buildFlag = flags.find((f) => /^Build:/i.test(f));
 
+    // T-07 (v33 schema): build_date · pipeline_version · commit_sha · parent_build · per-stage
+    // {DB,FS,AA,Inf,Asm,grounding,doc%,LC} · reviewer_flags · fix_lineage. AA is its OWN column,
+    // never folded into grounding (D-9/B′). Grounding = (DB+FS)/total; delivery-readiness credits AA.
+    const buildStamp = buildFlag ? buildFlag.replace(/^Build:\s*/i, '') : 'not recorded';
+    const pipelineVersion = buildStamp.match(/pipeline=(\S+)/)?.[1] ?? 'unknown';
+
     const lines: string[] = [
       `# Reviewer Metadata — ${job.clientName}`,
       '',
       `**Job ID:** ${req.params.jobId}`,
       `**Status:** ${job.status}`,
-      `**Build stamp:** ${buildFlag ? buildFlag.replace(/^Build:\s*/i, '') : 'not recorded'}`,
+      `**Build stamp:** ${buildStamp}`,
+      `**Pipeline version:** ${pipelineVersion}`,
+      `**Parent build:** ${PARENT_BUILD}`,
       '',
       '## Confidence Scores by Stage',
+      '',
+      '_Grounding = client-evidence (DB+FS) ÷ total. Archetype-Anchored is a separate reproducibility',
+      'axis and is NOT folded into grounding (D-9/B′). Delivery-readiness = (DB+FS+AA) ÷ total._',
       '',
     ];
 
@@ -103,14 +125,24 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
     };
     const scoreKeys = Object.keys(scores);
     if (scoreKeys.length) {
-      lines.push('| Stage | Blended | DB | FS | Archetype | Inferred | Assumption |', '|---|---|---|---|---|---|---|');
+      lines.push(
+        '| Stage | Grounding | Delivery-Ready | doc% | LC | DB | FS | Archetype | Inferred | Assumption |',
+        '|---|---|---|---|---|---|---|---|---|---|',
+      );
       for (const key of ['stepB', 'stepC', 'stepD', 'stepD2', 'stepE']) {
         const s = scores[key];
         if (!s) continue;
         const b = s.breakdown;
+        const db = b?.documentBacked ?? 0;
+        const fs = b?.formStated ?? 0;
+        const aa = b?.archetypeAnchored ?? 0;
+        const total = b?.total ?? 0;
+        const docPct = s.documentVerifiedPercent ?? (db + fs > 0 ? Math.round((db / (db + fs)) * 100) : 0);
+        const ready = s.deliveryReadiness ?? (total > 0 ? Math.round(((db + fs + aa) / total) * 100) : s.score);
+        const lc = s.lowConfidenceCount ?? ((b?.inferred ?? 0) + (b?.assumption ?? 0));
         lines.push(
-          `| ${stageLabels[key] ?? key} | ${s.score}% | ${b?.documentBacked ?? 0} | ${b?.formStated ?? 0} | ` +
-          `${b?.archetypeAnchored ?? 0} | ${b?.inferred ?? 0} | ${b?.assumption ?? 0} |`,
+          `| ${stageLabels[key] ?? key} | ${s.score}% | ${ready}% | ${docPct}% | ${lc} | ${db} | ${fs} | ` +
+          `${aa} | ${b?.inferred ?? 0} | ${b?.assumption ?? 0} |`,
         );
       }
       lines.push('');
@@ -121,6 +153,10 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
     lines.push('## Reviewer Flags', '');
     if (flags.length) for (const f of flags) lines.push(`- ${f}`);
     else lines.push('_No reviewer flags raised._');
+    lines.push('');
+
+    lines.push('## Fix Lineage', '');
+    for (const entry of FIX_LINEAGE) lines.push(`- ${entry}`);
     lines.push('');
 
     const filename = `Reviewer Metadata - ${sanitizeFilename(job.clientName)}.md`;
@@ -176,6 +212,7 @@ const LC_STAGE_GREEN_DESCRIPTORS: Record<string, string> = {
 
 type LcStepData = {
   score?: number;
+  deliveryReadiness?: number;
   highConfidenceCount?: number;
   lowConfidenceCount?: number;
   breakdown?: { documentBacked: number; formStated: number; archetypeAnchored?: number; inferred: number; assumption: number; total: number };
@@ -244,28 +281,44 @@ function buildLcTagsMarkdown(job: ReturnType<typeof loadJob>, filterStep?: strin
 function appendLcStageHeader(lines: string[], stepKey: string, stageLabel: string, data: LcStepData): void {
   const { band, descriptor } = computeLcBadge(stepKey, data);
 
-  const db      = data.breakdown?.documentBacked ?? 0;
-  const fs      = data.breakdown?.formStated     ?? 0;
-  const high    = db + fs;
-  const docPct  = data.documentVerifiedPercent ?? (high > 0 ? Math.round((db / high) * 100) : (data.score ?? 0));
-  const blended = data.score ?? 0;
-  const total   = data.breakdown?.total ?? 0;
-  const inf     = data.breakdown?.inferred   ?? 0;
-  const asm     = data.breakdown?.assumption ?? 0;
-  const lcCount = data.lowConfidenceCount ?? (inf + asm);
+  const db       = data.breakdown?.documentBacked ?? 0;
+  const fs       = data.breakdown?.formStated     ?? 0;
+  const aa       = data.breakdown?.archetypeAnchored ?? 0;
+  const high     = db + fs;
+  const docPct   = data.documentVerifiedPercent ?? (high > 0 ? Math.round((db / high) * 100) : (data.score ?? 0));
+  const grounding = data.score ?? 0;
+  const total    = data.breakdown?.total ?? 0;
+  const inf      = data.breakdown?.inferred   ?? 0;
+  const asm      = data.breakdown?.assumption ?? 0;
+  const lcCount  = data.lowConfidenceCount ?? (inf + asm);
+  // D-9 / B′: grounding (client-evidence) and delivery-readiness (which credits the archetype
+  // basis) are reported on SEPARATE axes — AA is never summed into a numerator called "grounding".
+  const deliveryReadiness = data.deliveryReadiness ?? (total > 0 ? Math.round(((high + aa) / total) * 100) : grounding);
 
   lines.push(
     `**Grounding:** ${band}`,
-    `**Documentary (doc%):** ${docPct}%   ·   **Blended:** ${blended}%   ·   **Low-confidence tags:** ${lcCount}`,
+    `**Grounding (client-evidence, DB+FS ÷ total):** ${grounding}%   ·   **Documentary (doc%):** ${docPct}%   ·   **Low-confidence tags:** ${lcCount}`,
     '',
     `*${descriptor}*`,
     '',
+    // D-9 / B′: Archetype-Anchored is reported on its own reproducibility axis and is NEVER folded
+    // into the grounding numerator (the v32 "invisible remainder" that bought a green badge).
     `**Citation breakdown — ${total} total tags**`,
-    `Document-Backed: **${db}**   ·   Form-Stated: **${fs}**   ·   Inferred: **${inf}**   ·   Assumption: **${asm}**`,
-    '',
-    '---',
+    `Document-Backed: **${db}**   ·   Form-Stated: **${fs}**   ·   Archetype-Anchored: **${aa}**   ·   Inferred: **${inf}**   ·   Assumption: **${asm}**`,
     '',
   );
+  if (aa > 0) {
+    lines.push(
+      `> **Archetype-Anchored basis (${aa} — reproducibility axis, NOT grounding):** score components ` +
+      `locked to the matched archetype's Typical values — deterministic, byte-identical across runs, ` +
+      `pinned one-per-scored-opportunity. This basis is **not** client evidence, so it is excluded ` +
+      `from the grounding figure above. **Delivery-readiness composite (DB+FS+AA ÷ total): ${deliveryReadiness}%** ` +
+      `— the figure that credits the reproducible basis. Read grounding and delivery-readiness as two ` +
+      `facts; never as one "grounding ${deliveryReadiness}%" headline.`,
+      '',
+    );
+  }
+  lines.push('---', '');
 }
 
 function appendLcStepEntries(lines: string[], data: LcStepData): void {
@@ -565,8 +618,10 @@ function buildStepContent(step: string, raw: string): { title: string; markdown:
     }
   }
 
-  // Steps B–E: strip build stamp / LC tags / justification before rendering client documents
-  const clean = stripForDelivery(raw);
+  // Steps B–E: strip build stamp / LC tags / justification before rendering. Step E (the client
+  // deliverable) also gets the position-envelope guarantee; intermediate stages don't (they don't
+  // start with a `# ` header, so the envelope must not run on them).
+  const clean = step.toUpperCase() === 'E' ? stripForDeliveryStage5(raw) : stripForDelivery(raw);
   const markdown = clean.trimStart().startsWith('#') ? clean : `# ${title}\n\n${clean}`;
   return { title, markdown };
 }
