@@ -12,6 +12,17 @@ const router = express.Router();
 // T-07: build provenance. parent_build anchors the fleet-uniformity check; fix_lineage records
 // which prior batch each surface descends from so a reviewer can trace a fix to its origin.
 const PARENT_BUILD = 'v32 (T-10⁴ acceptance run)';
+// T-07 Option B: document the historical stamp drift so the fleet-uniformity check anchors on the
+// SHA from v33 onward, not the hand-set vNN label (which lagged — confirmed in git history).
+const STAMP_LINEAGE_NOTE: string[] = [
+  'Build stamps before v33 LAGGED the Practice report eras. The `pipeline=vNN` label was set to ' +
+  '`v30` (commit 2971c03) and left unchanged through the commit messaged `v31.2`, so the Era H ' +
+  '("v31") batch ran on a **v30-stamped** orchestrator. The `vNN` label is a human-readable tag, ' +
+  'NOT a verifiable build anchor.',
+  'From v33 onward the fleet-uniformity anchor is the **commit SHA** (`anchor=sha`). A run stamped ' +
+  '`sha=unset` is **label-only / unanchored** — migrate Railway so `RAILWAY_GIT_COMMIT_SHA` is ' +
+  'populated and the SHA becomes the real anchor for the n=4 check.',
+];
 const FIX_LINEAGE: string[] = [
   'T-23/S-28 (leak): v32 narration relocation → v33 position-envelope guarantee + enumerated scan',
   'T-24/D-9 (grounding): v32 AA folded into numerator → v33 de-conflated (grounding = DB+FS/total; AA on reproducibility axis; pinned one-per-scored-ID)',
@@ -101,6 +112,8 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
     // never folded into grounding (D-9/B′). Grounding = (DB+FS)/total; delivery-readiness credits AA.
     const buildStamp = buildFlag ? buildFlag.replace(/^Build:\s*/i, '') : 'not recorded';
     const pipelineVersion = buildStamp.match(/pipeline=(\S+)/)?.[1] ?? 'unknown';
+    const anchored = buildStamp !== 'not recorded' && !/sha=unset/i.test(buildStamp);
+    const anchorStatus = anchored ? 'anchored (commit SHA present)' : 'LABEL-ONLY (sha=unset — not a verifiable anchor)';
 
     const lines: string[] = [
       `# Reviewer Metadata — ${job.clientName}`,
@@ -110,6 +123,11 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
       `**Build stamp:** ${buildStamp}`,
       `**Pipeline version:** ${pipelineVersion}`,
       `**Parent build:** ${PARENT_BUILD}`,
+      `**Provenance anchor:** ${anchorStatus}`,
+      '',
+      '## Build Provenance & Stamp Lineage',
+      '',
+      ...STAMP_LINEAGE_NOTE.map(n => `- ${n}`),
       '',
       '## Confidence Scores by Stage',
       '',
