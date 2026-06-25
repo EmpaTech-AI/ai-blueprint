@@ -94,6 +94,21 @@ function renderSectionContent(content: string): string {
       continue;
     }
 
+    // Fenced code block (``` … ```) — contain it in a monospace panel so the ASCII portfolio
+    // diagram renders as intended instead of leaking backticks and box characters as prose.
+    if (t.startsWith('```')) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(esc(lines[i]));
+        i++;
+      }
+      if (i < lines.length) i++; // consume closing fence
+      if (codeLines.join('').trim()) out.push(`<pre class="ascii">${codeLines.join('\n')}</pre>`);
+      continue;
+    }
+
     if (t.startsWith('|') && t.endsWith('|')) {
       if (inList) { out.push('</ul>'); inList = false; }
       const tableLines: string[] = [];
@@ -471,6 +486,21 @@ body {
   color: var(--ink);
 }
 .dtbl tr:nth-child(even) td { background: var(--tint-2); }
+
+/* ── Fenced ASCII panel ──────────────────────────────────────────────────── */
+.ascii {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 8.5pt;
+  line-height: 1.4;
+  color: var(--muted);
+  background: var(--tint-2);
+  border: .5pt solid var(--line);
+  border-radius: 6px;
+  padding: 10pt 12pt;
+  margin: 8pt 0 12pt;
+  overflow-x: auto;
+  white-space: pre;
+}
 
 /* ── Print ───────────────────────────────────────────────────────────────── */
 @media print {

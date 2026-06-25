@@ -359,13 +359,120 @@ function formatBytes(b: number): string {
 
 const PAGE_SIZE = 20;
 
+// ── Document Lab ────────────────────────────────────────────────────────────────
+// Render the live assemblers (HTML / PDF / TXT) without running the pipeline, so the
+// document UI can be iterated on quickly. Renders the bundled sample by default, or any
+// pasted assembled-markdown. Auth-gated requests are fetched as blobs and shown via
+// object URLs (an iframe src cannot carry a Bearer header).
+
+function DocumentLab({ apiUrl, authToken }: { apiUrl: string; authToken: string }) {
+  const [format, setFormat]         = useState<'html' | 'pdf' | 'txt'>('html');
+  const [clientName, setClientName] = useState('');
+  const [content, setContent]       = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [txtPreview, setTxtPreview] = useState<string | null>(null);
+  const [rendering, setRendering]   = useState(false);
+  const [err, setErr]               = useState('');
+  const [renderedOnce, setRenderedOnce] = useState(false);
+
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  const loadSample = useCallback(async () => {
+    setErr('');
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/preview/sample-source`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!res.ok) { setErr('Could not load the sample source.'); return; }
+      const d = await res.json() as { clientName: string; content: string };
+      setContent(d.content);
+      setClientName(d.clientName);
+    } catch { setErr('Could not load the sample source.'); }
+  }, [apiUrl, authToken]);
+
+  const render = useCallback(async () => {
+    setRendering(true);
+    setErr('');
+    try {
+      const useSample = !content.trim();
+      const res = useSample
+        ? await fetch(`${apiUrl}/api/admin/preview?format=${format}`, { headers: { Authorization: `Bearer ${authToken}` } })
+        : await fetch(`${apiUrl}/api/admin/preview`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format, clientName, content }),
+          });
+      if (!res.ok) { let m = `Render failed (${res.status})`; try { const d = await res.json() as { error?: string }; m = d.error ?? m; } catch { /* ignore */ } setErr(m); return; }
+      if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
+      if (format === 'txt') {
+        setTxtPreview(await res.text());
+      } else {
+        setTxtPreview(null);
+        setPreviewUrl(URL.createObjectURL(await res.blob()));
+      }
+      setRenderedOnce(true);
+    } catch { setErr('Render failed — check the backend is reachable.'); } finally { setRendering(false); }
+  }, [apiUrl, authToken, format, clientName, content, previewUrl]);
+
+  const FORMATS: Array<{ key: 'html' | 'pdf' | 'txt'; label: string }> = [
+    { key: 'html', label: 'HTML' }, { key: 'pdf', label: 'PDF' }, { key: 'txt', label: 'Plain text' },
+  ];
+
+  return (
+    <div className="glass-card p-6">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <p className="font-bold text-white text-[15px] flex items-center gap-2"><EyeIcon className="w-4 h-4" /> Document Lab</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Render the live assemblers without running the pipeline. Empty editor renders the bundled sample; paste assembled-markdown to preview your own.
+          </p>
+        </div>
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'rgba(5,12,30,0.6)', border: '1px solid rgba(255,255,255,0.12)' }}>
+          {FORMATS.map(f => (
+            <button key={f.key} onClick={() => setFormat(f.key)}
+              className="font-semibold text-xs rounded-md px-3 py-1.5 transition-all"
+              style={format === f.key
+                ? { background: 'rgba(99,102,241,0.30)', border: '1px solid rgba(99,102,241,0.4)', color: '#c7d2fe' }
+                : { color: 'rgba(255,255,255,0.45)', border: '1px solid transparent' }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {err && <div className="mb-3 p-3 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5' }}>{err}</div>}
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 340px) 1fr' }}>
+        <div className="flex flex-col gap-3">
+          <input type="text" className="input-glass w-full" placeholder="Client name (optional)" value={clientName} onChange={e => setClientName(e.target.value)} />
+          <textarea className="input-glass w-full" rows={16} placeholder="Paste assembled-markdown here, or leave empty to render the bundled sample…"
+            value={content} onChange={e => setContent(e.target.value)}
+            style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: '0.7rem', lineHeight: 1.5, resize: 'vertical' }} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={render} disabled={rendering} className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem' }}>
+              {rendering ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> Rendering…</> : <><EyeIcon className="w-3.5 h-3.5" /> Render</>}
+            </button>
+            <button onClick={loadSample} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '0.85rem' }}>Load sample into editor</button>
+            {content && <button onClick={() => { setContent(''); setClientName(''); }} className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Clear</button>}
+            {previewUrl && format !== 'txt' && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Open in new tab ↗</a>}
+          </div>
+        </div>
+
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.12)', background: '#fff', minHeight: '70vh' }}>
+          {!renderedOnce && <div className="flex items-center justify-center h-full text-sm" style={{ color: 'rgba(0,0,0,0.4)', minHeight: '70vh' }}>Press <span className="font-semibold mx-1">Render</span> to preview the {format.toUpperCase()} output.</div>}
+          {renderedOnce && format === 'txt' && <pre style={{ margin: 0, padding: '18px', fontSize: '0.72rem', lineHeight: 1.5, color: '#161B26', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '78vh', overflow: 'auto' }}>{txtPreview}</pre>}
+          {renderedOnce && format !== 'txt' && previewUrl && <iframe title="Document preview" src={previewUrl} style={{ width: '100%', height: '78vh', border: 'none', display: 'block' }} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [authenticated,    setAuthenticated]    = useState(false);
   const [authToken,        setAuthToken]        = useState('');
   const [currentUser,      setCurrentUser]      = useState<AuthUser | null>(null);
   const [email,            setEmail]            = useState('');
   const [password,         setPassword]         = useState('');
-  const [activeTab,        setActiveTab]        = useState<'jobs' | 'users'>('jobs');
+  const [activeTab,        setActiveTab]        = useState<'jobs' | 'users' | 'lab'>('jobs');
   const [jobs,             setJobs]             = useState<JobSummary[]>([]);
   const [users,            setUsers]            = useState<UserSummary[]>([]);
   const [loading,          setLoading]          = useState(false);
@@ -762,7 +869,7 @@ export default function AdminPage() {
       {/* Tab bar */}
       <div className="max-w-6xl mx-auto px-4 pt-6">
         <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'rgba(5,12,30,0.68)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(20px) saturate(160%)', WebkitBackdropFilter: 'blur(20px) saturate(160%)' }}>
-          {(['jobs', 'users'] as const).map((tab) => (
+          {(['jobs', 'users', 'lab'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -771,7 +878,9 @@ export default function AdminPage() {
                 ? { background: 'rgba(99,102,241,0.30)', border: '1px solid rgba(99,102,241,0.40)', borderTopColor: 'rgba(129,140,248,0.55)', color: '#c7d2fe', boxShadow: '0 2px 10px rgba(99,102,241,0.22), inset 0 1px 0 rgba(255,255,255,0.12)' }
                 : { color: 'rgba(255,255,255,0.45)', border: '1px solid transparent' }}
             >
-              {tab === 'jobs' ? <><ClipboardListIcon className="w-4 h-4" /> Jobs</> : <><UsersIcon className="w-4 h-4" /> Users</>}
+              {tab === 'jobs' && <><ClipboardListIcon className="w-4 h-4" /> Jobs</>}
+              {tab === 'users' && <><UsersIcon className="w-4 h-4" /> Users</>}
+              {tab === 'lab' && <><EyeIcon className="w-4 h-4" /> Document Lab</>}
               {tab === 'jobs' && jobs.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>{jobs.length}</span>}
               {tab === 'users' && users.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>{users.length}</span>}
             </button>
@@ -1268,6 +1377,9 @@ export default function AdminPage() {
             )}
           </>
         )}
+
+        {/* ── DOCUMENT LAB TAB ─────────────────────────────────────────────── */}
+        {activeTab === 'lab' && <DocumentLab apiUrl={apiUrl} authToken={authToken} />}
       </main>
     </div>
   );

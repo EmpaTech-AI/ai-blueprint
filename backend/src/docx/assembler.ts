@@ -133,6 +133,27 @@ function buildSection(section: Section): (Paragraph | Table)[] {
       continue;
     }
 
+    // Fenced code block (``` … ```) — render inner text in a monospace run with the
+    // unrenderable box-drawing glyphs stripped (the ASCII portfolio diagram otherwise prints
+    // as tofu). Mirrors the PDF/HTML handling so all three artifacts agree.
+    if (trimmed.startsWith('```')) {
+      i++;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        const cleaned = stripUnrenderableGlyphs(lines[i]);
+        if (cleaned.trim()) codeLines.push(cleaned);
+        i++;
+      }
+      if (i < lines.length) i++; // consume closing fence
+      for (const cl of codeLines) {
+        elements.push(new Paragraph({
+          children: [new TextRun({ text: cl, font: 'Courier New', size: 18, color: '44526B' })],
+          spacing: { after: 20 },
+        }));
+      }
+      continue;
+    }
+
     // Markdown table — collect all consecutive table lines
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       const tableLines: string[] = [];
@@ -381,6 +402,22 @@ export async function generateBlueprintPdf(
         continue;
       }
 
+      // Fenced code block (``` … ```) — the assembly model emits an ASCII portfolio diagram
+      // here whose box-drawing glyphs print as ⬛ tofu. Render the inner text in a monospace
+      // panel with the unrenderable glyphs stripped, so the labels survive and the art does not.
+      if (t.startsWith('```')) {
+        li++;
+        const codeLines: string[] = [];
+        while (li < lines.length && !lines[li].trim().startsWith('```')) {
+          const cleaned = stripUnrenderableGlyphs(lines[li]);
+          if (cleaned.trim()) codeLines.push(cleaned);
+          li++;
+        }
+        if (li < lines.length) li++; // consume closing fence
+        if (codeLines.length) content.push({ text: codeLines.join('\n'), style: 'code' });
+        continue;
+      }
+
       // Markdown table
       if (t.startsWith('|') && t.endsWith('|')) {
         const tableLines: string[] = [];
@@ -393,11 +430,11 @@ export async function generateBlueprintPdf(
         continue;
       }
 
-      if      (t.startsWith('### ')) content.push({ text: t.slice(4), style: 'h3' });
-      else if (t.startsWith('## '))  content.push({ text: t.slice(3), style: 'h2' });
-      else if (/^\d+\.\s/.test(t))   content.push({ text: t, style: 'body', margin: [10, 0, 0, 4] });
+      if      (t.startsWith('### ')) content.push({ text: parsePdfInline(t.slice(4)), style: 'h3' });
+      else if (t.startsWith('## '))  content.push({ text: parsePdfInline(t.slice(3)), style: 'h2' });
+      else if (/^\d+\.\s/.test(t))   content.push({ text: parsePdfInline(t), style: 'body', margin: [10, 0, 0, 4] });
       else if (t.startsWith('- ') || t.startsWith('• '))
-        content.push({ text: `• ${t.slice(2)}`, style: 'bullet' });
+        content.push({ text: ['• ', parsePdfInline(t.slice(2))], style: 'bullet' });
       else
         content.push({ text: parsePdfInline(t), style: 'body' });
 
@@ -428,6 +465,7 @@ export async function generateBlueprintPdf(
       h3:     { fontSize: 12, bold: true,  color: '#214A93', margin: [0, 8,  0, 4]  },
       body:   { fontSize: 11, color: '#161B26', margin: [0, 0, 0, 6]   },
       bullet: { fontSize: 11, color: '#161B26', margin: [14, 0, 0, 4]  },
+      code:   { fontSize: 9,  font: 'Roboto', color: '#44526B', margin: [0, 4, 0, 8], preserveLeadingSpaces: true },
       tableHeader: { fontSize: 10, bold: true, color: '#FFFFFF', fillColor: '#0D1A30' },
       tableCell:   { fontSize: 10, color: '#161B26' },
     },
@@ -443,15 +481,28 @@ export async function generateBlueprintPdf(
   });
 }
 
-// pdfmake inline text: returns an array of {text, bold?, italics?} objects or a plain string
+// pdfmake inline text: returns an array of {text, bold?, italics?} objects or a plain string.
+// NOTE: a line that is ENTIRELY one bold/italic span (e.g. "**Finding 1: …**" or a "**Strategy**"
+// table cell) splits into a single part. The earlier code early-returned that single part as a
+// raw string, so the markdown markers leaked into the PDF verbatim — the literal `**…**` the
+// business flagged across the Findings and the whole scorecard. We must map the single token too.
 function parsePdfInline(text: string): unknown {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
-  if (parts.length === 1) return parts[0]; // plain string — pdfmake handles it fine
-  return parts.map(part => {
+  if (parts.length === 0) return text;
+  const runs = parts.map(part => {
     if (part.startsWith('**') && part.endsWith('**')) return { text: part.slice(2, -2), bold: true };
     if (part.startsWith('*')  && part.endsWith('*'))  return { text: part.slice(1, -1), italics: true };
     return part;
   });
+  // Return a bare string only when the single part carried no markdown (true plain text).
+  if (runs.length === 1 && typeof runs[0] === 'string') return runs[0];
+  return runs;
+}
+
+// Strip box-drawing / block-element / replacement glyphs that the PDF base font (Roboto) and the
+// DOCX body font cannot render — they otherwise print as ⬛ tofu (the garbled portfolio diagram).
+function stripUnrenderableGlyphs(text: string): string {
+  return text.replace(/[─-▟⬛⬜�]/g, '').replace(/[ \t]+$/g, '');
 }
 
 function buildPdfTable(tableLines: string[]): unknown | null {
@@ -461,7 +512,7 @@ function buildPdfTable(tableLines: string[]): unknown | null {
   const body = dataRows.map((line, rowIdx) => {
     const cells = line.split('|').slice(1, -1);
     return cells.map(cell => ({
-      text: rowIdx === 0 ? cell.trim() : parsePdfInline(cell.trim()),
+      text: parsePdfInline(cell.trim()),
       style: rowIdx === 0 ? 'tableHeader' : 'tableCell',
       margin: [4, 4, 4, 4],
     }));
@@ -505,17 +556,28 @@ export function generateBlueprintTxt(clientName: string, assembledContent: strin
     if (idx > 0) out.push('', '');
     out.push(HR2, `${idx + 1}. ${section.heading.toUpperCase()}`, HR2, '');
 
+    let inFence = false;
     for (const line of section.content.split('\n')) {
       const t = line.trim();
+
+      // Fenced code block — drop the fence markers, keep the inner text with unrenderable
+      // box glyphs stripped (otherwise the ASCII diagram leaks backticks and tofu into the TXT).
+      if (t.startsWith('```')) { inFence = !inFence; continue; }
+      if (inFence) {
+        const cleaned = stripUnrenderableGlyphs(line);
+        if (cleaned.trim()) out.push(`    ${cleaned.trim()}`);
+        continue;
+      }
+
       if (!t) { out.push(''); continue; }
 
       if (/^[-=_]{3,}$/.test(t))                              { out.push('  ' + '─'.repeat(50)); }
-      else if (t.startsWith('### '))                           { out.push('', `   ▸ ${t.slice(4).toUpperCase()}`, ''); }
-      else if (t.startsWith('## '))                           { out.push('', `  ${t.slice(3)}`, `  ${'─'.repeat(t.slice(3).length)}`, ''); }
-      else if (t.startsWith('**') && t.endsWith('**'))        { out.push(`  ${t.slice(2, -2)}`); }
-      else if (t.startsWith('- ') || t.startsWith('• '))      { out.push(`  • ${t.slice(2)}`); }
-      else if (/^\d+\.\s/.test(t))                            { out.push(`  ${t}`); }
-      else if (t.startsWith('|') && t.endsWith('|'))           { out.push(`  ${t.replace(/\|/g, ' | ').trim()}`); }
+      else if (t.startsWith('### '))                           { out.push('', `   ▸ ${stripInlineMarkdown(t.slice(4)).toUpperCase()}`, ''); }
+      else if (t.startsWith('## '))                           { const h = stripInlineMarkdown(t.slice(3)); out.push('', `  ${h}`, `  ${'─'.repeat(h.length)}`, ''); }
+      else if (t.startsWith('**') && t.endsWith('**'))        { out.push(`  ${stripInlineMarkdown(t)}`); }
+      else if (t.startsWith('- ') || t.startsWith('• '))      { out.push(`  • ${stripInlineMarkdown(t.slice(2))}`); }
+      else if (/^\d+\.\s/.test(t))                            { out.push(`  ${stripInlineMarkdown(t)}`); }
+      else if (t.startsWith('|') && t.endsWith('|'))           { out.push(`  ${stripInlineMarkdown(t.replace(/\|/g, ' | ').trim())}`); }
       else                                                     { out.push(`  ${stripInlineMarkdown(t)}`); }
     }
   });
