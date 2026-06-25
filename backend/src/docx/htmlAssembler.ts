@@ -1,4 +1,5 @@
 import { log } from '../utils/logger';
+import { stripCheckpointScaffold } from '../utils/confidenceScorer';
 
 interface Section {
   heading: string;
@@ -21,12 +22,9 @@ function inlineFormat(text: string): string {
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
-function stripCheckpointBlocks(text: string): string {
-  return text.replace(/\n*---\n\n## CHECKPOINT \d+[\s\S]*?(?=\n# |\n---\n\n## CHECKPOINT |\[END JUSTIFICATION\]|$)/g, '').trim();
-}
-
 function parseAssembledContent(content: string): Section[] {
-  const cleanContent = stripCheckpointBlocks(content);
+  // T-15: shared, format-tolerant CHECKPOINT scaffold stripper (single source of truth).
+  const cleanContent = stripCheckpointScaffold(content);
   const sections: Section[] = [];
   const lines = cleanContent.split('\n');
   let currentHeading = '';

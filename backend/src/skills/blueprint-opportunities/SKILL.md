@@ -224,6 +224,26 @@ What categories of opportunities dominate, 2–3 themes connecting to maturity f
 - Tag the "What it is" description and "Pain point addressed" sentence
 - Example: "The client processes 258 mandates annually [Document-Backed]. Sourcing currently requires 6–8 hours per mandate [Form-Stated], suggesting a total annual sourcing burden of ~1,500–2,000 hours [Inferred]. Automation could reduce this by 40–60% [Assumption] based on industry benchmarks for AI-assisted sourcing tools."
 
+**Score basis vs. relevance grounding (S-23 — mandatory separation).** The three score
+components (Impact, Feasibility, Alignment) are locked to the Stage 1 values, which are
+anchored to the archetype Hypothesis Library Typical values (T-21). Tag the **score basis**
+once per card with `[Archetype-Anchored]` — do NOT tag it `[Assumption]` or `[Document-Backed]`.
+An archetype-anchored value is a deterministic, reproducible lookup, not a per-run guess and
+not client-specific document evidence. Tagging it `[Assumption]` understates its confidence and
+inflates the low-confidence count, dragging the blended grounding score down for a value that is
+in fact byte-identical across runs.
+
+- **Score basis** (the Impact/Feasibility/Alignment values themselves) → `[Archetype-Anchored]`,
+  stated once on the Scores line. Exception: if a specific client document passage justifies
+  deviating from the archetype Typical value, tag that component `[Document-Backed]` and cite
+  the passage (this is the T-21 override path).
+- **Relevance grounding** (why this opportunity matters to *this* client — the pain point it
+  addresses, licensed tools, documented volumes, prior initiatives) → keep `[Document-Backed]`
+  / `[Form-Stated]` as today; these are genuine client evidence.
+- **Impact estimates and projections** (time savings, adoption rates, cost reductions that
+  are not in the documents) → keep `[Assumption]` / `[Inferred]`; these are genuine
+  low-confidence claims and must still appear in the JUSTIFICATION block.
+
 **Forbidden tag forms (rejected by the dashboard):**
 
 - `[Doc-Backed]` — spell out fully as `[Document-Backed]`
@@ -255,7 +275,7 @@ confidence tag — e.g. "Manual sourcing bottleneck (Dossier C.1) [Document-Back
 - Feasibility reduced from 4 to 3 due to Early Data maturity [Inferred] per Stage 2 snapshot
 - No prior AI vendor procurement process exists [Document-Backed])
 
-**Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5
+**Scores:** Impact {x}/5 | Feasibility {y}/5 | Alignment {z}/5 [Archetype-Anchored — locked to Stage 1 values from the recruitment archetype Typical columns; any component deviating from the archetype value carries its own [Document-Backed] override citation above]
 **Classification:** Quick Win / Foundation Builder / Big Bet
 <!-- score: id=H-RT-XX impact={x} feasibility={y} alignment={z} product={x*y*z} class={QuickWin|FoundationBuilder|BigBet} ml_heavy={yes|no} multi_source={yes|no} regulated={yes|no} large_integration={yes|no} adoption_dependent={yes|no} d_gate4={yes|no} compliance_deadline={YYYY-MM-DD|none} system_event_deadline={YYYY-MM-DD|none} phase_dependency={strict|flexible|n/a} -->
 

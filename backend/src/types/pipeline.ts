@@ -40,6 +40,7 @@ export interface IntakeSubmission {
 export interface ConfidenceBreakdown {
   documentBacked: number;
   formStated: number;
+  archetypeAnchored: number;
   inferred: number;
   assumption: number;
   total: number;
@@ -49,6 +50,7 @@ export interface JustificationEntry {
   index: number;
   tag: 'Inferred' | 'Assumption';
   label: string;
+  element: string;
   claim: string;
   whyTagged: string;
   missingData: string;

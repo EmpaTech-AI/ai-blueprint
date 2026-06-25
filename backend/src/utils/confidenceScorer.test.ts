@@ -3,6 +3,7 @@ import {
   stripJustification,
   stripConfidenceTags,
   stripForDelivery,
+  stripCheckpointScaffold,
   BACKEND_COMPOSITION_THRESHOLDS,
   GROUNDING_GREEN,
 } from './confidenceScorer';
@@ -415,5 +416,147 @@ describe('P0 Freeze guards — threshold stability', () => {
     ].join('\n');
     const result = calculateConfidence(input, 'stepD2');
     expect(result.breakdown.inferred).toBe(1);  // entry count (not body count of 2)
+  });
+});
+
+// ── S-23 archetype-anchored basis + T-04 element-keyed dedup ────────────────────
+
+describe('S-23 [Archetype-Anchored] tag', () => {
+  it('counts archetype-anchored basis in the high-confidence pool (not as low-confidence)', () => {
+    // A score basis tagged [Archetype-Anchored] must raise the blended score, not drag it down.
+    const input = [
+      'Scores: Impact 5 | Feasibility 3 | Alignment 5 [Archetype-Anchored — locked at Stage 1].',
+      'The client uses Vincere [Document-Backed].',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'No low-confidence items.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD');
+    expect(result.breakdown.archetypeAnchored).toBe(1);
+    // 1 DB + 1 archetype-anchored = 2 grounded, 0 low → 100% blended
+    expect(result.score).toBe(100);
+  });
+
+  it('archetype-anchored basis does not dilute the documentary composition split', () => {
+    // documentVerifiedPercent = DB / (DB+FS) — archetype-anchored is excluded from the denominator.
+    const input = [
+      'Scores [Archetype-Anchored — locked at Stage 1].',
+      'Vincere licensed [Document-Backed]. API access [Form-Stated].',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'No low-confidence items.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD');
+    // 1 DB out of (1 DB + 1 FS) client-evidence claims = 50%, NOT 33% (which including AA would give)
+    expect(result.documentVerifiedPercent).toBe(50);
+  });
+
+  it('stripConfidenceTags removes [Archetype-Anchored] before delivery', () => {
+    const input = 'Feasibility 3/5 [Archetype-Anchored — locked at Stage 1] is solid.';
+    expect(stripConfidenceTags(input)).not.toMatch(/\[Archetype[- ]?Anchored[^\]]*\]/i);
+  });
+});
+
+describe('T-15 stripCheckpointScaffold — format-tolerant leak fix', () => {
+  const realSection = '# AI Value Blueprint\n\n## Section A\n\nExecutive summary content here.';
+
+  it('strips the canonical checkpoint block (--- + ## CHECKPOINT N + metadata)', () => {
+    const input = [
+      '# AI Value Blueprint',
+      '',
+      '## Section A',
+      'Content.',
+      '',
+      '---',
+      '',
+      '## CHECKPOINT 1 — Foundation Complete',
+      '**Engagement:** Meridian',
+      '**Chunk 1 word count:** 1500',
+      '- Financial baseline: ✓',
+      '',
+      '## Section B',
+      'More content.',
+    ].join('\n');
+    const out = stripCheckpointScaffold(input);
+    expect(out).not.toMatch(/CHECKPOINT/i);
+    expect(out).toContain('## Section A');
+    expect(out).toContain('## Section B');   // real sections preserved
+    expect(out).toContain('More content.');
+  });
+
+  it('strips checkpoint blocks with formatting drift (no rule, single newline, lowercase, H3)', () => {
+    // The exact variance that made the old rigid regex miss the block intermittently.
+    const variants = [
+      '### checkpoint 2 — Analytical Core\n**Hypotheses selected:** 7\n',          // H3 + lowercase + no rule
+      '----\n## Checkpoint 1\n**Engagement:** X\n',                                 // 4-dash rule + mixed case
+      '##\tCHECKPOINT 2\n**Chunk 2 word count:** 2200\n',                           // tab after ##
+    ];
+    for (const v of variants) {
+      const input = `# Title\n\n## Section A\nReal content.\n\n${v}\n## Section B\nKept.`;
+      const out = stripCheckpointScaffold(input);
+      expect(out).not.toMatch(/CHECKPOINT/i);
+      expect(out).toContain('Real content.');
+      expect(out).toContain('Kept.');
+    }
+  });
+
+  it('does not touch documents with no checkpoint blocks', () => {
+    expect(stripCheckpointScaffold(realSection)).toBe(realSection);
+  });
+
+  it('is applied by stripForDelivery so every emission path is covered', () => {
+    const input = '# Title\n\n## Section A\nContent.\n\n---\n\n## CHECKPOINT 1\n**Engagement:** X\n';
+    expect(stripForDelivery(input)).not.toMatch(/CHECKPOINT/i);
+  });
+});
+
+describe('T-04 element-keyed LC dedup', () => {
+  it('deduplicates same-element same-tag entries even when labels differ (v24 defect)', () => {
+    // Same element (H-RT-02), same tag, different free-text labels across what would be runs.
+    // Element-keyed dedup pins the count to 1 — labels alone would count 2.
+    const input = [
+      'Revenue [Document-Backed] stable.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'Same element, two phrasings.',
+      '#### 1. [Assumption] Sourcing time saving estimate',
+      '- **Claim**: "40% saving."',
+      '- **Element**: H-RT-02',
+      '- **Why assumed**: Industry benchmark.',
+      '#### 2. [Assumption] Automation impact projection',
+      '- **Claim**: "40% saving."',
+      '- **Element**: H-RT-02',
+      '- **Why assumed**: Industry benchmark.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD');
+    expect(result.breakdown.assumption).toBe(1);  // deduped on element+tag
+  });
+
+  it('does NOT collapse different tags on the same element (distinct concerns)', () => {
+    const input = [
+      'Revenue [Document-Backed] stable.',
+      '',
+      '## [JUSTIFICATION]',
+      '### Confidence Overview',
+      'One inferred, one assumption, same element.',
+      '#### 1. [Inferred] Feasibility reduced by Stage 2 grounding',
+      '- **Claim**: "Reduced to 3."',
+      '- **Element**: H-RT-02',
+      '- **Why inferred**: Partial Stage 2 grounding.',
+      '#### 2. [Assumption] Sourcing time saving estimate',
+      '- **Claim**: "40% saving."',
+      '- **Element**: H-RT-02',
+      '- **Why assumed**: Industry benchmark.',
+      '[END JUSTIFICATION]',
+    ].join('\n');
+    const result = calculateConfidence(input, 'stepD');
+    expect(result.breakdown.inferred).toBe(1);
+    expect(result.breakdown.assumption).toBe(1);  // not collapsed — different tag categories
   });
 });

@@ -75,6 +75,63 @@ router.get('/:jobId/txt', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
+// T-07: Reviewer-metadata export (internal-facing). Bundles the build stamp (date + pipeline
+// version + commit SHA), reviewer flags, and per-stage confidence scores into a single
+// downloadable file so a run can self-verify which build produced it — closing the provenance
+// gap without embedding the SHA in the client-facing document.
+router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const flags = job.reviewerFlags ?? [];
+    const buildFlag = flags.find((f) => /^Build:/i.test(f));
+
+    const lines: string[] = [
+      `# Reviewer Metadata — ${job.clientName}`,
+      '',
+      `**Job ID:** ${req.params.jobId}`,
+      `**Status:** ${job.status}`,
+      `**Build stamp:** ${buildFlag ? buildFlag.replace(/^Build:\s*/i, '') : 'not recorded'}`,
+      '',
+      '## Confidence Scores by Stage',
+      '',
+    ];
+
+    const scores = job.confidenceScores ?? {};
+    const stageLabels: Record<string, string> = {
+      stepB: 'Stage 1 — Intake', stepC: 'Stage 2 — Maturity', stepD: 'Stage 3 — Opportunities',
+      stepD2: 'Stage 4 — Roadmap', stepE: 'Stage 5 — Assembly',
+    };
+    const scoreKeys = Object.keys(scores);
+    if (scoreKeys.length) {
+      lines.push('| Stage | Blended | DB | FS | Archetype | Inferred | Assumption |', '|---|---|---|---|---|---|---|');
+      for (const key of ['stepB', 'stepC', 'stepD', 'stepD2', 'stepE']) {
+        const s = scores[key];
+        if (!s) continue;
+        const b = s.breakdown;
+        lines.push(
+          `| ${stageLabels[key] ?? key} | ${s.score}% | ${b?.documentBacked ?? 0} | ${b?.formStated ?? 0} | ` +
+          `${b?.archetypeAnchored ?? 0} | ${b?.inferred ?? 0} | ${b?.assumption ?? 0} |`,
+        );
+      }
+      lines.push('');
+    } else {
+      lines.push('_No confidence scores recorded for this job._', '');
+    }
+
+    lines.push('## Reviewer Flags', '');
+    if (flags.length) for (const f of flags) lines.push(`- ${f}`);
+    else lines.push('_No reviewer flags raised._');
+    lines.push('');
+
+    const filename = `Reviewer Metadata - ${sanitizeFilename(job.clientName)}.md`;
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(lines.join('\n'));
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
 // HTML download
 router.get('/:jobId/html', requireAdmin, (req: Request, res: Response) => {
   try {
@@ -121,7 +178,7 @@ type LcStepData = {
   score?: number;
   highConfidenceCount?: number;
   lowConfidenceCount?: number;
-  breakdown?: { documentBacked: number; formStated: number; inferred: number; assumption: number; total: number };
+  breakdown?: { documentBacked: number; formStated: number; archetypeAnchored?: number; inferred: number; assumption: number; total: number };
   documentVerifiedPercent?: number;
   justificationEntries?: Array<{ index: number; tag: string; label: string; claim: string; whyTagged: string; missingData: string; consultantAction: string }>;
   inferredSnippets?: string[];
@@ -131,11 +188,17 @@ type LcStepData = {
 function computeLcBadge(stepKey: string, data: LcStepData): { band: string; descriptor: string } {
   const db   = data.breakdown?.documentBacked ?? 0;
   const fs   = data.breakdown?.formStated     ?? 0;
+  const aa   = data.breakdown?.archetypeAnchored ?? 0;
+  // Composition (docPct) is the documentary-vs-form split of CLIENT-EVIDENCE claims only —
+  // archetype-anchored basis is excluded here so it does not dilute the reading (S-23).
   const high = db + fs;
+  // Grounded-presence guard counts the full grounded pool (incl. archetype-anchored basis):
+  // a card scored purely off the archetype with no DB/FS relevance claims is still grounded.
+  const grounded = db + fs + aa;
   const docPct      = data.documentVerifiedPercent ?? (high > 0 ? Math.round((db / high) * 100) : (data.score ?? 0));
   const blendedScore = data.score ?? 0;
 
-  if (high === 0) return { band: LC_TIER_BANDS[3], descriptor: LC_TIER_DESCRIPTORS[3] };
+  if (grounded === 0) return { band: LC_TIER_BANDS[3], descriptor: LC_TIER_DESCRIPTORS[3] };
 
   const t          = BACKEND_COMPOSITION_THRESHOLDS[stepKey] ?? BACKEND_COMPOSITION_THRESHOLDS.stepE;
   const compTier   = docPct      >= t.green         ? 0 : docPct      >= t.amber ? 1 : 2;

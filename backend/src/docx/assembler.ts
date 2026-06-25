@@ -18,6 +18,7 @@ import {
 } from 'docx';
 import fs from 'fs';
 import { log } from '../utils/logger';
+import { stripCheckpointScaffold } from '../utils/confidenceScorer';
 
 const BRAND = {
   primaryBlue: '2E5FA1',
@@ -529,31 +530,20 @@ function stripInlineMarkdown(text: string): string {
 
 // ─── Content parser ────────────────────────────────────────────────────────────
 
-function stripCheckpointBlocks(text: string): string {
-  // Remove CHECKPOINT 1 and CHECKPOINT 2 scaffold blocks emitted by blueprint-assembly chunking
-  return text.replace(/\n*---\n\n## CHECKPOINT \d+[\s\S]*?(?=\n# |\n---\n\n## CHECKPOINT |\[END JUSTIFICATION\]|$)/g, '').trim();
-}
-
 function parseAssembledContent(content: string): Section[] {
-  console.log('[T15-DIAGNOSTIC] parseAssembledContent entered');
   // Enforce positional boundary: skip everything before the first `# ` section heading.
   // This strips pre-flight status blocks ("Step 1 — Compressed Dossier: ...") that the
   // assembly model may emit before the document title despite the SKILL.md boundary rule.
-  const cleanContent = stripCheckpointBlocks(content);
-  const strippedChars = content.length - cleanContent.length;
-  console.log(`[T15-DIAGNOSTIC] stripCheckpointBlocks: ${strippedChars > 0 ? `removed ${strippedChars} chars` : 'no change'}`);
+  // T-15: CHECKPOINT scaffold removal is the shared, format-tolerant stripper (single source).
+  const cleanContent = stripCheckpointScaffold(content);
   const sections: Section[] = [];
   const lines = cleanContent.split('\n');
   let currentHeading = '';
   let currentContent: string[] = [];
   let seenFirstHeading = false;
-  let preHeadingContent = '';
 
   for (const line of lines) {
     if (line.startsWith('# ') && !line.startsWith('## ')) {
-      if (!seenFirstHeading && preHeadingContent.trim()) {
-        console.log(`[T15-DIAGNOSTIC] pre-heading content skipped (${preHeadingContent.length} chars): ${preHeadingContent.substring(0, 400)}`);
-      }
       if (seenFirstHeading && currentContent.length > 0) {
         sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
         currentContent = [];
@@ -562,8 +552,6 @@ function parseAssembledContent(content: string): Section[] {
       seenFirstHeading = true;
     } else if (seenFirstHeading) {
       currentContent.push(line);
-    } else {
-      preHeadingContent += line + '\n';
     }
   }
 

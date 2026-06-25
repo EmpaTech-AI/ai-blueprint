@@ -280,7 +280,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const buildStampDate = new Date().toISOString().split('T')[0];
     const buildStampSha = process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v30 sha=${buildStampSha}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v32 sha=${buildStampSha}`);
 
 
     // Generate DOCX

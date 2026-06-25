@@ -279,6 +279,24 @@ This makes the sequencing feel logical and evidence-based, not arbitrary.
 - When sequencing inherits uncertainty from Stage 2 or 3, explicitly carry the tag forward: "Placed in Now because Data maturity is Early [Inferred — Stage 2 score had no data governance documentation to confirm]"
 - Example of correctly tagged placement: "Opportunity #2 moves to Next rather than Now because the Vincere migration must complete first [Form-Stated] and the estimated completion date of Q2 2026 was provided verbally, not in a project plan [Inferred]."
 
+**Field-anchored placement citations (S-24 — mandatory).** When a phase placement is determined
+by a machine-readable score-comment field (`d_gate4`, `system_event_deadline`,
+`compliance_deadline`, `phase_dependency`, or the locked Stage-3 scores), the placement rationale
+MUST cite that field in a **fixed, deterministic form** rather than re-deriving a prose document
+citation per run. Re-deriving per-run prose citations is what made the Stage-4 grounding narrative
+fork across runs (doc% 48–95%) even though the placement decisions themselves were reproducible.
+Pin the citation to the field, exactly as the decision is pinned to the field.
+
+- **Field-driven placements** → cite the field with the `[Form-Stated — <field>=<value> from Stage 1 score comment]` form. Examples:
+  - `Placed in Next [Form-Stated — d_gate4=yes from Stage 1 score comment]`
+  - `Placed in Now [Form-Stated — system_event_deadline=2026-07-31 from Stage 1 score comment, within Month 1–3]`
+  - `Placed in Later [Form-Stated — phase_dependency=strict, antecedent H-RT-04 in Next]`
+- **Score references** → cite the locked score as `[Archetype-Anchored — Feasibility 4/5 locked at Stage 1]`, NOT a re-derived `[Document-Backed]` per run. The score basis is reproducible by construction (see S-23 in `methodology-and-contracts`).
+- **Genuine client-evidence and predictions** (maturity gaps, expected results, adoption estimates) → keep `[Document-Backed]`/`[Form-Stated]`/`[Inferred]`/`[Assumption]` as today. These are the only citations that may legitimately vary, and only when the underlying evidence does.
+
+The rule: **the citation behind a pinned decision must itself be pinned.** Do not re-read source
+documents to justify a placement the field already determines.
+
 **Forbidden tag forms (rejected by the dashboard):**
 
 - `[Doc-Backed]` — spell out fully as `[Document-Backed]`
@@ -297,7 +315,7 @@ Why this order. What the overall logic is. Which maturity gaps most influence th
 For each opportunity in this phase:
 
 **{Opportunity Title}** (Quick Win / Foundation Builder)
-*Why now:* {1–2 sentences grounded in feasibility, urgency, and/or maturity readiness — **tag every evidence reference inline**, e.g. "Feasibility score of 4/5 [from Stage 3 scoring] reflects existing CRM data [Document-Backed] and available API access [Form-Stated]."}
+*Why now:* {1–2 sentences grounded in feasibility, urgency, and/or maturity readiness — **tag every evidence reference inline**. Cite the locked score with the field-anchored form (S-24), e.g. "Feasibility 4/5 [Archetype-Anchored — locked at Stage 1] supported by existing CRM data [Document-Backed] and available API access [Form-Stated]."}
 *Expected early result:* {1 sentence — what the client will see within 3 months, tagged if it's a prediction: "Initial time saving of 30–40% on sourcing tasks expected [Assumption — no baseline time-tracking to anchor the figure]"}
 
 ### Phase 2: Next (Months 3–6)

@@ -53,8 +53,22 @@ Every data point in the pipeline must carry a confidence tag:
 |-----|---------|-----------|
 | [Document-Backed] | Supported by data from an uploaded document | High |
 | [Form-Stated] | Based on what the client stated in the intake form | Medium |
+| [Archetype-Anchored] | A score component (Impact/Feasibility/Alignment) drawn verbatim from the matched archetype's Hypothesis Library Typical values | High (grounded basis) |
 | [Inferred] | Inferred from patterns across multiple inputs | Medium-Low |
 | [Assumption] | Based on industry norms or general knowledge | Low |
+
+**`[Archetype-Anchored]` (S-23) — when and why.** A hypothesis score that is locked to the
+archetype Typical value (per the T-21 Score Anchor Rule) is **not** an `[Assumption]`. An
+assumption is a per-run guess from general knowledge that varies between runs; an archetype-anchored
+value is a deterministic lookup from a ratified table that is byte-identical across runs.
+Tagging it `[Assumption]` is doubly wrong: it understates the confidence (the value is pinned,
+not guessed) and it inflates the low-confidence item count, dragging the blended grounding score
+below the clean threshold for a value that is in fact perfectly reproducible. Use
+`[Archetype-Anchored]` for the **score basis**; it counts in the high-confidence pool and is
+**not** listed in the JUSTIFICATION Low-Confidence Items block (same treatment as
+`[Document-Backed]`/`[Form-Stated]`). Reserve `[Document-Backed]` for client-specific evidence
+that *overrides* the archetype value, and reserve `[Assumption]`/`[Inferred]` for genuine
+low-confidence claims about the client (impact estimates, time savings, adoption rates).
 
 ### Mandatory Confidence Justification Report
 
@@ -114,7 +128,7 @@ WRONG:    #### 1. [floor] Revenue per FTE estimate      ← [floor] is not a con
 
 **Non-negotiable rules:**
 - EVERY `[Inferred]` or `[Assumption]` tag used in the output above must have a numbered entry here
-- `[Document-Backed]` and `[Form-Stated]` items are NOT listed here — only low-confidence ones
+- `[Document-Backed]`, `[Form-Stated]`, and `[Archetype-Anchored]` items are NOT listed here — only low-confidence (`[Inferred]`/`[Assumption]`) ones
 - Claims must be **quoted verbatim** from the output — do not paraphrase
 - Every entry must declare its **Element** field (canonical ID the claim scopes to) — this is the cross-run stable key
 - The `### Confidence Overview` sentence itself must carry NO confidence tags — it is a meta-description, not a claim

@@ -24,10 +24,15 @@ export const GROUNDING_GREEN = 88;
 //   • [Assumed] is accepted as a synonym for [Assumption]
 
 const TAG_PATTERNS = {
-  documentBacked: /\[Document[- ]?Backed[^\]]*\]/gi,
-  formStated:     /\[Form[- ]?Stated[^\]]*\]/gi,
-  inferred:       /\[Inferred[^\]]*\]/gi,
-  assumption:     /\[(Assumption|Assumed)[^\]]*\]/gi,
+  documentBacked:   /\[Document[- ]?Backed[^\]]*\]/gi,
+  formStated:       /\[Form[- ]?Stated[^\]]*\]/gi,
+  // S-23: a score component drawn verbatim from the archetype Hypothesis Library Typical
+  // values. Reproducible by construction, so it counts as a grounded basis (high-confidence
+  // pool for the blended score) — NOT as an [Assumption]. It is excluded from the
+  // documentary-vs-form composition split because it is not client evidence.
+  archetypeAnchored: /\[Archetype[- ]?Anchored[^\]]*\]/gi,
+  inferred:         /\[Inferred[^\]]*\]/gi,
+  assumption:       /\[(Assumption|Assumed)[^\]]*\]/gi,
 } as const;
 
 // ─── Public strip helpers ─────────────────────────────────────────────────────
@@ -39,7 +44,7 @@ export function stripJustification(text: string): string {
 
 export function stripConfidenceTags(text: string): string {
   return text.replace(
-    /\s*\[(Document[- ]?Backed|Form[- ]?Stated|Inferred|Assumption|Assumed)[^\]]*\]/gi,
+    /\s*\[(Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)[^\]]*\]/gi,
     '',
   );
 }
@@ -47,6 +52,28 @@ export function stripConfidenceTags(text: string): string {
 export function stripBuildStamp(text: string): string {
   // Matches both legacy `<!-- pipeline-build: ... -->` and v28 `<!-- build: ... -->` format
   return text.replace(/<!--\s*(?:pipeline-build|build):.*?-->\n?/gm, '');
+}
+
+// T-15: Remove CHECKPOINT scaffold blocks emitted by blueprint-assembly chunking.
+//
+// These are internal handoff markers ("## CHECKPOINT 1 — Foundation Complete" + metadata
+// lines) that must never reach a client document. The earlier regex required an exact
+// `---\n\n## CHECKPOINT` prefix with rigid spacing and case; any drift in the assembled
+// output (single newline, missing rule, lowercase, H1/H3 instead of H2, tab whitespace)
+// slipped through, which is why the leak was intermittent rather than constant.
+//
+// This version is position- and format-tolerant: it matches a CHECKPOINT heading at any
+// heading level, with or without a leading horizontal rule, in any case, and consumes the
+// block up to the next heading, the next horizontal rule, the justification block, or EOF.
+// The block itself contains no headings or rules, so this cannot over-consume real sections.
+export function stripCheckpointScaffold(text: string): string {
+  return text
+    .replace(
+      /\n*(?:-{3,}[ \t]*\n+)?#{1,4}[ \t]*CHECKPOINT[ \t]+\d+[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\n[ \t]*-{3,}[ \t]*\n|\[END JUSTIFICATION\]|$)/gi,
+      '',
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Remove leading operator receipt/acknowledgement and pre-flight status blocks emitted before
@@ -62,9 +89,11 @@ export function stripOperatorPreamble(text: string): string {
   return result;
 }
 
-// Strips build stamp, justification block, operator preamble, and inline confidence tags — use before generating client documents.
+// Strips build stamp, justification block, CHECKPOINT scaffold, operator preamble, and inline
+// confidence tags — use before generating client documents. Checkpoint stripping happens here,
+// centrally, so every emission path (DOCX/PDF/TXT/HTML) is covered at the source (T-15).
 export function stripForDelivery(text: string): string {
-  return stripOperatorPreamble(stripConfidenceTags(stripJustification(stripBuildStamp(text))));
+  return stripOperatorPreamble(stripConfidenceTags(stripCheckpointScaffold(stripJustification(stripBuildStamp(text)))));
 }
 
 // ─── Justification block parser ───────────────────────────────────────────────
@@ -106,6 +135,7 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
       // Normalise [Assumed] → 'Assumption' so the frontend type is satisfied
       tag:   rawTag.toLowerCase() === 'inferred' ? 'Inferred' : 'Assumption',
       label: m[3].trim(),
+      element:          extractField(body, ['Element']),
       claim:            extractField(body, ['Claim']),
       whyTagged:        extractField(body, ['Why inferred', 'Why assumed', 'Why infer', 'Why assum']),
       missingData:      extractField(body, ['Missing data']),
@@ -123,6 +153,7 @@ function parseJustificationBlock(text: string): { overview: string; entries: Jus
         index: parseInt(m[1], 10),
         tag,
         label:            m[2].trim(),
+        element:          extractField(body, ['Element']),
         claim:            extractField(body, ['Claim']),
         whyTagged:        extractField(body, ['Why inferred', 'Why assumed', 'Why infer', 'Why assum']),
         missingData:      extractField(body, ['Missing data']),
@@ -200,6 +231,9 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   // No structural spans exist among DB/FS tags, so body counting is reliable here.
   const documentBacked = (contentOnly.match(TAG_PATTERNS.documentBacked) || []).length;
   const formStated     = (contentOnly.match(TAG_PATTERNS.formStated)     || []).length;
+  // S-23: archetype-anchored score basis — body-counted like DB/FS (it is a high-confidence
+  // basis, not a low-confidence claim, so it is NOT enumerated in the JUSTIFICATION block).
+  const archetypeAnchored = (contentOnly.match(TAG_PATTERNS.archetypeAnchored) || []).length;
 
   // Parse the justification block early — it is the authoritative LC source for stepB.
   const { overview, entries } = parseJustificationBlock(stepOutput);
@@ -233,9 +267,17 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
   const POSITIVE_COUNT_STEPS = new Set(['stepB', 'stepC', 'stepD', 'stepD2', 'stepE']);
 
   if (POSITIVE_COUNT_STEPS.has(stepKey ?? '') && entries.length > 0) {
+    // T-04: dedup WITHIN category, keyed on the stable element ID when present.
+    // Element IDs (H-RT-XX, dimension names) are pinned cross-run; free-text labels are not.
+    // Keying on element+tag pins the LC count run-to-run and fixes the v24 defect where the
+    // same element was enumerated 3× in one run and 1× in another. The tag is part of the key
+    // so an [Inferred] and an [Assumption] scoping the same element are not collapsed into one
+    // (they are distinct concerns). Falls back to the normalised label when no Element is given.
     const seen = new Set<string>();
     const dedupedEntries = entries.filter(e => {
-      const key = e.label.toLowerCase().replace(/\s+/g, ' ').trim();
+      const elementKey = e.element ? e.element.toLowerCase().replace(/\s+/g, ' ').trim() : '';
+      const baseKey = elementKey || e.label.toLowerCase().replace(/\s+/g, ' ').trim();
+      const key = `${e.tag}|${baseKey}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -247,7 +289,11 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
     assumption = (contentOnly.match(TAG_PATTERNS.assumption) || []).length;
   }
 
-  const high  = documentBacked + formStated;
+  // evidenceHigh = client-evidence claims (DB + FS), used for the documentary-vs-form
+  // composition split. high = the full grounded pool for the blended score, which also
+  // includes archetype-anchored score basis (S-23: reproducible-by-construction = grounded).
+  const evidenceHigh = documentBacked + formStated;
+  const high  = evidenceHigh + archetypeAnchored;
   const low   = inferred + assumption;
   const total = high + low;
   // Zero tags means the skill prompt was not followed at all — treat as Red (0),
@@ -268,17 +314,19 @@ export function calculateConfidence(stepOutput: string, stepKey?: string): Confi
 
   const scoreContext = deriveScoreContext({ score, total, high, low, documentBacked, formStated, inferred, assumption, hasStructuredBlock: hasStructured });
 
-  // Scenario C — compute split within the high-confidence pool (not against total)
-  const documentVerifiedPercent = high > 0 ? Math.round((documentBacked / high) * 100) : 0;
-  const formStatedSharePercent  = high > 0 ? Math.round((formStated  / high) * 100) : 0;
-  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, high, total, stepKey, score);
+  // Scenario C — compute split within the client-evidence pool (DB+FS), NOT against the
+  // full grounded pool. Archetype-anchored basis is excluded here: it is not client
+  // evidence, so it must not dilute the documentary-vs-form composition reading (S-23).
+  const documentVerifiedPercent = evidenceHigh > 0 ? Math.round((documentBacked / evidenceHigh) * 100) : 0;
+  const formStatedSharePercent  = evidenceHigh > 0 ? Math.round((formStated  / evidenceHigh) * 100) : 0;
+  const compositionDescriptor   = deriveCompositionDescriptor(documentVerifiedPercent, evidenceHigh, total, stepKey, score);
 
   return {
     score,
     highConfidenceCount: high,
     lowConfidenceCount: low,
     needsReview: score < 76,
-    breakdown: { documentBacked, formStated, inferred, assumption, total },
+    breakdown: { documentBacked, formStated, archetypeAnchored, inferred, assumption, total },
     documentVerifiedPercent,
     formStatedSharePercent,
     compositionDescriptor,
