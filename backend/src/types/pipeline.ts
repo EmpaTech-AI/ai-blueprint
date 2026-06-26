@@ -37,6 +37,12 @@ export interface IntakeSubmission {
   };
 }
 
+// Reviewer-flag severity convention. A flag beginning with this prefix is a never-ship integrity
+// blocker (scaffold leak, emission stub/dup, cross-stage relay drift, wrong leadership name,
+// malformed delivery envelope). The approve endpoint refuses to release a job while any unresolved
+// BLOCKER flag is present — the artifact still exists for diagnosis, but cannot reach the client.
+export const BLOCKER_PREFIX = 'BLOCKER:';
+
 export interface ConfidenceBreakdown {
   documentBacked: number;
   formStated: number;

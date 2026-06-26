@@ -1,4 +1,4 @@
-import { ConfidenceResult, JustificationEntry } from '../types/pipeline';
+import { ConfidenceResult, JustificationEntry, BLOCKER_PREFIX } from '../types/pipeline';
 
 // ─── Stage-keyed composition thresholds (mirrors frontend COMPOSITION_THRESHOLDS) ──
 // Both must remain in sync until Step-5 calibration can unify them into a shared config.
@@ -227,7 +227,8 @@ export function detectResidualScaffold(text: string): string[] {
   const flags: string[] = [];
   for (const [re, label] of forms) {
     if (re.test(text)) {
-      flags.push(`Stage 5 residual scaffold (${label}) survived delivery strip+envelope — investigate before sending.`);
+      // Never-ship: a residual scaffold form in the deliverable blocks release until resolved.
+      flags.push(`${BLOCKER_PREFIX} Stage 5 residual scaffold (${label}) survived delivery strip+envelope — do not release.`);
     }
   }
   return flags;

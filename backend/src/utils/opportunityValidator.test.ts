@@ -45,6 +45,22 @@ describe('validateRelayFields — cross-stage drift (H-RT-04 case)', () => {
     const { reviewerFlags } = validateRelayFields(stage1, stage1);
     expect(reviewerFlags).toEqual([]);
   });
+
+  it('treats an ABSENT field as drift, not as a field to ignore (Block 4.1)', () => {
+    // Stage 3 drops system_event_deadline entirely; absence must register as a mismatch vs `none`.
+    const stage3Missing =
+      '<!-- score: id=H-RT-04 impact=4 feasibility=4 alignment=4 product=64 class=QuickWin ' +
+      'ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no ' +
+      'd_gate4=no compliance_deadline=none phase_dependency=n/a -->';
+    const { reviewerFlags } = validateRelayFields(stage1, stage3Missing);
+    expect(reviewerFlags.some(f => /relay drift.*system_event_deadline.*\(absent\)/.test(f))).toBe(true);
+  });
+
+  it('marks relay drift as a BLOCKER (refuses approval)', () => {
+    const stage3 = stage1.replace('system_event_deadline=none', 'system_event_deadline=2026-07-31');
+    const { reviewerFlags } = validateRelayFields(stage1, stage3);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
 });
 
 // ── S-26 role-attributed name validator ─────────────────────────────────────────
@@ -62,6 +78,14 @@ describe('validateRoleNames — CEO name vs INTAKE_FACTS', () => {
     const deliverable = 'CEO Dimitar Popov leads the firm. Later we note that CEO Popov approved the plan.';
     const { reviewerFlags } = validateRoleNames(deliverable, dossier);
     expect(reviewerFlags).toEqual([]);
+  });
+
+  it('catches a first-name-preserved hallucination "Dimitar Petrov" (Block 5.1 surname match)', () => {
+    // Token-overlap would PASS this (shares "Dimitar"); surname-token match must flag it.
+    const deliverable = 'The plan was approved by CEO Dimitar Petrov in Q1.';
+    const { reviewerFlags } = validateRoleNames(deliverable, dossier);
+    expect(reviewerFlags.some(f => /S-26.*Dimitar Petrov.*Dimitar Popov/.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
   });
 
   it('does not fire when no INTAKE_FACTS CEO_NAME is present', () => {

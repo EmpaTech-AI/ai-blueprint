@@ -1,4 +1,4 @@
-import { PipelineJob, ConfidenceResult } from '../types/pipeline';
+import { PipelineJob, ConfidenceResult, BLOCKER_PREFIX } from '../types/pipeline';
 import {
   loadJob,
   updateJobStatus,
@@ -284,6 +284,17 @@ export async function runPipeline(jobId: string): Promise<void> {
     // T-23: Stage-5 delivery strip — shared scaffold strips PLUS the position-envelope guarantee
     // (document begins at first section header, ends at the Final marker; margins removed wholesale).
     const assembledForDelivery = stripForDeliveryStage5(assembled);
+
+    // T-23 (Block 2.2) envelope fail-closed guard: the position envelope is only DEFINED when both
+    // ends are present — a leading top-level `# ` header and the Final marker. A run missing either
+    // is a malformed assembly where the envelope cannot bound the document; fail closed (BLOCKER →
+    // un-approvable) rather than fail open (ship an unbounded doc).
+    if (!/^#[ \t]+\S/m.test(assembledForDelivery)) {
+      reviewerFlags.push(`${BLOCKER_PREFIX} Stage 5 envelope undefined — no top-level "# " section header in the assembled deliverable (malformed assembly). Fail closed: do not release.`);
+    }
+    if (!/End of AI Value Blueprint/i.test(assembledForDelivery)) {
+      reviewerFlags.push(`${BLOCKER_PREFIX} Stage 5 envelope undefined — no Final marker ("End of AI Value Blueprint") in the assembled deliverable. Fail closed: do not release.`);
+    }
 
     // T-23 detector (the scan): assert no scaffold form survived the strip+envelope. Observability —
     // a residual flag means a relocation we did not anticipate; the envelope should make this empty.

@@ -1,3 +1,5 @@
+import { BLOCKER_PREFIX } from '../types/pipeline';
+
 // Validates Stage 3 (blueprint-opportunities) score comment arithmetic and classification.
 //
 // The LLM computes product=Impact×Feasibility×Alignment and embeds it in the score comment.
@@ -85,9 +87,9 @@ export function validateOpportunityScores(output: string): OpportunityValidation
     const missingPhaseFields = REQUIRED_PHASE_FIELDS.filter(f => !(f in fields));
     if (missingPhaseFields.length > 0) {
       reviewerFlags.push(
-        `GATE 3 FAIL T-19: ${id} score comment is missing phase fields: ` +
+        `${BLOCKER_PREFIX} GATE 3 FAIL T-19: ${id} score comment is missing phase fields: ` +
         `${missingPhaseFields.join(', ')} — Stage 4 will fall back to text-pattern judgment. ` +
-        `T-19 relay incomplete; manual review required before delivery.`,
+        `T-19 relay incomplete; resolve before delivery.`,
       );
     }
 
@@ -130,7 +132,7 @@ export function validateOpportunityScores(output: string): OpportunityValidation
   const literalStubCount = (output.match(/<!--\s*score:\s*id=H-RT-X{2,}/gi) ?? []).length;
   if (literalStubCount > 0) {
     reviewerFlags.push(
-      `GATE 3 FAIL T-26: ${literalStubCount} score comment(s) carry the literal placeholder ` +
+      `${BLOCKER_PREFIX} GATE 3 FAIL T-26: ${literalStubCount} score comment(s) carry the literal placeholder ` +
       `id=H-RT-XX — the template was not substituted with a real hypothesis ID. Downstream stages ` +
       `cannot key on this marker. Replace with the actual H-RT-NN ID before delivery.`,
     );
@@ -147,7 +149,7 @@ export function validateOpportunityScores(output: string): OpportunityValidation
   const duplicateIds = [...idCounts.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id} (×${n})`);
   if (duplicateIds.length > 0) {
     reviewerFlags.push(
-      `GATE 3 FAIL T-26: duplicate score marker(s): ${duplicateIds.join(', ')}. ` +
+      `${BLOCKER_PREFIX} GATE 3 FAIL T-26: duplicate score marker(s): ${duplicateIds.join(', ')}. ` +
       `Each hypothesis ID must carry exactly one score comment. Remove the duplicate before delivery.`,
     );
   }
@@ -262,13 +264,16 @@ export function validateRelayFields(stage1Dossier: string, stage3Opportunities: 
     if (!f1) continue; // ID absent from Stage 1 is a separate (missing-source) concern
     const drift: string[] = [];
     for (const field of RELAY_FIELDS) {
-      const v1 = f1[field];
-      const v3 = f3[field];
-      if (v1 !== undefined && v3 !== undefined && v1 !== v3) drift.push(`${field}: Stage1=${v1} → Stage3=${v3}`);
+      // Block 4.1: compare absent and `none` as LITERAL values, not fields to ignore. The H-RT-04
+      // fork was Stage 3 *inventing* a dated field where Stage 1 had `none` — only caught if `none`
+      // and absence are first-class values in the byte-identical diff (sentinel for absent).
+      const v1 = f1[field] ?? '(absent)';
+      const v3 = f3[field] ?? '(absent)';
+      if (v1 !== v3) drift.push(`${field}: Stage1=${v1} → Stage3=${v3}`);
     }
     if (drift.length > 0) {
       reviewerFlags.push(
-        `GATE 3 FAIL T-26 (relay drift) for ${id}: ${drift.join('; ')}. ` +
+        `${BLOCKER_PREFIX} GATE 3 FAIL T-26 (relay drift) for ${id}: ${drift.join('; ')}. ` +
         `Stage 3 must re-emit the nine relay fields byte-identical to Stage 1 — drift forks Stage 4 phase placement.`,
       );
     }
@@ -289,19 +294,25 @@ export function validateRoleNames(deliverable: string, stage1Dossier: string): {
   const ceoName = factsBlock.match(/CEO_NAME\s*[:=]\s*([^\n|]+)/i)?.[1]?.trim();
   if (!ceoName) return { reviewerFlags }; // no pinned name to validate against
 
-  const ceoTokens = new Set(ceoName.toLowerCase().split(/\s+/));
+  const ceoTokensList = ceoName.toLowerCase().split(/\s+/);
+  const ceoTokens = new Set(ceoTokensList);
+  const ceoSurname = ceoTokensList[ceoTokensList.length - 1];
   const roleRe = /\b(?:CEO|Chief Executive(?: Officer)?)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/g;
   const flagged = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = roleRe.exec(deliverable)) !== null) {
     const cited = m[1].trim();
     const citedTokens = cited.toLowerCase().split(/\s+/);
-    // Accept if the cited name shares any token with the pinned CEO name (e.g. "Popov" ⊂ "Dimitar Popov").
-    const matches = citedTokens.some(t => ceoTokens.has(t));
+    const citedSurname = citedTokens[citedTokens.length - 1];
+    // Block 5.1: the SURNAME is the identity-bearing token. A bare token-overlap check passes a
+    // first-name-preserved hallucination ("Dimitar Petrov" shares "Dimitar"). Accept ONLY when the
+    // cited surname matches the pinned CEO surname, OR the cited name is a single token that is one
+    // of the CEO's tokens (a legitimate first-name- or surname-only reference, e.g. "CEO Popov").
+    const matches = citedSurname === ceoSurname || (citedTokens.length === 1 && ceoTokens.has(citedTokens[0]));
     if (!matches && !flagged.has(cited)) {
       flagged.add(cited);
       reviewerFlags.push(
-        `GATE 5 FAIL S-26 (role-name): deliverable names CEO "${cited}" but INTAKE_FACTS CEO_NAME is "${ceoName}". ` +
+        `${BLOCKER_PREFIX} GATE 5 FAIL S-26 (role-name): deliverable names CEO "${cited}" but INTAKE_FACTS CEO_NAME is "${ceoName}". ` +
         `A wrong leadership name is never-ship — correct before delivery.`,
       );
     }

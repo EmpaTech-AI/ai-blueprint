@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
 import {
   loadJob, getAllJobs, approveJob, resetJobForRetry, deleteJob,
-  getTruncationMeta, toggleReupload, setClientVisibleStatus,
+  getTruncationMeta, toggleReupload, setClientVisibleStatus, updateReviewerFlags,
 } from '../storage/jobStore';
 import { runPipeline } from '../pipeline/orchestrator';
 import { callClaude } from '../utils/claudeClient';
 import { log } from '../utils/logger';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
+import { BLOCKER_PREFIX } from '../types/pipeline';
 import type { ConfidenceResult, JustificationEntry } from '../types/pipeline';
 
 const router = express.Router();
@@ -83,12 +84,37 @@ router.post('/:jobId/retry', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-// Admin: approve a job (records who approved)
+// Admin: approve a job (records who approved).
+// Blocker gate: a job carrying unresolved never-ship reviewer flags (BLOCKER_PREFIX — scaffold
+// leak, emission stub/dup, relay drift, wrong leadership name, malformed envelope) cannot be
+// released to the client. The artifact stays at review_ready for diagnosis; approval is refused
+// until the blockers are resolved (re-run), or an admin explicitly overrides with {"force":true}
+// (the override is recorded as a reviewer flag so it is never silent).
 router.post('/:jobId/approve', requireAdmin, (req: Request, res: Response) => {
   const adminName = (req as AuthRequest).user?.name;
   try {
+    const job = loadJob(req.params.jobId);
+    const flags = job.reviewerFlags ?? [];
+    const blockers = flags.filter((f) => f.startsWith(BLOCKER_PREFIX));
+    const force = (req.body as { force?: boolean } | undefined)?.force === true;
+
+    if (blockers.length > 0 && !force) {
+      res.status(409).json({
+        error: 'Approval blocked — unresolved never-ship reviewer flags. Resolve and re-run, or re-send with {"force":true} to override (the override is recorded).',
+        blockers,
+      });
+      return;
+    }
+
     approveJob(req.params.jobId, adminName);
-    res.json({ success: true });
+    if (blockers.length > 0 && force) {
+      updateReviewerFlags(req.params.jobId, [
+        ...flags,
+        `Override: approved by ${adminName ?? 'admin'} despite ${blockers.length} unresolved BLOCKER flag(s).`,
+      ]);
+      log('warn', 'Job approved with forced blocker override', { jobId: req.params.jobId, blockers: blockers.length });
+    }
+    res.json({ success: true, ...(blockers.length > 0 ? { overrodeBlockers: blockers.length } : {}) });
   } catch {
     res.status(404).json({ error: 'Job not found' });
   }
