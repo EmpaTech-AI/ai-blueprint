@@ -22,7 +22,7 @@ import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } fro
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { calculateConfidence, stripJustification, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -321,6 +321,15 @@ export async function runPipeline(jobId: string): Promise<void> {
       log('warn', 'Stage 5: role-attributed name mismatch detected', { jobId, count: roleFlags.length });
     }
 
+    // S-26 hardening: firm-context surname stoplist — defense in depth behind the role-name guard.
+    // No AI Assist BG name may appear in a client Blueprint; catches the v32 "Petrov" firm-bleed
+    // even in non-role contexts and when no CEO_NAME is pinned (client names are exempted).
+    const { reviewerFlags: firmFlags } = validateFirmSurnameBleed(assembledForDelivery, dossier);
+    if (firmFlags.length > 0) {
+      reviewerFlags.push(...firmFlags);
+      log('warn', 'Stage 5: firm-context surname bleed detected', { jobId, count: firmFlags.length });
+    }
+
     // T-07: Record pipeline build stamp unconditionally in reviewer metadata so every run
     // carries a traceable date+sha regardless of whether the assembly model emitted one.
     const buildStampDate = new Date().toISOString().split('T')[0];
@@ -331,10 +340,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33.1 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33.2 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33.1 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33.2 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }

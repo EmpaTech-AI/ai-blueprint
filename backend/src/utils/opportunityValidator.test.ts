@@ -3,6 +3,7 @@ import {
   validateRelayFields,
   validateRoleNames,
   validateStrictDependencyPhases,
+  validateFirmSurnameBleed,
 } from './opportunityValidator';
 
 const FULL_FIELDS =
@@ -92,6 +93,47 @@ describe('validateRoleNames — CEO name vs INTAKE_FACTS', () => {
   it('does not fire when no INTAKE_FACTS CEO_NAME is present', () => {
     const { reviewerFlags } = validateRoleNames('CEO Petrov said hello.', 'no facts block here');
     expect(reviewerFlags).toEqual([]);
+  });
+});
+
+// ── S-26 hardening: firm-context surname stoplist ───────────────────────────────
+
+describe('validateFirmSurnameBleed — AI Assist BG firm surname must never appear', () => {
+  const dossier = '<!-- INTAKE_FACTS\nCLIENT_NAME=Meridian Talent Partners OOD\nCEO_NAME=Dimitar Popov\n-->';
+
+  it('flags the seeded firm surname even in a non-role context (the v32 bleed mode)', () => {
+    const deliverable = 'The roadmap was reviewed and, as Petrov noted, sourcing is the first win.';
+    const { reviewerFlags } = validateFirmSurnameBleed(deliverable, dossier);
+    expect(reviewerFlags.some(f => /firm-context bleed.*petrov/i.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('fires even when no INTAKE_FACTS / CEO_NAME is present (independent of the role guard)', () => {
+    const { reviewerFlags } = validateFirmSurnameBleed('A note from Petrov.', undefined);
+    expect(reviewerFlags.length).toBe(1);
+  });
+
+  it('does NOT flag a genuine client who shares the surname (INTAKE_FACTS exemption)', () => {
+    const clientDossier = '<!-- INTAKE_FACTS\nCLIENT_NAME=Petrov Logistics EOOD\nCEO_NAME=Ivan Petrov\n-->';
+    const { reviewerFlags } = validateFirmSurnameBleed('CEO Ivan Petrov leads the firm.', clientDossier);
+    expect(reviewerFlags).toEqual([]);
+  });
+
+  it('does not flag a clean deliverable', () => {
+    const { reviewerFlags } = validateFirmSurnameBleed('CEO Dimitar Popov approved the plan.', dossier);
+    expect(reviewerFlags).toEqual([]);
+  });
+
+  it('honours the FIRM_SURNAME_STOPLIST env extension', () => {
+    const prev = process.env.FIRM_SURNAME_STOPLIST;
+    process.env.FIRM_SURNAME_STOPLIST = 'serafimov, ivanova';
+    try {
+      const { reviewerFlags } = validateFirmSurnameBleed('Prepared with input from Serafimov.', dossier);
+      expect(reviewerFlags.some(f => /serafimov/i.test(f))).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.FIRM_SURNAME_STOPLIST;
+      else process.env.FIRM_SURNAME_STOPLIST = prev;
+    }
   });
 });
 

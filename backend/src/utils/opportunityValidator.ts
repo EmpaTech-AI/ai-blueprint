@@ -320,6 +320,57 @@ export function validateRoleNames(deliverable: string, stage1Dossier: string): {
   return { reviewerFlags };
 }
 
+// ─── S-26 hardening: firm-context surname stoplist ──────────────────────────────
+//
+// The v32 "Petrov" leak was NOT a random hallucination — it was AI Assist BG's OWN CEO surname
+// bleeding into a client deliverable from the model's standing context. validateRoleNames catches
+// that case when it is role-attributed ("CEO Petrov") and a CEO_NAME is pinned, but the firm's own
+// names can also surface in non-role contexts ("as Petrov noted", a stray mention) and the run may
+// carry no pinned CEO_NAME. This stoplist is the defense-in-depth layer behind that guard: no AI
+// Assist BG name should EVER appear in a client's Blueprint, so any occurrence of a firm surname is
+// never-ship — independent of role attribution or whether INTAKE_FACTS pins a name.
+//
+// The default seed is the one observed firm surname ("Petrov"); extend via the FIRM_SURNAME_STOPLIST
+// env var (comma-separated) as the firm roster grows, so the list is config, not a code edit.
+const DEFAULT_FIRM_SURNAMES = ['petrov'];
+
+function firmSurnames(): string[] {
+  const fromEnv = (process.env.FIRM_SURNAME_STOPLIST ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set([...DEFAULT_FIRM_SURNAMES, ...fromEnv])];
+}
+
+export function validateFirmSurnameBleed(deliverable: string, stage1Dossier?: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const stop = firmSurnames();
+  if (stop.length === 0) return { reviewerFlags };
+
+  // Exemption: if a genuine client name pinned in INTAKE_FACTS contains a stoplisted surname, it is
+  // a real client who happens to share a surname with the firm — not a bleed. Don't flag those.
+  const factsBlock = stage1Dossier?.match(/<!--\s*INTAKE_FACTS([\s\S]*?)-->/i)?.[1] ?? '';
+  const exempt = new Set(
+    [...factsBlock.matchAll(/(?:CEO_NAME|CLIENT_NAME|CONTACT_NAME)\s*[:=]\s*([^\n|]+)/gi)]
+      .flatMap((m) => m[1].toLowerCase().split(/\s+/)),
+  );
+
+  const flagged = new Set<string>();
+  for (const surname of stop) {
+    if (exempt.has(surname)) continue; // a real client legitimately carries this surname
+    const re = new RegExp(`\\b${surname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (re.test(deliverable) && !flagged.has(surname)) {
+      flagged.add(surname);
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 5 FAIL S-26 (firm-context bleed): deliverable contains "${surname}", a known AI Assist BG ` +
+        `firm surname that must never appear in a client Blueprint (the v32 "Petrov" failure mode — firm standing-context ` +
+        `contamination). Never-ship — remove before delivery.`,
+      );
+    }
+  }
+  return { reviewerFlags };
+}
+
 // ─── T-27 (S-30 / KR3): strict-dependency phase determinism ─────────────────────
 //
 // The v33 acceptance run (T-10⁵) regressed KR3: H-RT-04 forked Later×3 / Next×1 because the
