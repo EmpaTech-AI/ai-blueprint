@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
+import { TOKENS_VERSION } from '../docx/designTokens';
 import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5 } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
@@ -126,6 +127,7 @@ router.get('/:jobId/reviewer-metadata', requireAdmin, (req: Request, res: Respon
       `**Status:** ${job.status}`,
       `**Build stamp:** ${buildStamp}`,
       `**Pipeline version:** ${pipelineVersion}`,
+      `**Design system:** v${TOKENS_VERSION} (renderer palette/type scale; separate axis from the pipeline version)`,
       `**Parent build:** ${PARENT_BUILD}`,
       `**Provenance anchor:** ${anchorStatus}`,
       '',

@@ -268,24 +268,27 @@ export function generateBlueprintHtml(clientName: string, assembledContent: stri
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── Design tokens (matched to Baros Vision Master Deliverable) ──────────── */
+/* WS2 — AI Assist BG canonical tokens (Design System v1.0.0). No local hexes (§7). */
 :root {
-  --navy:        #13243F;
-  --navy-deep:   #0D1A30;
-  --blue:        #214A93;
-  --teal:        #0FA6CC;
-  --teal-deep:   #06637F;
-  --gold:        #C2851A;
-  --gold-deep:   #946212;
-  --gold-tint:   #FBF2DD;
-  --ink:         #161B26;
-  --muted:       #44526B;
-  --line:        #CED7E6;
-  --tint:        #E9EFF8;
-  --tint-2:      #F1F4FA;
-  --confidential:#A82E29;
-  --page:        #ffffff;
-  --bg:          #4a5568;
-  --sans:        "Carlito", "Calibri", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --navy:        #1B2A4A;
+  --navy-deep:   #1B2A4A;
+  --blue:        #2E5090;
+  --teal:        #4A6FA5;
+  --teal-deep:   #2E5090;
+  --gold:        #C17B2C;
+  --gold-deep:   #C17B2C;
+  --gold-tint:   #F7F9FC;
+  --ink:         #2D3748;
+  --muted:       #666666;
+  --line:        #BDC3CB;
+  --tint:        #F7F9FC;
+  --tint-2:      #F0F4F8;
+  --confidential:#CC0000;
+  --page:        #FFFFFF;
+  --bg:          #4A5568;
+  --sans:        "Calibri", "Carlito", Arial, sans-serif;
+  --serif:       Georgia, "Times New Roman", serif;
+  --util:        Arial, sans-serif;
 }
 
 /* ── Screen shell ────────────────────────────────────────────────────────── */
@@ -392,10 +395,10 @@ body {
   display: block;
 }
 .cover-title {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 36pt;
-  font-weight: 700;
-  color: var(--ink);
+  font-family: var(--util);
+  font-size: 28pt;
+  font-weight: normal;
+  color: var(--navy);
   line-height: 1.1;
   margin-bottom: 0;
   letter-spacing: .01em;
@@ -403,14 +406,16 @@ body {
 .cover-gold-rule {
   width: 60px;
   height: 3px;
-  background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+  background: var(--blue);
   border-radius: 2px;
   margin: 16px auto 0;
 }
 .cover-client {
-  font-size: 18pt;
-  font-weight: 700;
-  color: var(--navy);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 24pt;
+  font-weight: normal;
+  color: var(--muted);
   margin-top: 14px;
 }
 .cover-meta {

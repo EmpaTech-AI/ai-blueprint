@@ -19,24 +19,38 @@ import {
 import fs from 'fs';
 import { log } from '../utils/logger';
 import { stripCheckpointScaffold } from '../utils/confidenceScorer';
-import { COLORS } from './designTokens';
+import { COLORS, FONT, TYPE } from './designTokens';
 import {
   validateComponentSyntax, matchCalloutOpen, isCalloutClose, isKpiFence, parseKpiRows,
   splitSeveritySpans, hasSeverity, ws4Enabled, type SeverityLevel,
 } from './components';
 
+// WS1 — all colours/fonts/sizes derive from the canonical design tokens (no local hexes, §7).
+// Field names are retained from the prior palette so existing call sites keep working; values now
+// map to AI Assist BG tokens. Cases where one old field needs two tokens (H1 navy vs H2 blue; H3
+// teal; header/footer/title → Arial) are handled at the specific call sites.
 const BRAND = {
-  primaryBlue: '2E5FA1',
-  lightBlue: 'D6E4F7',
-  darkGray: '404040',
-  gray: 'A6A6A6',
-  white: 'FFFFFF',
-  bodyFont: 'Arial',
-  h1Size: 36,
-  h2Size: 30,
-  h3Size: 26,
-  bodySize: 22,
-  smallSize: 18,
+  primaryBlue: COLORS.blue,         // H2 + rules (2E5090)
+  navy: COLORS.navy,                // H1, table header, title (1B2A4A)
+  teal: COLORS.teal,                // H3 (4A6FA5)
+  darkGray: COLORS.charcoal,        // body text (2D3748)
+  gray: COLORS.muted,               // header/footer metadata (999999)
+  subtitle: COLORS.subtitle,        // cover subtitle / secondary (666666)
+  h4gray: COLORS.h4gray,
+  border: COLORS.border,
+  altRow: COLORS.altRow,
+  white: COLORS.white,
+  bodyFont: FONT.calibri,           // body, H1–H3, TOC
+  arial: FONT.arial,                // title, H4, header, footer
+  georgia: FONT.georgia,            // subtitle
+  titleSize: TYPE.title.half,       // 56 (28pt)
+  subtitleSize: TYPE.subtitle.half, // 48 (24pt)
+  h1Size: TYPE.h1.half,             // 40 (20pt)
+  h2Size: TYPE.h2.half,             // 30 (15pt)
+  h3Size: TYPE.h3.half,             // 26 (13pt)
+  h4Size: TYPE.h4.half,             // 24 (12pt)
+  bodySize: TYPE.normal.half,       // 22 (11pt)
+  smallSize: TYPE.small.half,       // 18 (9pt)
 };
 
 interface Section {
@@ -47,7 +61,7 @@ interface Section {
 // ─── Inline text parser ────────────────────────────────────────────────────────
 // Handles **bold**, *italic*, and plain text within a line.
 
-function parseInlineRuns(text: string, baseSize = BRAND.bodySize): TextRun[] {
+function parseInlineRuns(text: string, baseSize: number = BRAND.bodySize): TextRun[] {
   // WS4 severity: render {sev:level|Label} as inline bold text in the level's brand hue (DOCX uses
   // the full hue — never a cell fill). The label word is inside the marker, so colour isn't the only
   // signal. Non-severity segments fall through to the **bold**/*italic* parser below.
@@ -138,15 +152,17 @@ function buildDocxTable(tableLines: string[]): Table | null {
           }),
         ],
         shading: rowIdx === 0
-          ? { type: ShadingType.SOLID, color: BRAND.primaryBlue, fill: BRAND.primaryBlue }
-          : undefined,
-        margins: { top: 60, bottom: 60, left: 80, right: 80 },
+          ? { type: ShadingType.SOLID, color: BRAND.navy, fill: BRAND.navy }
+          : (rowIdx % 2 === 0 ? { type: ShadingType.SOLID, color: BRAND.altRow, fill: BRAND.altRow } : undefined),
+        margins: { top: 60, bottom: 60, left: 115, right: 115 },
       })),
     });
   });
 
+  const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: BRAND.border };
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder, insideHorizontal: cellBorder, insideVertical: cellBorder },
     rows,
   });
 }
@@ -159,11 +175,11 @@ function buildSection(section: Section): (Paragraph | Table)[] {
   // Section heading
   elements.push(
     new Paragraph({
-      children: [new TextRun({ text: section.heading, bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
+      children: [new TextRun({ text: section.heading, bold: true, size: BRAND.h1Size, color: BRAND.navy, font: BRAND.bodyFont })],
       heading: HeadingLevel.HEADING_1,
-      spacing: { before: 480, after: 240 },
+      spacing: { before: 480, after: 280 },
       border: {
-        bottom: { color: BRAND.primaryBlue, size: 4, style: BorderStyle.SINGLE, space: 4 },
+        bottom: { color: BRAND.primaryBlue, size: 8, style: BorderStyle.SINGLE, space: 6 },
       },
     })
   );
@@ -253,18 +269,19 @@ function buildSection(section: Section): (Paragraph | Table)[] {
     // H3
     if (trimmed.startsWith('### ')) {
       elements.push(new Paragraph({
-        children: [new TextRun({ text: trimmed.slice(4), bold: true, size: BRAND.h3Size, color: BRAND.darkGray, font: BRAND.bodyFont })],
+        children: [new TextRun({ text: trimmed.slice(4), bold: true, size: BRAND.h3Size, color: BRAND.teal, font: BRAND.bodyFont })],
         spacing: { before: 240, after: 120 },
       }));
       i++;
       continue;
     }
 
-    // H2
+    // H2 — left bar (blue) per the type-scale treatment.
     if (trimmed.startsWith('## ')) {
       elements.push(new Paragraph({
         children: [new TextRun({ text: trimmed.slice(3), bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
-        spacing: { before: 360, after: 180 },
+        spacing: { before: 360, after: 200 },
+        border: { left: { color: BRAND.primaryBlue, size: 18, style: BorderStyle.SINGLE, space: 8 } },
       }));
       i++;
       continue;
@@ -376,7 +393,7 @@ export async function generateBlueprintDocx(
           default: new Header({
             children: [
               new Paragraph({
-                children: [new TextRun({ text: 'AI Assist BG  |  AI Value Blueprint', color: BRAND.primaryBlue, font: BRAND.bodyFont, size: BRAND.smallSize })],
+                children: [new TextRun({ text: 'AI Assist BG  |  AI Value Blueprint', color: BRAND.gray, font: BRAND.arial, size: BRAND.smallSize })],
                 alignment: AlignmentType.RIGHT,
               }),
             ],
@@ -387,10 +404,10 @@ export async function generateBlueprintDocx(
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: 'Confidential  |  Page ', font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
-                  new TextRun({ children: [PageNumber.CURRENT], font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
-                  new TextRun({ text: ' of ', font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
-                  new TextRun({ children: [PageNumber.TOTAL_PAGES], font: BRAND.bodyFont, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ text: 'Prepared by AI Assist BG  |  CONFIDENTIAL  |  Page ', font: BRAND.arial, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ children: [PageNumber.CURRENT], font: BRAND.arial, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ text: ' of ', font: BRAND.arial, size: BRAND.smallSize, color: BRAND.gray }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], font: BRAND.arial, size: BRAND.smallSize, color: BRAND.gray }),
                 ],
                 alignment: AlignmentType.CENTER,
               }),
@@ -412,11 +429,11 @@ function buildTitlePage(clientName: string): Paragraph[] {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   return [
     new Paragraph({ text: '', spacing: { before: 1440 } }),
-    new Paragraph({ children: [new TextRun({ text: 'AI VALUE BLUEPRINT', bold: true, size: 48, color: BRAND.primaryBlue, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 240 } }),
-    new Paragraph({ children: [new TextRun({ text: clientName, bold: true, size: 36, color: BRAND.darkGray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 480 } }),
-    new Paragraph({ children: [new TextRun({ text: 'Prepared by AI Assist BG', size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
-    new Paragraph({ children: [new TextRun({ text: today, size: BRAND.bodySize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
-    new Paragraph({ children: [new TextRun({ text: 'CONFIDENTIAL', bold: true, size: BRAND.smallSize, color: BRAND.gray, font: BRAND.bodyFont })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: 'AI Value Blueprint', size: BRAND.titleSize, color: BRAND.navy, font: BRAND.arial })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+    new Paragraph({ children: [new TextRun({ text: clientName, italics: true, size: BRAND.subtitleSize, color: BRAND.subtitle, font: BRAND.georgia })], alignment: AlignmentType.CENTER, spacing: { after: 480 } }),
+    new Paragraph({ children: [new TextRun({ text: 'Prepared by AI Assist BG', size: BRAND.bodySize, color: BRAND.subtitle, font: BRAND.arial })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: today, size: BRAND.bodySize, color: BRAND.subtitle, font: BRAND.arial })], alignment: AlignmentType.CENTER, spacing: { after: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: 'CONFIDENTIAL', bold: true, size: BRAND.smallSize, color: BRAND.gray, font: BRAND.arial })], alignment: AlignmentType.CENTER }),
   ];
 }
 
@@ -491,7 +508,7 @@ export async function generateBlueprintPdf(
   sections.forEach((section, idx) => {
     content.push({ text: section.heading, style: 'h1', pageBreak: idx > 0 ? 'before' : undefined });
     content.push({
-      canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 1.5, lineColor: '#2E5FA1' }],
+      canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 1.5, lineColor: `#${COLORS.blue}` }],
       margin: [0, 2, 0, 10],
     });
 
@@ -510,7 +527,7 @@ export async function generateBlueprintPdf(
       // Horizontal rule
       if (/^[-=_]{3,}$/.test(t)) {
         content.push({
-          canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 0.5, lineColor: '#CCCCCC' }],
+          canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 0.5, lineColor: `#${COLORS.border}` }],
           margin: [0, 6, 0, 6],
         });
         li++;
@@ -581,29 +598,29 @@ export async function generateBlueprintPdf(
   const def = {
     pageSize: 'A4',
     pageMargins: [72, 72, 72, 72],
-    defaultStyle: { font: 'Roboto', fontSize: 11, color: '#404040', lineHeight: 1.5 },
+    defaultStyle: { font: 'Roboto', fontSize: 11, color: `#${COLORS.charcoal}`, lineHeight: 1.5 },
     header: (pg: number) => pg > 1 ? {
       text: 'AI Assist BG  |  AI Value Blueprint',
-      alignment: 'right', margin: [72, 24, 72, 0], fontSize: 9, color: '#214A93',
+      alignment: 'right', margin: [72, 24, 72, 0], fontSize: 9, color: `#${COLORS.muted}`,
     } : undefined,
     footer: (pg: number, total: number) => pg > 1 ? {
-      text: `Confidential  |  Page ${pg} of ${total}`,
-      alignment: 'center', margin: [72, 0, 72, 24], fontSize: 9, color: '#44526B',
+      text: `Prepared by AI Assist BG  |  CONFIDENTIAL  |  Page ${pg} of ${total}`,
+      alignment: 'center', margin: [72, 0, 72, 24], fontSize: 9, color: `#${COLORS.muted}`,
     } : undefined,
     content,
     styles: {
-      coverTitle:        { fontSize: 28, bold: true,  color: '#214A93', margin: [0, 0, 0, 16] },
-      coverClient:       { fontSize: 20, bold: true,  color: '#161B26', margin: [0, 0, 0, 24] },
-      coverMeta:         { fontSize: 12,               color: '#44526B', margin: [0, 0, 0, 6]  },
-      coverConfidential: { fontSize: 10, bold: true,  color: '#A82E29', letterSpacing: 2       },
-      h1:     { fontSize: 18, bold: true,  color: '#13243F', margin: [0, 16, 0, 4]  },
-      h2:     { fontSize: 14, bold: true,  color: '#214A93', margin: [0, 12, 0, 6]  },
-      h3:     { fontSize: 12, bold: true,  color: '#214A93', margin: [0, 8,  0, 4]  },
-      body:   { fontSize: 11, color: '#161B26', margin: [0, 0, 0, 6]   },
-      bullet: { fontSize: 11, color: '#161B26', margin: [14, 0, 0, 4]  },
-      code:   { fontSize: 9,  font: 'Roboto', color: '#44526B', margin: [0, 4, 0, 8], preserveLeadingSpaces: true },
-      tableHeader: { fontSize: 10, bold: true, color: '#FFFFFF', fillColor: '#0D1A30' },
-      tableCell:   { fontSize: 10, color: '#161B26' },
+      coverTitle:        { fontSize: 28, color: `#${COLORS.navy}`, margin: [0, 0, 0, 16] },
+      coverClient:       { fontSize: 24, italics: true, color: `#${COLORS.subtitle}`, margin: [0, 0, 0, 24] },
+      coverMeta:         { fontSize: 12, color: `#${COLORS.subtitle}`, margin: [0, 0, 0, 6]  },
+      coverConfidential: { fontSize: 10, bold: true, color: `#${COLORS.critical}`, letterSpacing: 2 },
+      h1:     { fontSize: 20, bold: true,  color: `#${COLORS.navy}`, margin: [0, 16, 0, 4]  },
+      h2:     { fontSize: 15, bold: true,  color: `#${COLORS.blue}`, margin: [0, 12, 0, 6]  },
+      h3:     { fontSize: 13, bold: true,  color: `#${COLORS.teal}`, margin: [0, 8,  0, 4]  },
+      body:   { fontSize: 11, color: `#${COLORS.charcoal}`, margin: [0, 0, 0, 6]   },
+      bullet: { fontSize: 11, color: `#${COLORS.charcoal}`, margin: [14, 0, 0, 4]  },
+      code:   { fontSize: 9,  font: 'Roboto', color: `#${COLORS.subtitle}`, margin: [0, 4, 0, 8], preserveLeadingSpaces: true },
+      tableHeader: { fontSize: 10, bold: true, color: `#${COLORS.white}`, fillColor: `#${COLORS.navy}` },
+      tableCell:   { fontSize: 10, color: `#${COLORS.charcoal}` },
     },
   };
 
