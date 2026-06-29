@@ -20,6 +20,7 @@ import { runStepD2 } from './stepD2-roadmap';
 import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
+import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
@@ -366,6 +367,21 @@ export async function runPipeline(jobId: string): Promise<void> {
 
     const htmlContent = generateBlueprintHtml(deliveryClientName, assembledForDelivery);
     await saveHtmlData(jobId, htmlContent);
+
+    // WS4 §C6b: post-render residual-component-marker net. A well-formed Class-C marker that the
+    // renderer failed to consume would surface as literal text in the output — never-ship. Scan the
+    // rendered text artifacts (HTML + TXT share the parser family with DOCX/PDF). Malformed markers
+    // already fail loud (§C4) inside the generators above, aborting the run before this point.
+    const componentResidual = [
+      ...new Set([
+        ...detectResidualComponentMarkers(htmlContent),
+        ...detectResidualComponentMarkers(txtContent),
+      ]),
+    ];
+    if (componentResidual.length > 0) {
+      reviewerFlags.push(...componentResidual);
+      log('warn', 'Stage 5: residual component marker survived rendering', { jobId, count: componentResidual.length });
+    }
 
     await updateConfidenceScores(jobId, confidenceScores);
     await updateReviewerFlags(jobId, reviewerFlags);

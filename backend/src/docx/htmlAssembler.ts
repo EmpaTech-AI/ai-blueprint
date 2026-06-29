@@ -1,5 +1,10 @@
 import { log } from '../utils/logger';
 import { stripCheckpointScaffold } from '../utils/confidenceScorer';
+import { hex, severityWebTextHex } from './designTokens';
+import {
+  validateComponentSyntax, matchCalloutOpen, isCalloutClose, isKpiFence, parseKpiRows,
+  splitSeveritySpans, hasSeverity, ws4Enabled,
+} from './components';
 
 interface Section {
   heading: string;
@@ -16,10 +21,18 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// Inline markdown + WS4 severity spans. Severity labels render as inline bold text in the level's
+// on-white text hue (the label word is inside the marker, so colour is never the sole signal).
 function inlineFormat(text: string): string {
-  return esc(text)
+  const md = (s: string) => esc(s)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
+  if (!hasSeverity(text)) return md(text);
+  return splitSeveritySpans(text)
+    .map(seg => seg.level
+      ? `<strong class="bp-sev" style="color:${severityWebTextHex(seg.level)}">${esc(seg.text)}</strong>`
+      : md(seg.text))
+    .join('');
 }
 
 function parseAssembledContent(content: string): Section[] {
@@ -94,6 +107,33 @@ function renderSectionContent(content: string): string {
       continue;
     }
 
+    // WS4 callout (:::callout <type> … :::) — gold uppercase header, blue left border, callout bg.
+    const callout = matchCalloutOpen(lines[i]);
+    if (callout) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      i++;
+      const body: string[] = [];
+      while (i < lines.length && !isCalloutClose(lines[i])) { body.push(lines[i]); i++; }
+      if (i < lines.length) i++; // consume the closing :::
+      const bodyHtml = body.filter(l => l.trim()).map(l => `<p>${inlineFormat(l.trim())}</p>`).join('\n');
+      out.push(`<div class="bp-callout"><div class="hd">${esc(callout.label)}</div>${bodyHtml}</div>`);
+      continue;
+    }
+
+    // WS4 KPI cards (```kpi … ```) — teal uppercase label, navy bold value.
+    if (t.startsWith('```') && isKpiFence(lines[i])) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      i++;
+      const kpiLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith('```')) { kpiLines.push(lines[i]); i++; }
+      if (i < lines.length) i++; // consume closing fence
+      const cards = parseKpiRows(kpiLines)
+        .map(r => `<div class="bp-kpi"><div class="k">${inlineFormat(r.label)}</div><div class="v">${esc(r.value)}</div></div>`)
+        .join('');
+      out.push(`<div class="bp-kpis">${cards}</div>`);
+      continue;
+    }
+
     // Fenced code block (``` … ```) — contain it in a monospace panel so the ASCII portfolio
     // diagram renders as intended instead of leaking backticks and box characters as prose.
     if (t.startsWith('```')) {
@@ -162,8 +202,32 @@ function renderSectionContent(content: string): string {
 export function generateBlueprintHtml(clientName: string, assembledContent: string): string {
   log('info', `Generating HTML for ${clientName}`);
 
+  if (ws4Enabled()) validateComponentSyntax(assembledContent); // WS4 §C4 — fail loud before rendering
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const sections = parseAssembledContent(assembledContent);
+
+  // WS4 §C2.4 — renderer-generated TOC from the H1 section headings (own page).
+  const tocHtml = ws4Enabled() && sections.length > 1 ? `
+<nav class="bp-toc" aria-label="Contents">
+  <div class="bp-toc-h">Contents</div>
+  <ol>${sections.map((s, idx) => `<li><a href="#section-${idx + 1}">${esc(s.heading)}</a></li>`).join('')}</ol>
+</nav>` : '';
+
+  // WS4 component styling, derived from the canonical tokens (design doc §7 — no local colours).
+  const componentCss = `
+  .bp-toc { width:210mm; min-height:297mm; margin:20px auto; background:${hex('white')}; padding:14mm 18mm; box-shadow:0 6px 26px rgba(0,0,0,.28); page-break-after:always; break-after:page; }
+  .bp-toc-h { font-family:var(--sans); font-weight:bold; font-size:20px; color:${hex('navy')}; border-bottom:2px solid ${hex('blue')}; padding-bottom:8px; margin-bottom:14px; }
+  .bp-toc ol { list-style:none; padding:0; margin:0; }
+  .bp-toc li { padding:6px 0; border-bottom:.5pt solid ${hex('border')}; }
+  .bp-toc a { color:${hex('navy')}; text-decoration:none; font-weight:bold; font-size:12pt; }
+  .bp-callout { background:${hex('callout')}; border-left:3px solid ${hex('blue')}; padding:14px 18px; margin:12px 0; border-radius:0 3px 3px 0; }
+  .bp-callout .hd { font-family:var(--sans); font-weight:bold; color:${hex('gold')}; text-transform:uppercase; letter-spacing:2px; font-size:11pt; margin-bottom:6px; }
+  .bp-callout p { color:${hex('charcoal')}; font-size:11pt; margin:0 0 4pt; }
+  .bp-kpis { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin:12px 0; }
+  .bp-kpi { background:${hex('white')}; border:1px solid ${hex('border')}; border-radius:4px; padding:14px 16px; }
+  .bp-kpi .k { color:${hex('teal')}; text-transform:uppercase; font-size:9pt; font-weight:bold; letter-spacing:.06em; }
+  .bp-kpi .v { color:${hex('navy')}; font-weight:bold; font-size:22px; margin-top:6px; }
+  .bp-sev { font-weight:bold; }`;
 
   const sectionPages = sections.map((section, idx) => {
     const ordinal = ORDINALS[idx] ?? `${idx + 1}`;
@@ -502,6 +566,8 @@ body {
   white-space: pre;
 }
 
+${componentCss}
+
 /* ── Print ───────────────────────────────────────────────────────────────── */
 @media print {
   .toolbar { display: none; }
@@ -557,6 +623,7 @@ body {
   </div>
   <div class="cover-confidential">Confidential</div>
 </div>
+${tocHtml}
 
 ${sectionPages}
 

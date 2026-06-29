@@ -19,6 +19,11 @@ import {
 import fs from 'fs';
 import { log } from '../utils/logger';
 import { stripCheckpointScaffold } from '../utils/confidenceScorer';
+import { COLORS } from './designTokens';
+import {
+  validateComponentSyntax, matchCalloutOpen, isCalloutClose, isKpiFence, parseKpiRows,
+  splitSeveritySpans, hasSeverity, ws4Enabled, type SeverityLevel,
+} from './components';
 
 const BRAND = {
   primaryBlue: '2E5FA1',
@@ -43,6 +48,21 @@ interface Section {
 // Handles **bold**, *italic*, and plain text within a line.
 
 function parseInlineRuns(text: string, baseSize = BRAND.bodySize): TextRun[] {
+  // WS4 severity: render {sev:level|Label} as inline bold text in the level's brand hue (DOCX uses
+  // the full hue — never a cell fill). The label word is inside the marker, so colour isn't the only
+  // signal. Non-severity segments fall through to the **bold**/*italic* parser below.
+  if (hasSeverity(text)) {
+    const runs: TextRun[] = [];
+    for (const seg of splitSeveritySpans(text)) {
+      if (seg.level) runs.push(new TextRun({ text: seg.text, bold: true, font: BRAND.bodyFont, size: baseSize, color: COLORS[seg.level as SeverityLevel] }));
+      else runs.push(...parseBoldItalicRuns(seg.text, baseSize));
+    }
+    return runs.length > 0 ? runs : [new TextRun({ text, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray })];
+  }
+  return parseBoldItalicRuns(text, baseSize);
+}
+
+function parseBoldItalicRuns(text: string, baseSize: number): TextRun[] {
   const runs: TextRun[] = [];
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   for (const part of parts) {
@@ -55,7 +75,46 @@ function parseInlineRuns(text: string, baseSize = BRAND.bodySize): TextRun[] {
       runs.push(new TextRun({ text: part, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray }));
     }
   }
-  return runs.length > 0 ? runs : [new TextRun({ text, font: BRAND.bodyFont, size: baseSize, color: BRAND.darkGray })];
+  return runs;
+}
+
+// WS4 DOCX callout — left border + shaded paragraph, gold uppercase header, charcoal body.
+function buildDocxCallout(label: string, body: string[]): Paragraph[] {
+  const out: Paragraph[] = [];
+  out.push(new Paragraph({
+    children: [new TextRun({ text: label.toUpperCase(), bold: true, font: BRAND.bodyFont, size: BRAND.smallSize, color: COLORS.gold })],
+    border: { left: { color: COLORS.blue, size: 18, style: BorderStyle.SINGLE, space: 8 } },
+    shading: { type: ShadingType.SOLID, color: COLORS.callout, fill: COLORS.callout },
+    spacing: { before: 120, after: 40 },
+  }));
+  for (const line of body.filter(l => l.trim())) {
+    out.push(new Paragraph({
+      children: parseInlineRuns(line.trim()),
+      border: { left: { color: COLORS.blue, size: 18, style: BorderStyle.SINGLE, space: 8 } },
+      shading: { type: ShadingType.SOLID, color: COLORS.callout, fill: COLORS.callout },
+      spacing: { after: 60 },
+    }));
+  }
+  return out;
+}
+
+// WS4 DOCX KPI cards — a 2-column table (teal label · navy bold value) per the card token mapping.
+function buildDocxKpis(rows: Array<{ label: string; value: string }>): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: rows.map(r => new TableRow({
+      children: [
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: r.label.toUpperCase(), bold: true, font: BRAND.bodyFont, size: BRAND.smallSize, color: COLORS.teal })] })],
+          margins: { top: 60, bottom: 60, left: 80, right: 80 },
+        }),
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: r.value, bold: true, font: BRAND.bodyFont, size: BRAND.h3Size, color: COLORS.navy })] })],
+          margins: { top: 60, bottom: 60, left: 80, right: 80 },
+        }),
+      ],
+    })),
+  });
 }
 
 // ─── Markdown table builder ────────────────────────────────────────────────────
@@ -130,6 +189,28 @@ function buildSection(section: Section): (Paragraph | Table)[] {
         spacing: { before: 120, after: 120 },
       }));
       i++;
+      continue;
+    }
+
+    // WS4 callout (:::callout <type> … :::)
+    const calloutD = matchCalloutOpen(raw);
+    if (calloutD) {
+      i++;
+      const body: string[] = [];
+      while (i < lines.length && !isCalloutClose(lines[i])) { body.push(lines[i]); i++; }
+      if (i < lines.length) i++; // consume :::
+      elements.push(...buildDocxCallout(calloutD.label, body));
+      continue;
+    }
+
+    // WS4 KPI cards (```kpi … ```)
+    if (trimmed.startsWith('```') && isKpiFence(raw)) {
+      i++;
+      const kpiLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith('```')) { kpiLines.push(lines[i]); i++; }
+      if (i < lines.length) i++; // consume closing fence
+      elements.push(buildDocxKpis(parseKpiRows(kpiLines)));
+      elements.push(new Paragraph({ text: '', spacing: { after: 120 } }));
       continue;
     }
 
@@ -242,11 +323,17 @@ export async function generateBlueprintDocx(
 ): Promise<Buffer> {
   log('info', `Generating DOCX for ${clientName}`, { outputPath });
 
+  if (ws4Enabled()) validateComponentSyntax(assembledContent); // WS4 §C4 — fail loud before rendering
   const sections = parseAssembledContent(assembledContent);
   const children: (Paragraph | Table)[] = [];
 
   children.push(...buildTitlePage(clientName));
   children.push(new Paragraph({ children: [new PageBreak()] }));
+
+  if (ws4Enabled() && sections.length > 1) {
+    children.push(...buildDocxToc(sections)); // WS4 §C2.4 renderer-generated TOC
+    children.push(new Paragraph({ children: [new PageBreak()] }));
+  }
 
   for (const section of sections) {
     children.push(...buildSection(section));
@@ -333,6 +420,25 @@ function buildTitlePage(clientName: string): Paragraph[] {
   ];
 }
 
+// WS4 §C2.4 — renderer-generated Contents list from the H1 section headings (TOC1 token style).
+function buildDocxToc(sections: Section[]): Paragraph[] {
+  const out: Paragraph[] = [
+    new Paragraph({
+      children: [new TextRun({ text: 'Contents', bold: true, size: BRAND.h2Size, color: COLORS.navy, font: BRAND.bodyFont })],
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 240, after: 240 },
+      border: { bottom: { color: COLORS.blue, size: 8, style: BorderStyle.SINGLE, space: 6 } },
+    }),
+  ];
+  sections.forEach((s, idx) => {
+    out.push(new Paragraph({
+      children: [new TextRun({ text: `${idx + 1}.  ${s.heading}`, bold: true, size: BRAND.bodySize, color: COLORS.navy, font: BRAND.bodyFont })],
+      spacing: { after: 80 },
+    }));
+  });
+  return out;
+}
+
 // ─── PDF Generator ─────────────────────────────────────────────────────────────
 
 export async function generateBlueprintPdf(
@@ -340,6 +446,8 @@ export async function generateBlueprintPdf(
   assembledContent: string,
 ): Promise<Buffer> {
   log('info', `Generating PDF for ${clientName}`);
+
+  if (ws4Enabled()) validateComponentSyntax(assembledContent); // WS4 §C4 — fail loud before rendering
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const PdfPrinter = require('pdfmake/src/printer') as new (
@@ -373,6 +481,13 @@ export async function generateBlueprintPdf(
     { text: 'CONFIDENTIAL',          style: 'coverConfidential', alignment: 'center', pageBreak: 'after' },
   ];
 
+  if (ws4Enabled() && sections.length > 1) { // WS4 §C2.4 renderer-generated TOC
+    content.push({ text: 'Contents', style: 'h1' });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: W, y2: 0, lineWidth: 1.5, lineColor: `#${COLORS.blue}` }], margin: [0, 2, 0, 10] });
+    sections.forEach((s, idx) => content.push({ text: `${idx + 1}.  ${s.heading}`, color: `#${COLORS.navy}`, bold: true, margin: [0, 0, 0, 6] }));
+    content.push({ text: '', pageBreak: 'after' });
+  }
+
   sections.forEach((section, idx) => {
     content.push({ text: section.heading, style: 'h1', pageBreak: idx > 0 ? 'before' : undefined });
     content.push({
@@ -399,6 +514,27 @@ export async function generateBlueprintPdf(
           margin: [0, 6, 0, 6],
         });
         li++;
+        continue;
+      }
+
+      // WS4 callout (:::callout <type> … :::)
+      const calloutP = matchCalloutOpen(lines[li]);
+      if (calloutP) {
+        li++;
+        const body: string[] = [];
+        while (li < lines.length && !isCalloutClose(lines[li])) { body.push(lines[li]); li++; }
+        if (li < lines.length) li++; // consume :::
+        content.push(buildPdfCallout(calloutP.label, body));
+        continue;
+      }
+
+      // WS4 KPI cards (```kpi … ```)
+      if (t.startsWith('```') && isKpiFence(lines[li])) {
+        li++;
+        const kpiLines: string[] = [];
+        while (li < lines.length && !lines[li].trim().startsWith('```')) { kpiLines.push(lines[li]); li++; }
+        if (li < lines.length) li++; // consume closing fence
+        content.push(buildPdfKpis(parseKpiRows(kpiLines)));
         continue;
       }
 
@@ -486,17 +622,69 @@ export async function generateBlueprintPdf(
 // table cell) splits into a single part. The earlier code early-returned that single part as a
 // raw string, so the markdown markers leaked into the PDF verbatim — the literal `**…**` the
 // business flagged across the Findings and the whole scorecard. We must map the single token too.
-function parsePdfInline(text: string): unknown {
+function boldItalicPdfRuns(text: string): unknown[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
-  if (parts.length === 0) return text;
-  const runs = parts.map(part => {
+  return parts.map(part => {
     if (part.startsWith('**') && part.endsWith('**')) return { text: part.slice(2, -2), bold: true };
     if (part.startsWith('*')  && part.endsWith('*'))  return { text: part.slice(1, -1), italics: true };
     return part;
   });
+}
+
+function parsePdfInline(text: string): unknown {
+  // WS4 severity: render {sev:level|Label} as inline bold text in the level's brand hue.
+  if (hasSeverity(text)) {
+    const runs: unknown[] = [];
+    for (const seg of splitSeveritySpans(text)) {
+      if (seg.level) runs.push({ text: seg.text, bold: true, color: `#${COLORS[seg.level as SeverityLevel]}` });
+      else runs.push(...boldItalicPdfRuns(seg.text));
+    }
+    return runs;
+  }
+  const runs = boldItalicPdfRuns(text);
+  if (runs.length === 0) return text;
   // Return a bare string only when the single part carried no markdown (true plain text).
   if (runs.length === 1 && typeof runs[0] === 'string') return runs[0];
   return runs;
+}
+
+// WS4 PDF callout — left blue bar + callout fill (drawn via a 1-cell table layout), gold header.
+function buildPdfCallout(label: string, body: string[]): unknown {
+  const stack: unknown[] = [
+    { text: label.toUpperCase(), bold: true, color: `#${COLORS.gold}`, fontSize: 10, characterSpacing: 1, margin: [0, 0, 0, 4] },
+  ];
+  for (const line of body.filter(l => l.trim())) {
+    stack.push({ text: parsePdfInline(line.trim()), color: `#${COLORS.charcoal}`, fontSize: 11, margin: [0, 0, 0, 3] });
+  }
+  return {
+    table: { widths: ['*'], body: [[{ stack, fillColor: `#${COLORS.callout}` }]] },
+    layout: {
+      vLineWidth: (i: number) => (i === 0 ? 3 : 0),
+      vLineColor: () => `#${COLORS.blue}`,
+      hLineWidth: () => 0,
+      paddingLeft: () => 10, paddingRight: () => 10, paddingTop: () => 8, paddingBottom: () => 8,
+    },
+    margin: [0, 8, 0, 10],
+  };
+}
+
+// WS4 PDF KPI cards — one bordered cell per card: teal uppercase label, navy bold value.
+function buildPdfKpis(rows: Array<{ label: string; value: string }>): unknown {
+  const cells = rows.map(r => ({
+    stack: [
+      { text: r.label.toUpperCase(), color: `#${COLORS.teal}`, bold: true, fontSize: 8, characterSpacing: 0.5 },
+      { text: r.value, color: `#${COLORS.navy}`, bold: true, fontSize: 16, margin: [0, 4, 0, 0] },
+    ],
+    margin: [8, 8, 8, 8],
+  }));
+  return {
+    table: { widths: Array(cells.length).fill('*'), body: [cells] },
+    layout: {
+      hLineWidth: () => 0.5, vLineWidth: () => 0.5,
+      hLineColor: () => `#${COLORS.border}`, vLineColor: () => `#${COLORS.border}`,
+    },
+    margin: [0, 8, 0, 12],
+  };
 }
 
 // Strip box-drawing / block-element / replacement glyphs that the PDF base font (Roboto) and the
@@ -551,34 +739,76 @@ export function generateBlueprintTxt(clientName: string, assembledContent: strin
     '', HR1, '',
   ];
 
+  if (ws4Enabled()) validateComponentSyntax(assembledContent); // WS4 §C4 — fail loud before rendering
   const sections = parseAssembledContent(assembledContent);
+
+  if (ws4Enabled() && sections.length > 1) { // WS4 §C2.4 renderer-generated Contents list
+    out.push('  CONTENTS', `  ${'─'.repeat(50)}`);
+    sections.forEach((s, idx) => out.push(`  ${idx + 1}. ${s.heading}`));
+    out.push('', HR1, '');
+  }
+
+  // Flatten WS4 severity markers to their label word (no colour channel in plain text; the label
+  // word carries the signal), then strip inline markdown.
+  const flat = (s: string) => stripInlineMarkdown(splitSeveritySpans(s).map(x => x.text).join(''));
+
   sections.forEach((section, idx) => {
     if (idx > 0) out.push('', '');
     out.push(HR2, `${idx + 1}. ${section.heading.toUpperCase()}`, HR2, '');
 
-    let inFence = false;
-    for (const line of section.content.split('\n')) {
+    const lines = section.content.split('\n');
+    let li = 0;
+    while (li < lines.length) {
+      const line = lines[li];
       const t = line.trim();
 
-      // Fenced code block — drop the fence markers, keep the inner text with unrenderable
-      // box glyphs stripped (otherwise the ASCII diagram leaks backticks and tofu into the TXT).
-      if (t.startsWith('```')) { inFence = !inFence; continue; }
-      if (inFence) {
-        const cleaned = stripUnrenderableGlyphs(line);
-        if (cleaned.trim()) out.push(`    ${cleaned.trim()}`);
+      // WS4 callout — header line + body, plain text.
+      const calloutT = matchCalloutOpen(line);
+      if (calloutT) {
+        li++;
+        out.push('', `  ── ${calloutT.label} ──`);
+        while (li < lines.length && !isCalloutClose(lines[li])) {
+          if (lines[li].trim()) out.push(`  ${flat(lines[li].trim())}`);
+          li++;
+        }
+        if (li < lines.length) li++; // consume :::
+        out.push('');
         continue;
       }
 
-      if (!t) { out.push(''); continue; }
+      // WS4 KPI cards — "LABEL: value" per row.
+      if (t.startsWith('```') && isKpiFence(line)) {
+        li++;
+        const kpiLines: string[] = [];
+        while (li < lines.length && !lines[li].trim().startsWith('```')) { kpiLines.push(lines[li]); li++; }
+        if (li < lines.length) li++; // consume closing fence
+        for (const r of parseKpiRows(kpiLines)) out.push(`  ${r.label.toUpperCase()}: ${r.value}`);
+        continue;
+      }
 
-      if (/^[-=_]{3,}$/.test(t))                              { out.push('  ' + '─'.repeat(50)); }
-      else if (t.startsWith('### '))                           { out.push('', `   ▸ ${stripInlineMarkdown(t.slice(4)).toUpperCase()}`, ''); }
-      else if (t.startsWith('## '))                           { const h = stripInlineMarkdown(t.slice(3)); out.push('', `  ${h}`, `  ${'─'.repeat(h.length)}`, ''); }
-      else if (t.startsWith('**') && t.endsWith('**'))        { out.push(`  ${stripInlineMarkdown(t)}`); }
-      else if (t.startsWith('- ') || t.startsWith('• '))      { out.push(`  • ${stripInlineMarkdown(t.slice(2))}`); }
-      else if (/^\d+\.\s/.test(t))                            { out.push(`  ${stripInlineMarkdown(t)}`); }
-      else if (t.startsWith('|') && t.endsWith('|'))           { out.push(`  ${stripInlineMarkdown(t.replace(/\|/g, ' | ').trim())}`); }
-      else                                                     { out.push(`  ${stripInlineMarkdown(t)}`); }
+      // Fenced code block — drop the fence markers, keep the inner text with unrenderable
+      // box glyphs stripped (otherwise the ASCII diagram leaks backticks and tofu into the TXT).
+      if (t.startsWith('```')) {
+        li++;
+        while (li < lines.length && !lines[li].trim().startsWith('```')) {
+          const cleaned = stripUnrenderableGlyphs(lines[li]);
+          if (cleaned.trim()) out.push(`    ${cleaned.trim()}`);
+          li++;
+        }
+        if (li < lines.length) li++; // consume closing fence
+        continue;
+      }
+
+      if (!t)                                                  { out.push(''); }
+      else if (/^[-=_]{3,}$/.test(t))                          { out.push('  ' + '─'.repeat(50)); }
+      else if (t.startsWith('### '))                           { out.push('', `   ▸ ${flat(t.slice(4)).toUpperCase()}`, ''); }
+      else if (t.startsWith('## '))                            { const h = flat(t.slice(3)); out.push('', `  ${h}`, `  ${'─'.repeat(h.length)}`, ''); }
+      else if (t.startsWith('**') && t.endsWith('**'))         { out.push(`  ${flat(t)}`); }
+      else if (t.startsWith('- ') || t.startsWith('• '))       { out.push(`  • ${flat(t.slice(2))}`); }
+      else if (/^\d+\.\s/.test(t))                             { out.push(`  ${flat(t)}`); }
+      else if (t.startsWith('|') && t.endsWith('|'))           { out.push(`  ${flat(t.replace(/\|/g, ' | ').trim())}`); }
+      else                                                     { out.push(`  ${flat(t)}`); }
+      li++;
     }
   });
 
