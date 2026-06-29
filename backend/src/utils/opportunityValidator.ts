@@ -319,3 +319,57 @@ export function validateRoleNames(deliverable: string, stage1Dossier: string): {
   }
   return { reviewerFlags };
 }
+
+// ─── T-27 (S-30 / KR3): strict-dependency phase determinism ─────────────────────
+//
+// The v33 acceptance run (T-10⁵) regressed KR3: H-RT-04 forked Later×3 / Next×1 because the
+// Stage-4 SKILL pinned only "antecedent in Next → Later" and was silent on "antecedent in Now",
+// so the model resolved the strict-dependency rule two ways across runs (completion-based vs
+// phase-based). The SKILL is now pinned to a single outcome — `phase_dependency=strict` ⇒ the
+// opportunity is placed in Later, unconditionally, regardless of the antecedent's phase. This
+// validator is the code-level pin behind that prose: it reads `phase_dependency` from the Stage-3
+// score comments (the authoritative field) and the assigned phase from the roadmap's mandatory
+// Phase Summary table, and raises a BLOCKER if any strict opportunity is not in Later. A fork
+// becomes a clean acceptance failure rather than a silent decision-layer drift.
+
+// Parses the Stage-4 Phase Summary table (fixed schema: | Title | H-RT-NN | Class | Phase | Driver |)
+// into an id→phase map. Robust to the per-phase detail sections below the table because only the
+// summary rows pair an H-RT-NN id cell with a bare Now/Next/Later phase cell on the same row.
+function parsePhaseSummaryTable(roadmapOutput: string): Map<string, 'Now' | 'Next' | 'Later'> {
+  const map = new Map<string, 'Now' | 'Next' | 'Later'>();
+  for (const line of roadmapOutput.split('\n')) {
+    if (!line.includes('|')) continue;
+    const cells = line.split('|').map(c => c.trim());
+    const idCell = cells.find(c => /^H-RT-\d+$/i.test(c));
+    const phaseCell = cells.find(c => /^(Now|Next|Later)$/i.test(c));
+    if (!idCell || !phaseCell) continue;
+    const phase = (phaseCell[0].toUpperCase() + phaseCell.slice(1).toLowerCase()) as 'Now' | 'Next' | 'Later';
+    map.set(idCell.toUpperCase(), phase);
+  }
+  return map;
+}
+
+export function validateStrictDependencyPhases(roadmapOutput: string, stage3Opportunities: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const s3 = parseScoreCommentsById(stage3Opportunities);
+  const strictIds = [...s3.entries()]
+    .filter(([, f]) => (f.phase_dependency ?? '').toLowerCase() === 'strict')
+    .map(([id]) => id);
+  if (strictIds.length === 0) return { reviewerFlags };
+
+  const phaseById = parsePhaseSummaryTable(roadmapOutput);
+  for (const id of strictIds) {
+    const phase = phaseById.get(id);
+    // Absent from the Phase Summary table is a completeness concern handled by GATE 4, not here.
+    if (!phase) continue;
+    if (phase !== 'Later') {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 4 FAIL T-27 (strict-dependency phase): ${id} carries phase_dependency=strict ` +
+        `but is placed in ${phase}. The pinned rule places every strict-dependency opportunity in Later ` +
+        `unconditionally (regardless of the antecedent's phase) — a strict dependent in ${phase} is the ` +
+        `S-30 / H-RT-04 phase fork. Re-place ${id} in Later before delivery.`,
+      );
+    }
+  }
+  return { reviewerFlags };
+}

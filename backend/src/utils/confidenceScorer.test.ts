@@ -853,4 +853,31 @@ describe('stripForDeliveryStage5 + detectResidualScaffold — guarantee then sca
     expect(flags.length).toBeGreaterThan(0);
     expect(flags[0]).toMatch(/CHECKPOINT/);
   });
+
+  it('S-31: strips the "Step 4 of 5" pipeline-position breadcrumb (heading, bold, and plain)', () => {
+    const input = [
+      '# Recommended Action Sequence',
+      '## Step 4 of 5',
+      '**Step 4 of 5**',
+      'Step 4 of 5',
+      'The roadmap sequences seven opportunities.',
+      '',
+      '*End of AI Value Blueprint.*',
+    ].join('\n');
+    const out = stripForDeliveryStage5(input);
+    expect(out).not.toMatch(/Step 4 of 5/);
+    expect(out).toContain('The roadmap sequences seven opportunities.');
+    expect(detectResidualScaffold(out)).toEqual([]);
+  });
+
+  it('S-31: detector flags a "Step N of M" breadcrumb if one survives', () => {
+    const flags = detectResidualScaffold('# Title\n## Step 4 of 5\nbody');
+    expect(flags.some(f => /Step N of M|S-31/.test(f))).toBe(true);
+  });
+
+  it('S-31: does not strip "Step 4 of 5" inside ordinary prose', () => {
+    const input = '# Title\nThey will reach step 4 of 5 in the onboarding flow next quarter.\n*End of AI Value Blueprint.*';
+    const out = stripForDeliveryStage5(input);
+    expect(out).toContain('step 4 of 5 in the onboarding flow');
+  });
 });

@@ -22,7 +22,7 @@ import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } fro
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { calculateConfidence, stripJustification, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -268,6 +268,16 @@ export async function runPipeline(jobId: string): Promise<void> {
       log('warn', 'GATE 4: Stage 4 roadmap validation issues detected', { jobId, count: gate4Flags.length });
     }
 
+    // T-27 (S-30 / KR3): strict-dependency phase determinism. A `phase_dependency=strict` opportunity
+    // must be placed in Later unconditionally — the pinned rule that closes the H-RT-04 fork. Reads the
+    // field from the Stage-3 score comments and the assignment from the Phase Summary table; a strict
+    // opportunity placed anywhere but Later is a BLOCKER (clean fail, not a silent decision-layer fork).
+    const { reviewerFlags: strictDepFlags } = validateStrictDependencyPhases(roadmap, opportunities);
+    if (strictDepFlags.length > 0) {
+      reviewerFlags.push(...strictDepFlags);
+      log('warn', 'GATE 4: strict-dependency phase placement violation (T-27)', { jobId, count: strictDepFlags.length });
+    }
+
     await saveStepOutput(jobId, 'D2', roadmap);
     const roadmapClean = stripJustification(roadmap);
 
@@ -321,10 +331,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33.1 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33.1 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }

@@ -192,23 +192,34 @@ no enforcement date documented [Inferred]."
 | Big Bet + depends on any Next-assigned item | **Later** |
 | Big Bet + no explicit dependency documented | **Later** |
 
-**Strict dependency rule (T-18 — mandatory when `phase_dependency=strict`):**
+**Strict dependency rule (T-18 / T-27 — mandatory, deterministic, when `phase_dependency=strict`):**
 
 Read the `phase_dependency` field from the `<!-- score: id=H-RT-XX ... phase_dependency=<value> ... -->`
-comment in the dossier Section D.
+comment in the dossier Section D. The field value **alone** determines the placement. This rule
+**supersedes the Big Bet table above** whenever it fires. It is NOT a judgment surface: for identical
+inputs it must produce the same phase every run.
 
-- When `phase_dependency=strict` and the antecedent opportunity is assigned to **Next** → this Big
-  Bet is placed in **Later** unconditionally. Do NOT apply a pilot-scope or partial-delivery
-  exception ("a scoped pilot can begin independently"). The `strict` flag exists precisely to
-  prevent that judgment call — applying it here re-introduces the fork this rule was designed to
-  close.
+- When `phase_dependency=strict` → this Big Bet is placed in **Later**, **unconditionally and
+  regardless of which phase the antecedent occupies** (Now, Next, or Later). Do NOT read the
+  antecedent's assigned phase, its completion timing, or any prose; the rule does not depend on them.
+  In particular, a strict dependency on an antecedent assigned to **Now** still places the dependent
+  in **Later** — do NOT reason "the antecedent is in Now, so the dependent is eligible for Next."
+  Do NOT apply a pilot-scope or partial-delivery exception ("a scoped pilot can begin independently").
+
+  > **T-27 — why this is pinned to one outcome.** The earlier wording pinned only the
+  > "antecedent in Next → Later" case and was silent on "antecedent in Now," so the model resolved
+  > it two ways across runs: completion-based ("H-RT-07 completes in Next → Later") vs phase-based
+  > ("H-RT-07 is in Now → Next"). That fork moved H-RT-04 between phases and failed KR3. The fork is
+  > closed by removing antecedent-phase reasoning entirely: **`strict` ⇒ Later, full stop.**
+
 - When `phase_dependency=flexible` → a scoped pilot may begin independently of the antecedent's
-  phase; apply standard dependency judgment.
+  phase; apply standard dependency judgment (the table above).
 - When `phase_dependency=n/a` or the field is absent → apply the table rules above without the
   strict override.
 
-Tag the placement when strict fires: "Placed in Later — phase_dependency=strict and antecedent
-[H-RT-XX] is in Next; no pilot-scope exception applies [Form-Stated]."
+Tag the placement when strict fires, citing the field deterministically (NOT the antecedent's
+phase, which is no longer an input): "Placed in Later [Form-Stated — phase_dependency=strict from
+Stage 1 score comment]."
 
 ### Phase capacity check (apply after all assignments above)
 
@@ -296,7 +307,7 @@ Pin the citation to the field, exactly as the decision is pinned to the field.
 - **Field-driven placements** → cite the field with the `[Form-Stated — <field>=<value> from Stage 1 score comment]` form. Examples:
   - `Placed in Next [Form-Stated — d_gate4=yes from Stage 1 score comment]`
   - `Placed in Now [Form-Stated — system_event_deadline=2026-07-31 from Stage 1 score comment, within Month 1–3]`
-  - `Placed in Later [Form-Stated — phase_dependency=strict, antecedent H-RT-04 in Next]`
+  - `Placed in Later [Form-Stated — phase_dependency=strict from Stage 1 score comment]` (per T-27 the antecedent's phase is NOT cited — `strict` always means Later)
 - **Score references** → cite the locked score as `[Archetype-Anchored — Feasibility 4/5 locked at Stage 1]`, NOT a re-derived `[Document-Backed]` per run. The score basis is reproducible by construction (see S-23 in `methodology-and-contracts`).
 - **Genuine client-evidence and predictions** (maturity gaps, expected results, adoption estimates) → keep `[Document-Backed]`/`[Form-Stated]`/`[Inferred]`/`[Assumption]` as today. These are the only citations that may legitimately vary, and only when the underlying evidence does.
 

@@ -114,6 +114,12 @@ export function stripProcessNarration(text: string): string {
   return text
     .split('\n')
     .filter(line => !/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/i.test(line))
+    // S-31: the "Step 4 of 5" pipeline-position breadcrumb (the SKILL's own stage label echoed as a
+    // subtitle; leaked into 1/4 Stage-4 outputs in the v33 T-10⁵ run). Distinct from the "Step N (…)"
+    // form above — here the number is followed by "of M". Allowed leading `#`/`*` so the heading and
+    // bold-subtitle variants are caught; no real Blueprint section is titled "Step N of M", so this
+    // cannot eat genuine content. Anchored to the line start, so mid-sentence prose is never matched.
+    .filter(line => !/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/i.test(line))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n');
 }
@@ -214,6 +220,7 @@ export function detectResidualScaffold(text: string): string[] {
   const forms: Array<[RegExp, string]> = [
     [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
     [/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/im,                          'process-narration "Step N (…)" line'],
+    [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
     [/GATE-?\s*4 self-check/i,                                                          'GATE-4 self-check'],
     [/<!--/,                                                                            'HTML comment / machine marker'],
     [/\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i, 'inline confidence tag'],

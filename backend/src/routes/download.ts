@@ -11,7 +11,7 @@ const router = express.Router();
 
 // T-07: build provenance. parent_build anchors the fleet-uniformity check; fix_lineage records
 // which prior batch each surface descends from so a reviewer can trace a fix to its origin.
-const PARENT_BUILD = 'v32 (T-10⁴ acceptance run)';
+const PARENT_BUILD = 'v33 (T-10⁵ acceptance run — 5/6, KR3 phase fork)';
 // T-07 Option B: document the historical stamp drift so the fleet-uniformity check anchors on the
 // SHA from v33 onward, not the hand-set vNN label (which lagged — confirmed in git history).
 const STAMP_LINEAGE_NOTE: string[] = [
@@ -29,6 +29,8 @@ const FIX_LINEAGE: string[] = [
   'T-25/S-25 (Stage-4 structure): v32 self-check fork → v33 self-check suppressed + mandatory Phase Summary table',
   'T-26/S-29 (emission): v32 H-RT-XX stub / doubled marker / relay drift → v33 comment-class strip + GATE-3 stub/duplicate flags + cross-stage relay-field validator',
   'S-26/WL-8 (CEO name): v32 "Petrov" hallucination → v33 role-attributed name validator + INTAKE_FACTS pin',
+  'T-27/S-30 (phase determinism): v33 T-10⁵ regressed KR3 — H-RT-04 forked Later×3/Next×1 because the strict-dependency rule was pinned only for "antecedent in Next" → v33.1 pins phase_dependency=strict ⇒ Later unconditionally (SKILL) + validateStrictDependencyPhases BLOCKER (code)',
+  'S-31 (Stage-4 breadcrumb): v33 leaked "Step 4 of 5" pipeline-position subtitle 1/4 → v33.1 stripProcessNarration + detector enumerate the "Step N of M" form',
 ];
 
 router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {

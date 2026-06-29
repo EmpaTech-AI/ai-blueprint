@@ -2,6 +2,7 @@ import {
   validateOpportunityScores,
   validateRelayFields,
   validateRoleNames,
+  validateStrictDependencyPhases,
 } from './opportunityValidator';
 
 const FULL_FIELDS =
@@ -90,6 +91,61 @@ describe('validateRoleNames — CEO name vs INTAKE_FACTS', () => {
 
   it('does not fire when no INTAKE_FACTS CEO_NAME is present', () => {
     const { reviewerFlags } = validateRoleNames('CEO Petrov said hello.', 'no facts block here');
+    expect(reviewerFlags).toEqual([]);
+  });
+});
+
+// ── T-27 strict-dependency phase determinism (the S-30 / H-RT-04 fork) ──────────
+
+describe('validateStrictDependencyPhases — strict ⇒ Later, unconditionally', () => {
+  const strictFields =
+    'ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no ' +
+    'd_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=strict';
+  const stage3 =
+    `<!-- score: id=H-RT-04 impact=4 feasibility=3 alignment=4 product=48 class=BigBet ${strictFields} -->`;
+
+  const phaseTable = (h04Phase: string) => [
+    '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+    '|---|---|---|---|---|',
+    '| Sourcing automation | H-RT-07 | Foundation Builder | Now | system_event_deadline within M1–3 |',
+    `| Predictive analytics | H-RT-04 | Big Bet | ${h04Phase} | phase_dependency=strict |`,
+  ].join('\n');
+
+  it('flags a strict dependent placed in Next — the T4/v32 fork reading (BLOCKER)', () => {
+    const { reviewerFlags } = validateStrictDependencyPhases(phaseTable('Next'), stage3);
+    expect(reviewerFlags.some(f => /T-27.*H-RT-04.*placed in Next/.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('passes when the strict dependent is in Later — the pinned outcome', () => {
+    const { reviewerFlags } = validateStrictDependencyPhases(phaseTable('Later'), stage3);
+    expect(reviewerFlags).toEqual([]);
+  });
+
+  it('does not fire for a non-strict (flexible / n/a) opportunity', () => {
+    const flexible = stage3.replace('phase_dependency=strict', 'phase_dependency=flexible');
+    const { reviewerFlags } = validateStrictDependencyPhases(phaseTable('Next'), flexible);
+    expect(reviewerFlags).toEqual([]);
+  });
+
+  it('does not fire when the strict opportunity is absent from the Phase Summary table (GATE-4 concern)', () => {
+    const tableWithoutH04 = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| Sourcing automation | H-RT-07 | Foundation Builder | Now | system_event_deadline within M1–3 |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(tableWithoutH04, stage3);
+    expect(reviewerFlags).toEqual([]);
+  });
+
+  it('does not mistake a "Now"/"Next" word in the driver column for the phase cell', () => {
+    // The driver column mentions "Now", but the phase cell (Later) is authoritative.
+    const table = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| Predictive analytics | H-RT-04 | Big Bet | Later | strict; antecedent H-RT-07 in Now |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(table, stage3);
     expect(reviewerFlags).toEqual([]);
   });
 });
