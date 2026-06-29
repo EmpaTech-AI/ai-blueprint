@@ -369,7 +369,7 @@ const PAGE_SIZE = 20;
 // object URLs (an iframe src cannot carry a Bearer header).
 
 function DocumentLab({ apiUrl, authToken }: { apiUrl: string; authToken: string }) {
-  const [format, setFormat]         = useState<'html' | 'pdf' | 'txt'>('html');
+  const [format, setFormat]         = useState<'html' | 'pdf' | 'txt' | 'docx'>('html');
   const [clientName, setClientName] = useState('');
   const [content, setContent]       = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -409,14 +409,23 @@ function DocumentLab({ apiUrl, authToken }: { apiUrl: string; authToken: string 
         setTxtPreview(await res.text());
       } else {
         setTxtPreview(null);
-        setPreviewUrl(URL.createObjectURL(await res.blob()));
+        const url = URL.createObjectURL(await res.blob());
+        setPreviewUrl(url);
+        // DOCX can't render in an iframe — browsers download it. Trigger the download so the
+        // operator gets the Word file directly; the pane shows a confirmation + re-download link.
+        if (format === 'docx') {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `AI Value Blueprint Preview${clientName.trim() ? ` - ${clientName.trim()}` : ''}.docx`;
+          a.click();
+        }
       }
       setRenderedOnce(true);
     } catch { setErr('Render failed — check the backend is reachable.'); } finally { setRendering(false); }
   }, [apiUrl, authToken, format, clientName, content, previewUrl]);
 
-  const FORMATS: Array<{ key: 'html' | 'pdf' | 'txt'; label: string }> = [
-    { key: 'html', label: 'HTML' }, { key: 'pdf', label: 'PDF' }, { key: 'txt', label: 'Plain text' },
+  const FORMATS: Array<{ key: 'html' | 'pdf' | 'txt' | 'docx'; label: string }> = [
+    { key: 'html', label: 'HTML' }, { key: 'pdf', label: 'PDF' }, { key: 'docx', label: 'Word' }, { key: 'txt', label: 'Plain text' },
   ];
 
   return (
@@ -455,14 +464,16 @@ function DocumentLab({ apiUrl, authToken }: { apiUrl: string; authToken: string 
             </button>
             <button onClick={loadSample} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '0.85rem' }}>Load sample into editor</button>
             {content && <button onClick={() => { setContent(''); setClientName(''); }} className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Clear</button>}
-            {previewUrl && format !== 'txt' && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Open in new tab ↗</a>}
+            {previewUrl && format !== 'txt' && format !== 'docx' && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Open in new tab ↗</a>}
+            {previewUrl && format === 'docx' && <a href={previewUrl} download={`AI Value Blueprint Preview${clientName.trim() ? ` - ${clientName.trim()}` : ''}.docx`} className="btn-ghost" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>Download .docx ↓</a>}
           </div>
         </div>
 
         <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.12)', background: '#fff', minHeight: '70vh' }}>
           {!renderedOnce && <div className="flex items-center justify-center h-full text-sm" style={{ color: 'rgba(0,0,0,0.4)', minHeight: '70vh' }}>Press <span className="font-semibold mx-1">Render</span> to preview the {format.toUpperCase()} output.</div>}
           {renderedOnce && format === 'txt' && <pre style={{ margin: 0, padding: '18px', fontSize: '0.72rem', lineHeight: 1.5, color: '#161B26', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '78vh', overflow: 'auto' }}>{txtPreview}</pre>}
-          {renderedOnce && format !== 'txt' && previewUrl && <iframe title="Document preview" src={previewUrl} style={{ width: '100%', height: '78vh', border: 'none', display: 'block' }} />}
+          {renderedOnce && format === 'docx' && <div className="flex flex-col items-center justify-center gap-3 h-full text-sm text-center px-6" style={{ color: 'rgba(0,0,0,0.55)', minHeight: '70vh' }}><span style={{ fontSize: '2rem' }}>📄</span><p>Word document rendered and downloaded.<br/>Word files can&apos;t preview inline — open the downloaded <span className="font-semibold">.docx</span>, or use the HTML/PDF tabs for an on-screen preview of the same content.</p></div>}
+          {renderedOnce && format !== 'txt' && format !== 'docx' && previewUrl && <iframe title="Document preview" src={previewUrl} style={{ width: '100%', height: '78vh', border: 'none', display: 'block' }} />}
         </div>
       </div>
     </div>

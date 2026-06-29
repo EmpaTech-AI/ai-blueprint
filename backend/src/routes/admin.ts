@@ -3,10 +3,13 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { getAllUsers, createUser, deleteUser, updatePassword, getUserById, getUserByEmail } from '../storage/userStore';
 import { requireAdmin } from '../middleware/auth';
-import { generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
+import { generateBlueprintPdf, generateBlueprintTxt, generateBlueprintDocx } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { stripForDeliveryStage5 } from '../utils/confidenceScorer';
 import { SAMPLE_ASSEMBLED_CONTENT, SAMPLE_CLIENT_NAME } from '../docx/sampleBlueprint';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
 const router = express.Router();
 
@@ -16,7 +19,7 @@ const router = express.Router();
 // against either the bundled sample or pasted assembled-markdown. The content is run through
 // the same stripForDelivery + generator path as production, so the preview is faithful.
 
-type PreviewFormat = 'html' | 'pdf' | 'txt';
+type PreviewFormat = 'html' | 'pdf' | 'txt' | 'docx';
 
 async function renderPreview(format: PreviewFormat, clientName: string, rawContent: string, res: Response): Promise<void> {
   const content = stripForDeliveryStage5(rawContent);
@@ -26,6 +29,17 @@ async function renderPreview(format: PreviewFormat, clientName: string, rawConte
     const buf = await generateBlueprintPdf(name, content);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
+    res.send(buf);
+    return;
+  }
+  if (format === 'docx') {
+    // generateBlueprintDocx writes to a path and returns the buffer; render to a temp file and
+    // remove it. The same generator the pipeline uses, so the Lab DOCX is faithful to delivery.
+    const tmpPath = path.join(os.tmpdir(), `lab-preview-${uuidv4()}.docx`);
+    const buf = await generateBlueprintDocx(name, content, tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup failure */ }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="preview.docx"');
     res.send(buf);
     return;
   }
@@ -40,7 +54,7 @@ async function renderPreview(format: PreviewFormat, clientName: string, rawConte
 }
 
 function parseFormat(value: unknown): PreviewFormat {
-  return value === 'pdf' || value === 'txt' ? value : 'html';
+  return value === 'pdf' || value === 'txt' || value === 'docx' ? value : 'html';
 }
 
 // GET /api/admin/preview?format=html|pdf|txt — render the bundled sample.

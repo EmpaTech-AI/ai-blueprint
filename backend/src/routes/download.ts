@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
+import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5 } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
@@ -424,17 +425,22 @@ router.get('/:jobId/lc-tags/:stepKey/pdf', requireAdmin, async (req: Request, re
   } catch { res.status(500).json({ error: 'Failed to generate PDF' }); }
 });
 
-// HTML preview of the assembled blueprint
+// HTML preview of the assembled blueprint — the faithful deliverable design.
+// Serves the production-generated HTML (job.outputHtmlData, built with the same
+// generateBlueprintHtml renderer as the Document Lab) so the preview matches the actual
+// deliverable. Falls back to a live render from the raw Stage-5 output for jobs created
+// before HTML was persisted.
 router.get('/:jobId/preview', requireAdmin, (req: Request, res: Response) => {
 
   try {
     const job = loadJob(req.params.jobId);
-    if (!job.stepE_assembly) {
+    const html = job.outputHtmlData
+      ?? (job.stepE_assembly ? generateBlueprintHtml(job.clientName, stripForDeliveryStage5(job.stepE_assembly)) : undefined);
+    if (!html) {
       res.status(404).send('<p>Preview not available — pipeline not complete.</p>');
       return;
     }
 
-    const html = renderPreviewHtml(job.clientName, job.stepE_assembly);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch {
@@ -737,79 +743,6 @@ function renderLogsHtml(job: { clientName: string; status: string; currentStep: 
 </html>`;
 }
 
-function renderPreviewHtml(clientName: string, markdown: string): string {
-  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const body = markdown
-    .split('\n')
-    .map((line) => {
-      const t = line.trim();
-      if (!t) return '<div style="height:0.6em"></div>';
-      if (t.startsWith('### ')) return `<h3>${esc(t.slice(4))}</h3>`;
-      if (t.startsWith('## '))  return `<h2>${esc(t.slice(3))}</h2>`;
-      if (t.startsWith('# '))   return `<h1>${esc(t.slice(2))}</h1>`;
-      if (t.startsWith('- ') || t.startsWith('• ')) return `<li>${inlineFormat(t.slice(2))}</li>`;
-      return `<p>${inlineFormat(t)}</p>`;
-    })
-    .join('\n');
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Value Blueprint — ${esc(clientName)}</title>
-<style>
-  :root { --blue:#2E5FA1; --dark:#404040; --gray:#6b7280; --light:#f0f6ff; }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:Arial,Helvetica,sans-serif; font-size:15px; color:var(--dark);
-         background:#f9fafb; padding:0; }
-  .page { max-width:860px; margin:0 auto; background:#fff;
-          box-shadow:0 1px 8px rgba(0,0,0,.08); min-height:100vh; }
-  .cover { background:var(--blue); color:#fff; padding:72px 60px 56px; }
-  .cover .label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
-                  opacity:.75; margin-bottom:18px; }
-  .cover h1 { font-size:34px; font-weight:700; line-height:1.2; margin-bottom:12px; }
-  .cover .client { font-size:20px; font-weight:600; opacity:.9; margin-bottom:32px; }
-  .cover .meta { font-size:13px; opacity:.65; }
-  .content { padding:52px 60px 80px; }
-  h1 { font-size:22px; font-weight:700; color:var(--blue);
-       border-bottom:2px solid var(--blue); padding-bottom:8px;
-       margin:40px 0 16px; }
-  h2 { font-size:17px; font-weight:700; color:var(--dark); margin:28px 0 10px; }
-  h3 { font-size:15px; font-weight:700; color:var(--dark); margin:20px 0 8px; }
-  p  { line-height:1.7; margin-bottom:8px; }
-  li { line-height:1.7; margin:3px 0 3px 22px; }
-  strong { font-weight:700; }
-  em { font-style:italic; }
-  @media print {
-    body { background:#fff; }
-    .page { box-shadow:none; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="cover">
-    <div class="label">AI Assist BG — Confidential</div>
-    <h1>AI Value Blueprint</h1>
-    <div class="client">${esc(clientName)}</div>
-    <div class="meta">Prepared by AI Assist BG &nbsp;·&nbsp; ${today}</div>
-  </div>
-  <div class="content">
-    ${body}
-  </div>
-</div>
-</body>
-</html>`;
-}
-
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function inlineFormat(s: string): string {
-  return esc(s)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
