@@ -170,7 +170,9 @@
       "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove AI-Blueprint)",
       "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove ai-blueprint)",
       "Bash(git -C \"d:\\\\Shiz\\\\AI Assist BG\\\\AI Blueprint\" remote remove aiblueprint)",
-      "PowerShell(npm run build 2>&1)"
+      "PowerShell(npm run build 2>&1)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"TSC_EXIT=$?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"
