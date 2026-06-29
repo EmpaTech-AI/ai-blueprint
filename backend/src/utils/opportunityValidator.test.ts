@@ -124,6 +124,23 @@ describe('validateFirmSurnameBleed — AI Assist BG firm surname must never appe
     expect(reviewerFlags).toEqual([]);
   });
 
+  it('exempts ONLY the shared token — other firm surnames stay live (Practice §1.2 token-scoped)', () => {
+    // Genuine client "Petrov Logistics", CEO "Ivan Petrov" — shares the firm surname "petrov".
+    // A stray firm surname "Montin" in the same deliverable must still flag; "petrov" must not.
+    const clientDossier = '<!-- INTAKE_FACTS\nCLIENT_NAME=Petrov Logistics EOOD\nCEO_NAME=Ivan Petrov\n-->';
+    const deliverable = 'CEO Ivan Petrov leads the firm. The plan was reviewed by Montin last week.';
+    const { reviewerFlags } = validateFirmSurnameBleed(deliverable, clientDossier);
+    // Match the flagged-surname phrasing (`contains "<surname>"`), not the explanatory text —
+    // montin's message references the "Petrov failure mode" but that is not a petrov flag.
+    expect(reviewerFlags.some(f => /contains "montin"/i.test(f))).toBe(true);
+    expect(reviewerFlags.some(f => /contains "petrov"/i.test(f))).toBe(false);
+  });
+
+  it('guards the full seeded roster, not just petrov', () => {
+    expect(validateFirmSurnameBleed('A note from Gumushian.').reviewerFlags.length).toBe(1);
+    expect(validateFirmSurnameBleed('Reviewed by Kara.').reviewerFlags.length).toBe(1);
+  });
+
   it('honours the FIRM_SURNAME_STOPLIST env extension', () => {
     const prev = process.env.FIRM_SURNAME_STOPLIST;
     process.env.FIRM_SURNAME_STOPLIST = 'serafimov, ivanova';

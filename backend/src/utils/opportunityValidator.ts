@@ -330,9 +330,12 @@ export function validateRoleNames(deliverable: string, stage1Dossier: string): {
 // Assist BG name should EVER appear in a client's Blueprint, so any occurrence of a firm surname is
 // never-ship — independent of role attribution or whether INTAKE_FACTS pins a name.
 //
-// The default seed is the one observed firm surname ("Petrov"); extend via the FIRM_SURNAME_STOPLIST
-// env var (comma-separated) as the firm roster grows, so the list is config, not a code edit.
-const DEFAULT_FIRM_SURNAMES = ['petrov'];
+// Seeded with the full known firm roster, not just the one observed bleed ("petrov"): the root
+// cause is house facts in the model's standing context, so every leadership/staff surname carries
+// the same latent risk and is guarded now rather than after it surfaces (Practice v33.2 review §1.2).
+// The firm NAME itself is deliberately NOT listed — it appears legitimately as the preparer
+// ("Prepared by AI Assist BG"). Extend via FIRM_SURNAME_STOPLIST (comma-separated): config, not code.
+const DEFAULT_FIRM_SURNAMES = ['petrov', 'gumushian', 'montin', 'kara'];
 
 function firmSurnames(): string[] {
   const fromEnv = (process.env.FIRM_SURNAME_STOPLIST ?? '')
