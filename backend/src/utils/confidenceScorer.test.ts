@@ -3,6 +3,7 @@ import {
   stripJustification,
   stripConfidenceTags,
   stripForDelivery,
+  stripOperatorAssembly,
   stripCheckpointScaffold,
   stripHtmlComments,
   stripProcessNarration,
@@ -879,5 +880,46 @@ describe('stripForDeliveryStage5 + detectResidualScaffold — guarantee then sca
     const input = '# Title\nThey will reach step 4 of 5 in the onboarding flow next quarter.\n*End of AI Value Blueprint.*';
     const out = stripForDeliveryStage5(input);
     expect(out).toContain('step 4 of 5 in the onboarding flow');
+  });
+});
+
+// ── T-28: whole-pipeline leak coverage (the Era-K Stage-1 relocation) ───────────
+
+describe('T-28 — operator-assembly leak strip + whole-pipeline detection', () => {
+  const stage1Leak = [
+    '# Compressed Client Dossier',
+    'The firm has 258 mandates a year.',
+    '',
+    '## Operator Assembly Instructions',
+    'Note: the generation run did not stop at the Checkpoint 2 boundary as expected.',
+    'Re-emit the dossier from the top.',
+    '',
+    '## Section A — Firmographics',
+    'Real content continues here.',
+  ].join('\n');
+
+  it('stripOperatorAssembly removes the block but keeps real sections', () => {
+    const out = stripOperatorAssembly(stage1Leak);
+    expect(out).not.toMatch(/Operator Assembly Instructions/i);
+    expect(out).not.toMatch(/did not stop at the Checkpoint 2 boundary/i);
+    expect(out).toContain('Section A — Firmographics');
+    expect(out).toContain('Real content continues here.');
+  });
+
+  it('stripForDelivery now removes the operator-assembly block (every stage)', () => {
+    expect(stripForDelivery(stage1Leak)).not.toMatch(/Operator Assembly Instructions/i);
+  });
+
+  it('detector flags the operator-assembly form and the checkpoint-boundary narration', () => {
+    // The raw Stage-1 leak (pre-strip) is what the detector guards against per stage.
+    const flags = detectResidualScaffold(stage1Leak, 'Stage 1 (Intake)');
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+    expect(flags.some(f => /Stage 1 \(Intake\)/.test(f))).toBe(true);
+    expect(flags.some(f => /operator-assembly|CHECKPOINT/i.test(f))).toBe(true);
+  });
+
+  it('uses the default Stage 5 label when none is given', () => {
+    expect(detectResidualScaffold('CHECKPOINT 2 leaked')[0]).toMatch(/Stage 5/);
   });
 });

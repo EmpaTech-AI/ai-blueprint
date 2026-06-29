@@ -164,12 +164,32 @@ export function stripEditorialBrackets(text: string): string {
     .replace(/[ \t]+$/gm, '');
 }
 
-// Strips build stamp, justification block, CHECKPOINT scaffold, GATE-4 self-check, process
-// narration, status/meta-aside lines, editorial brackets, HTML comments, operator preamble, and
-// inline confidence tags — use before generating client documents. All scaffold stripping happens
-// here, centrally, so every emission path (DOCX/PDF/TXT/HTML) is covered (T-15 / T-23 / T-25 / T-26).
+// T-28 (REG-14 / WL-13): leak forms that surfaced at Stage 1 once the Stage-5 envelope was the only
+// guarantee — the "Operator Assembly Instructions" scaffold block and the generation-run narration
+// ("…did not stop at the Checkpoint N boundary…"). Stripped on every stage's delivery path, not
+// just Stage 5, so the whack-a-mole relocation (Stage-5 pinned → Stage-1 leaked) is closed.
+export function stripOperatorAssembly(text: string): string {
+  // Remove the "Operator Assembly Instructions" block from its heading/label line to the next
+  // heading, horizontal rule, justification terminator, or EOF (mirrors stripCheckpointScaffold).
+  let t = text.replace(
+    /(?:^|\n)[ \t]*#{0,4}[ \t]*\*{0,2}Operator Assembly Instructions[^\n]*[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\n[ \t]*-{3,}[ \t]*(?:\n|$)|\[END JUSTIFICATION\]|$)/gi,
+    '\n',
+  );
+  // Remove generation-run narration lines that reference a checkpoint boundary.
+  t = t.split('\n')
+    .filter(line => !/(?:generation run|did not stop)[^\n]*checkpoint\s+\d+\s+boundary/i.test(line))
+    .join('\n');
+  return t.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Strips build stamp, justification block, CHECKPOINT scaffold, operator-assembly block, GATE-4
+// self-check, process narration, status/meta-aside lines, editorial brackets, HTML comments,
+// operator preamble, and inline confidence tags — use before generating ANY staged deliverable.
+// All scaffold stripping happens here, centrally, so every emission path and every stage is
+// covered (T-15 / T-23 / T-25 / T-26 / T-28).
 export function stripForDelivery(text: string): string {
-  return stripOperatorPreamble(
+  return stripOperatorAssembly(
+   stripOperatorPreamble(
     stripEditorialBrackets(
       stripStatusAndMetaAsides(
         stripProcessNarration(
@@ -187,6 +207,7 @@ export function stripForDelivery(text: string): string {
         ),
       ),
     ),
+   ),
   );
 }
 
@@ -216,9 +237,12 @@ export function stripForDeliveryStage5(text: string): string {
 // T-23 DETECTOR (the scan): after stripping, assert nothing scaffold-shaped survived. Returns a
 // reviewer flag per residual form found. The envelope is what we credit; this scan is the
 // observability net that proves it — enumerating every known form (Practice's complete list).
-export function detectResidualScaffold(text: string): string[] {
+// T-28: takes a stageLabel so it can run on EVERY staged deliverable (S1–S5), not only Stage 5 —
+// the Era-K leak relocated to Stage 1 because this scan had only ever run on the assembled output.
+export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): string[] {
   const forms: Array<[RegExp, string]> = [
     [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
+    [/Operator Assembly Instructions/i,                                                'operator-assembly scaffold block (T-28)'],
     [/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/im,                          'process-narration "Step N (…)" line'],
     [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
     [/GATE-?\s*4 self-check/i,                                                          'GATE-4 self-check'],
@@ -234,8 +258,8 @@ export function detectResidualScaffold(text: string): string[] {
   const flags: string[] = [];
   for (const [re, label] of forms) {
     if (re.test(text)) {
-      // Never-ship: a residual scaffold form in the deliverable blocks release until resolved.
-      flags.push(`${BLOCKER_PREFIX} Stage 5 residual scaffold (${label}) survived delivery strip+envelope — do not release.`);
+      // Never-ship: a residual scaffold form in any staged deliverable blocks release until resolved.
+      flags.push(`${BLOCKER_PREFIX} ${stageLabel} residual scaffold (${label}) survived delivery strip — do not release.`);
     }
   }
   return flags;

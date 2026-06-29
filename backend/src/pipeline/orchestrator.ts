@@ -21,7 +21,7 @@ import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
-import { calculateConfidence, stripJustification, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
@@ -315,6 +315,23 @@ export async function runPipeline(jobId: string): Promise<void> {
       log('warn', 'Stage 5: residual scaffold detected after delivery strip', { jobId, count: residualFlags.length });
     }
 
+    // T-28 (REG-14 / WL-13): whole-pipeline leak coverage. The Era-K leak relocated to the Stage-1
+    // Intake deliverable because the strip+scan had only ever run on Stage 5. Run the same strip and
+    // detector on EVERY staged deliverable — a residual at any stage is now a never-ship BLOCKER.
+    const stageDeliverables: Array<[string, string]> = [
+      ['Stage 1 (Intake)', dossier],
+      ['Stage 2 (Maturity)', maturity],
+      ['Stage 3 (Opportunities)', opportunities],
+      ['Stage 4 (Roadmap)', roadmap],
+    ];
+    for (const [label, raw] of stageDeliverables) {
+      const stageResidual = detectResidualScaffold(stripForDelivery(raw), label);
+      if (stageResidual.length > 0) {
+        reviewerFlags.push(...stageResidual);
+        log('warn', `${label}: residual scaffold detected after delivery strip (T-28)`, { jobId, count: stageResidual.length });
+      }
+    }
+
     // S-26 (WL-8): role-attributed CEO-name check against the pinned INTAKE_FACTS value (never-ship).
     const { reviewerFlags: roleFlags } = validateRoleNames(assembledForDelivery, dossier);
     if (roleFlags.length > 0) {
@@ -341,10 +358,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33.3 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v33.4 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33.3 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v33.4 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }

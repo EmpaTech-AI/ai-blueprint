@@ -13,7 +13,7 @@ const router = express.Router();
 
 // T-07: build provenance. parent_build anchors the fleet-uniformity check; fix_lineage records
 // which prior batch each surface descends from so a reviewer can trace a fix to its origin.
-const PARENT_BUILD = 'v33.2 (S-26 firm-stoplist; pending T-10⁶ acceptance)';
+const PARENT_BUILD = 'v33.3 (S-26 full roster; T-10⁶ = 5/6, leak relocated to Stage 1)';
 // T-07 Option B: document the historical stamp drift so the fleet-uniformity check anchors on the
 // SHA from v33 onward, not the hand-set vNN label (which lagged — confirmed in git history).
 const STAMP_LINEAGE_NOTE: string[] = [
@@ -35,6 +35,7 @@ const FIX_LINEAGE: string[] = [
   'S-31 (Stage-4 breadcrumb): v33 leaked "Step 4 of 5" pipeline-position subtitle 1/4 → v33.1 stripProcessNarration + detector enumerate the "Step N of M" form',
   'S-26 hardening (firm-context bleed): the v32 "Petrov" was AI Assist BG\'s own CEO surname bleeding from firm standing context → v33.2 validateFirmSurnameBleed — a firm-surname stoplist (env-extensible, client-name exempt) behind the role-name guard; any firm surname in a client Blueprint is a never-ship BLOCKER',
   'S-26 roster (Practice v33.2 §1.2): v33.3 seeds the full firm roster (petrov, gumushian, montin, kara) into the default stoplist — house-fact bleed guarded proactively, not per-incident; token-scoped INTAKE_FACTS exemption disables only the specific shared surname',
+  'T-28/REG-14 (whole-pipeline leak): v33.3 T-10⁶ relocated the leak to the Stage-1 Intake deliverable (T3) because the strip+detector only ran on Stage 5 → v33.4 stripForDelivery gains stripOperatorAssembly and the orchestrator runs detectResidualScaffold on EVERY staged deliverable (S1–S5), stage-labelled; any residual at any stage is a never-ship BLOCKER',
 ];
 
 router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {
