@@ -21,7 +21,7 @@ import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
-import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, findNonPermittedSections } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, findNonPermittedSections, allowlistNoopReason } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
@@ -302,6 +302,13 @@ export async function runPipeline(jobId: string): Promise<void> {
       reviewerFlags.push(`T-29 allowlist (Stage 5): stripped non-permitted section(s): ${assembledRemoved.join('; ')}`);
       log('warn', 'Stage 5: T-29 allowlist removed non-permitted section(s)', { jobId, removed: assembledRemoved });
     }
+    // V2 (WL-15): a fail-safe no-op must never be silent — it means stripping did not run, so the
+    // stage is UNVERIFIED for leaks (a no-op is otherwise indistinguishable from genuinely clean).
+    const assembledNoop = allowlistNoopReason(assembledStripped, 'stepE');
+    if (assembledNoop) {
+      reviewerFlags.push(`⚠ T-29 allowlist NO-OP (Stage 5): ${assembledNoop} — stage UNVERIFIED for leaks; do not certify clean.`);
+      log('warn', 'Stage 5: T-29 allowlist NO-OP (fail-safe engaged)', { jobId, reason: assembledNoop });
+    }
 
     // T-23 (Block 2.2) envelope fail-closed guard: the position envelope is only DEFINED when both
     // ends are present — a leading top-level `# ` header and the Final marker. A run missing either
@@ -339,6 +346,13 @@ export async function runPipeline(jobId: string): Promise<void> {
         reviewerFlags.push(`T-29 allowlist (${label}): stripped non-permitted section(s): ${removed.join('; ')}`);
         log('warn', `${label}: T-29 allowlist removed non-permitted section(s)`, { jobId, removed });
       }
+      // V2 (WL-15): flag a fail-safe no-op — stripping did not run for this stage (level mismatch),
+      // so it is UNVERIFIED; a silent no-op would be indistinguishable from clean.
+      const noop = allowlistNoopReason(base, stepKey);
+      if (noop) {
+        reviewerFlags.push(`⚠ T-29 allowlist NO-OP (${label}): ${noop} — stage UNVERIFIED for leaks; do not certify clean.`);
+        log('warn', `${label}: T-29 allowlist NO-OP (fail-safe engaged)`, { jobId, reason: noop });
+      }
       const stageResidual = detectResidualScaffold(stripToAllowlistedSections(base, stepKey), label);
       if (stageResidual.length > 0) {
         reviewerFlags.push(...stageResidual);
@@ -372,10 +386,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.3 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.4 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.3 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.4 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }

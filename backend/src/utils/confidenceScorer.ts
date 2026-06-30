@@ -273,25 +273,29 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
 // other top-level section wholesale. A novel scaffold *section* (e.g. a stray "Operator Assembly"
 // or "Capacity self-check" heading) is removed because it isn't permitted — no enumeration needed.
 //
-// PROVISIONAL config: authored from the WS-A1 inventory + the stage SKILL output formats + the
-// Stage-5 sample. It MUST be reconciled against the Practice's known-good ×4 deliverables before the
-// T-10⁸ run (R1) — the SKILLs describe intent; the deliverables show the actual permitted shape.
-//
-// Fail-safe (WL-10 over-strip): if no section is found at the configured heading level, or ALL
-// sections would be stripped, the text is returned UNCHANGED — a config/level mismatch must never
-// gut a deliverable. In-section forms (a GATE-4 self-check nested under a permitted section) are
-// handled by the form-strippers, not here; this layer only removes whole non-permitted sections.
+// Permit-lists reconciled against the ground-truth ×4 deliverables (Practice WS-A1 reconciliation §2).
+// V1: each entry is an ANCHORED prefix of the normalised heading (leading "A)"/"1."/bold stripped),
+// matched by startsWith — so a permitted phrase appearing mid-heading does NOT permit the section,
+// minimising reliance on the scaffold backstop. Authored as the actual ×4 heading prefixes.
 export interface SectionAllowlist { level: number; permit: string[]; }
 
-// Permit-lists reconciled against the ground-truth ×4 deliverables (Practice WS-A1 reconciliation §2).
 export const SECTION_ALLOWLISTS: Record<string, SectionAllowlist> = {
-  stepB:  { level: 2, permit: ['executive summary', 'key data', 'pain point', 'detected pain', 'opportunities and hypoth', 'org and process', 'document index', 'open question', 'reviewer checklist', 'document receipt', 'a)', 'b)', 'c)', 'd)', 'e)', 'f)', 'g)', 'h)'] },
+  stepB:  { level: 2, permit: ['executive summary', 'key data', 'detected pain', 'opportunities and hypoth', 'org and process', 'document index', 'open question', 'reviewer checklist', 'document receipt'] },
   stepC:  { level: 3, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
   stepD:  { level: 3, permit: ['executive opportunity', 'opportunity cards', 'opportunity #', 'portfolio view', 'additional opportunit'] },
-  stepD2: { level: 3, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'now', 'next', 'later', 'bridge'] },
-  // §2: 8 stable Stage-5 sections, incl. "Key Findings"/"Where Value is Being Lost" and "Readiness Gaps".
-  stepE:  { level: 1, permit: ['executive summary', 'readiness', 'key findings', 'where value', 'opportunity map', 'recommended action', 'action sequence', 'gaps and recommendations', 'next steps', 'appendix'] },
+  stepD2: { level: 3, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'bridge'] },
+  // §2: 8 stable Stage-5 sections (anchored prefixes; "ai readiness"/"ai opportunity" carry the "AI " prefix).
+  stepE:  { level: 1, permit: ['executive summary', 'ai readiness', 'readiness gaps', 'key findings', 'where value', 'ai opportunity', 'recommended action', 'recommended next', 'gaps and recommendations', 'appendix'] },
 };
+
+// Normalise a heading for anchored matching: drop leading bold and any list enumerator ("A)", "1.").
+function normalizeHeading(h: string): string {
+  return h
+    .replace(/^\*{0,2}\s*/, '')
+    .replace(/^(?:\d+[.)]|[A-Za-z][.)])\s*/, '')
+    .trim()
+    .toLowerCase();
+}
 
 // §3 (ground-truth): known-scaffold section headings that must be stripped REGARDLESS of permit —
 // a lenient permit substring would otherwise falsely keep them ("Step 2 — Opportunity…" contains
@@ -311,7 +315,12 @@ function isScaffoldSection(h: string): boolean {
   return SCAFFOLD_SECTION_STRIP.some(re => re.test(h));
 }
 
-function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; removed: string[] } {
+// status distinguishes the WL-10 fail-safe no-ops (which would otherwise be a SILENT fail-open, V2)
+// from a genuinely-clean result: 'no-sections' / 'all-would-strip' are no-ops the orchestrator must
+// flag; 'clean' means sections were found and all permitted; 'stripped' means it ran and removed some.
+type AllowlistStatus = 'no-sections' | 'all-would-strip' | 'clean' | 'stripped';
+
+function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; removed: string[]; status: AllowlistStatus } {
   const headingRe = new RegExp(`^#{${cfg.level}}(?!#)[ \\t]+(.+?)\\s*$`);
   const blocks: Array<{ heading: string | null; lines: string[] }> = [{ heading: null, lines: [] }];
   for (const line of text.split('\n')) {
@@ -320,15 +329,16 @@ function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; re
     else blocks[blocks.length - 1].lines.push(line);
   }
   const sections = blocks.filter(b => b.heading !== null);
-  if (sections.length === 0) return { kept: text, removed: [] }; // no sections at this level → fail safe
-  // Keep a section iff it is permitted AND not a known-scaffold heading (scaffold precedence over permit).
-  const keep = (h: string) => cfg.permit.some(p => h.toLowerCase().includes(p)) && !isScaffoldSection(h);
+  if (sections.length === 0) return { kept: text, removed: [], status: 'no-sections' }; // fail safe (V2: flagged)
+  // Keep a section iff its normalised heading starts with a permitted prefix (V1 anchored) AND it is
+  // not a known-scaffold heading (scaffold precedence over permit — the §3 backstop).
+  const keep = (h: string) => cfg.permit.some(p => normalizeHeading(h).startsWith(p)) && !isScaffoldSection(h);
   const removed = sections.filter(b => !keep(b.heading as string)).map(b => b.heading as string);
-  if (removed.length === 0) return { kept: text, removed: [] };          // nothing to strip
-  if (removed.length === sections.length) return { kept: text, removed: [] }; // would gut the doc → fail safe
+  if (removed.length === 0) return { kept: text, removed: [], status: 'clean' };               // nothing to strip
+  if (removed.length === sections.length) return { kept: text, removed: [], status: 'all-would-strip' }; // fail safe (V2)
   const kept = [blocks[0].lines.join('\n'), ...sections.filter(b => keep(b.heading as string)).map(b => b.lines.join('\n'))]
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  return { kept, removed };
+  return { kept, removed, status: 'stripped' };
 }
 
 export function stripToAllowlistedSections(text: string, stepKey: string): string {
@@ -339,6 +349,18 @@ export function stripToAllowlistedSections(text: string, stepKey: string): strin
 export function findNonPermittedSections(text: string, stepKey: string): string[] {
   const cfg = SECTION_ALLOWLISTS[stepKey];
   return cfg ? applyAllowlist(text, cfg).removed : [];
+}
+
+// V2 (WL-15 — fail-open-silent): returns a reason when the allowlist did NOT run (a no-op that
+// would otherwise be indistinguishable from a clean deliverable), else null. The orchestrator emits
+// a distinct reviewer flag on a non-null reason so an unverified stage can never read as clean.
+export function allowlistNoopReason(text: string, stepKey: string): string | null {
+  const cfg = SECTION_ALLOWLISTS[stepKey];
+  if (!cfg) return null;
+  const { status } = applyAllowlist(text, cfg);
+  if (status === 'no-sections') return `no headings at level ${cfg.level} — section allowlist did NOT run`;
+  if (status === 'all-would-strip') return 'every section was non-permitted — stripping suppressed (fail-safe)';
+  return null;
 }
 
 // ─── Justification block parser ───────────────────────────────────────────────

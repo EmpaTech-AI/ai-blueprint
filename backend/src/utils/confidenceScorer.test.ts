@@ -7,6 +7,7 @@ import {
   stripConfidencePropagation,
   stripToAllowlistedSections,
   findNonPermittedSections,
+  allowlistNoopReason,
   stripCheckpointScaffold,
   stripHtmlComments,
   stripProcessNarration,
@@ -1061,5 +1062,41 @@ describe('§3.3 — [CONFIDENCE_PROPAGATION] stripped from delivery only', () =>
   it('detector flags a Step-N heading and a Working Log heading (S-37/S-38 backstop)', () => {
     expect(detectResidualScaffold('### Step 1 — Baseline Confirmation', 'Stage 3').some(f => /S-37/.test(f))).toBe(true);
     expect(detectResidualScaffold('## Hypothesis Selection — Working Log', 'Stage 1').some(f => /S-38/.test(f))).toBe(true);
+  });
+});
+
+// ── V1: anchored permit match (a permit word mid-heading does not permit the section) ──
+
+describe('V1 — anchored/normalised permit match', () => {
+  it('strips a section whose heading only CONTAINS a permit phrase mid-string', () => {
+    const txt = '# Executive Summary\na\n# Internal Notes on the Executive Summary\nb\n# AI Opportunity Map\nc';
+    const removed = findNonPermittedSections(txt, 'stepE');
+    expect(removed).toEqual(['Internal Notes on the Executive Summary']);
+  });
+  it('keeps "AI Readiness Snapshot" (anchored prefix carries the "AI " lead) and the suffix variant', () => {
+    const txt = '# Executive Summary\na\n# AI Readiness Snapshot\nb\n# Recommended Action Sequence — Meridian Talent Partners OOD\nc\n# Mystery\nd';
+    const removed = findNonPermittedSections(txt, 'stepE');
+    expect(removed).toEqual(['Mystery']); // the three real sections kept despite "AI "/suffix variance
+  });
+  it('normalises a Stage-1 enumerator ("A) …of Current State") and keeps it', () => {
+    const txt = '## A) Executive Summary of Current State\na\n## B) Key Data Points\nb\n## Stray Section\nc';
+    expect(findNonPermittedSections(txt, 'stepB')).toEqual(['Stray Section']);
+  });
+});
+
+// ── V2 (WL-15): the fail-safe no-op must be observable, never silent ────────────
+
+describe('V2 — allowlistNoopReason surfaces a fail-open', () => {
+  it('reports a level mismatch (no headings at the configured level)', () => {
+    expect(allowlistNoopReason('## only level-2\nbody', 'stepE')).toMatch(/no headings at level 1/i);
+  });
+  it('reports the all-would-strip guard', () => {
+    expect(allowlistNoopReason('# Mystery One\na\n# Mystery Two\nb', 'stepE')).toMatch(/every section was non-permitted/i);
+  });
+  it('returns null for a genuinely clean deliverable (sections found, all permitted)', () => {
+    expect(allowlistNoopReason('# Executive Summary\na\n# AI Opportunity Map\nb', 'stepE')).toBeNull();
+  });
+  it('returns null when the allowlist ran and stripped (not a no-op)', () => {
+    expect(allowlistNoopReason('# Executive Summary\na\n# Operator Assembly Instructions\nx', 'stepE')).toBeNull();
   });
 });
