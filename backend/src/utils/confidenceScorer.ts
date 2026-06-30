@@ -363,6 +363,21 @@ export function allowlistNoopReason(text: string, stepKey: string): string | nul
   return null;
 }
 
+// Practice §2 (WL-15 evidence): an AFFIRMATIVE per-stage run-status for the reviewer-metadata bundle,
+// emitted for EVERY stage — incl. clean — so the Practice verifies "the allowlist ran" from evidence
+// rather than inferring it from the absence of a flag. `ran=false` is a fail-open no-op (must be flagged).
+export function allowlistStatus(text: string, stepKey: string): { ran: boolean; detail: string } {
+  const cfg = SECTION_ALLOWLISTS[stepKey];
+  if (!cfg) return { ran: false, detail: 'NO-OP — no allowlist config for this stage' };
+  const { removed, status } = applyAllowlist(text, cfg);
+  switch (status) {
+    case 'stripped':        return { ran: true,  detail: `ran — stripped ${removed.length} non-permitted section(s): ${removed.join('; ')}` };
+    case 'clean':           return { ran: true,  detail: 'ran — clean (all sections permitted)' };
+    case 'no-sections':     return { ran: false, detail: `NO-OP — no headings at level ${cfg.level}; allowlist did NOT run` };
+    case 'all-would-strip': return { ran: false, detail: 'NO-OP — every section non-permitted; stripping suppressed (fail-safe)' };
+  }
+}
+
 // ─── Justification block parser ───────────────────────────────────────────────
 
 function parseJustificationBlock(text: string): { overview: string; entries: JustificationEntry[] } {

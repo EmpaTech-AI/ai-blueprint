@@ -8,6 +8,7 @@ import {
   stripToAllowlistedSections,
   findNonPermittedSections,
   allowlistNoopReason,
+  allowlistStatus,
   stripCheckpointScaffold,
   stripHtmlComments,
   stripProcessNarration,
@@ -1098,5 +1099,25 @@ describe('V2 — allowlistNoopReason surfaces a fail-open', () => {
   });
   it('returns null when the allowlist ran and stripped (not a no-op)', () => {
     expect(allowlistNoopReason('# Executive Summary\na\n# Operator Assembly Instructions\nx', 'stepE')).toBeNull();
+  });
+});
+
+// ── Practice §2: affirmative per-stage run-status for the bundle (WL-15 evidence) ──
+
+describe('allowlistStatus — affirmative per-stage run-status', () => {
+  it('reports ran+clean for a clean stage (so absence-of-flag can never be inferred)', () => {
+    const s = allowlistStatus('# Executive Summary\na\n# AI Opportunity Map\nb', 'stepE');
+    expect(s.ran).toBe(true);
+    expect(s.detail).toMatch(/ran — clean/);
+  });
+  it('reports ran+stripped with the removed section', () => {
+    const s = allowlistStatus('# Executive Summary\na\n# Operator Assembly Instructions\nx', 'stepE');
+    expect(s.ran).toBe(true);
+    expect(s.detail).toMatch(/ran — stripped 1 .*Operator Assembly/);
+  });
+  it('reports ran=false + NO-OP detail on a level mismatch', () => {
+    const s = allowlistStatus('## only level-2\nbody', 'stepE');
+    expect(s.ran).toBe(false);
+    expect(s.detail).toMatch(/NO-OP/);
   });
 });

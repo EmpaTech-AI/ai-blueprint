@@ -21,7 +21,7 @@ import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
-import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, findNonPermittedSections, allowlistNoopReason } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
@@ -296,19 +296,15 @@ export async function runPipeline(jobId: string): Promise<void> {
     // (document begins at first section header, ends at the Final marker; margins removed wholesale).
     // T-29: then permit-only the known Stage-5 sections (any non-permitted top-level section stripped).
     const assembledStripped = stripForDeliveryStage5(assembled);
-    const assembledRemoved = findNonPermittedSections(assembledStripped, 'stepE');
     const assembledForDelivery = stripToAllowlistedSections(assembledStripped, 'stepE');
-    if (assembledRemoved.length > 0) {
-      reviewerFlags.push(`T-29 allowlist (Stage 5): stripped non-permitted section(s): ${assembledRemoved.join('; ')}`);
-      log('warn', 'Stage 5: T-29 allowlist removed non-permitted section(s)', { jobId, removed: assembledRemoved });
-    }
-    // V2 (WL-15): a fail-safe no-op must never be silent — it means stripping did not run, so the
-    // stage is UNVERIFIED for leaks (a no-op is otherwise indistinguishable from genuinely clean).
-    const assembledNoop = allowlistNoopReason(assembledStripped, 'stepE');
-    if (assembledNoop) {
-      reviewerFlags.push(`⚠ T-29 allowlist NO-OP (Stage 5): ${assembledNoop} — stage UNVERIFIED for leaks; do not certify clean.`);
-      log('warn', 'Stage 5: T-29 allowlist NO-OP (fail-safe engaged)', { jobId, reason: assembledNoop });
-    }
+    // Practice §2 (WL-15 evidence): emit an affirmative per-stage allowlist run-status into the
+    // reviewer-metadata, for EVERY stage incl. clean — a NO-OP (ran=false) means the stage is
+    // UNVERIFIED for leaks (indistinguishable from clean unless flagged).
+    const s5Status = allowlistStatus(assembledStripped, 'stepE');
+    reviewerFlags.push(s5Status.ran
+      ? `T-29 allowlist (Stage 5): ${s5Status.detail}`
+      : `⚠ T-29 allowlist (Stage 5): ${s5Status.detail} — stage UNVERIFIED for leaks; do not certify clean.`);
+    if (!s5Status.ran) log('warn', 'Stage 5: T-29 allowlist NO-OP (fail-safe engaged)', { jobId, detail: s5Status.detail });
 
     // T-23 (Block 2.2) envelope fail-closed guard: the position envelope is only DEFINED when both
     // ends are present — a leading top-level `# ` header and the Final marker. A run missing either
@@ -340,19 +336,12 @@ export async function runPipeline(jobId: string): Promise<void> {
     ];
     for (const [label, stepKey, raw] of stageDeliverables) {
       const base = stripForDelivery(raw);
-      // T-29: permit-only the known sections for this stage before the residual scan.
-      const removed = findNonPermittedSections(base, stepKey);
-      if (removed.length > 0) {
-        reviewerFlags.push(`T-29 allowlist (${label}): stripped non-permitted section(s): ${removed.join('; ')}`);
-        log('warn', `${label}: T-29 allowlist removed non-permitted section(s)`, { jobId, removed });
-      }
-      // V2 (WL-15): flag a fail-safe no-op — stripping did not run for this stage (level mismatch),
-      // so it is UNVERIFIED; a silent no-op would be indistinguishable from clean.
-      const noop = allowlistNoopReason(base, stepKey);
-      if (noop) {
-        reviewerFlags.push(`⚠ T-29 allowlist NO-OP (${label}): ${noop} — stage UNVERIFIED for leaks; do not certify clean.`);
-        log('warn', `${label}: T-29 allowlist NO-OP (fail-safe engaged)`, { jobId, reason: noop });
-      }
+      // Practice §2 (WL-15 evidence): affirmative per-stage allowlist run-status (every stage).
+      const st = allowlistStatus(base, stepKey);
+      reviewerFlags.push(st.ran
+        ? `T-29 allowlist (${label}): ${st.detail}`
+        : `⚠ T-29 allowlist (${label}): ${st.detail} — stage UNVERIFIED for leaks; do not certify clean.`);
+      if (!st.ran) log('warn', `${label}: T-29 allowlist NO-OP (fail-safe engaged)`, { jobId, detail: st.detail });
       const stageResidual = detectResidualScaffold(stripToAllowlistedSections(base, stepKey), label);
       if (stageResidual.length > 0) {
         reviewerFlags.push(...stageResidual);
@@ -386,10 +375,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.4 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.5 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.4 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.5 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }
