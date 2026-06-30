@@ -184,33 +184,30 @@ export function stripOperatorAssembly(text: string): string {
   return t.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-// Strips build stamp, justification block, CHECKPOINT scaffold, operator-assembly block, GATE-4
-// self-check, process narration, status/meta-aside lines, editorial brackets, HTML comments,
-// operator preamble, and inline confidence tags — use before generating ANY staged deliverable.
-// All scaffold stripping happens here, centrally, so every emission path and every stage is
-// covered (T-15 / T-23 / T-25 / T-26 / T-28).
+// §3.3 (R3): [CONFIDENCE_PROPAGATION] is a Stage-2 → Stage-4 HANDOFF channel that leaked into the
+// Stage-2 delivery copy (4/4 in the ground-truth ×4). Strip it from the DELIVERY copy only — the
+// handoff copy uses stripJustification (NOT stripForDelivery), so the channel stays intact for Stage 4.
+export function stripConfidencePropagation(text: string): string {
+  return text
+    .replace(/\[CONFIDENCE_PROPAGATION\][\s\S]*?\[END CONFIDENCE_PROPAGATION\]/gi, '')           // paired markers
+    .replace(/\n*#{1,4}[ \t]*\[?CONFIDENCE_PROPAGATION\]?[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|$)/gi, '\n') // heading-led block
+    .replace(/^.*\[(?:END )?CONFIDENCE_PROPAGATION\].*$/gim, '')                                  // stray marker line
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Strips build stamp, justification, CHECKPOINT/operator-assembly scaffold, GATE-4 self-check,
+// process narration, status/meta-asides, editorial brackets, HTML comments, operator preamble,
+// inline confidence tags, and the [CONFIDENCE_PROPAGATION] handoff block — use before generating ANY
+// staged deliverable. Central, so every emission path and stage is covered (T-15/23/25/26/28; §3.3).
+// Pipe form (not nested calls) so adding/reordering a stripper can't drift a paren.
 export function stripForDelivery(text: string): string {
-  return stripOperatorAssembly(
-   stripOperatorPreamble(
-    stripEditorialBrackets(
-      stripStatusAndMetaAsides(
-        stripProcessNarration(
-          stripHtmlComments(
-            stripGate4SelfCheck(
-              stripConfidenceTags(
-                stripCheckpointScaffold(
-                  stripJustification(
-                    stripBuildStamp(text),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-   ),
-  );
+  const steps = [
+    stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
+    stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
+    stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly, stripConfidencePropagation,
+  ];
+  return steps.reduce((t, fn) => fn(t), text);
 }
 
 // T-23 GUARANTEE (the credited KR5 chokepoint): the position envelope. The Stage-5 deliverable
@@ -245,7 +242,8 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
   const forms: Array<[RegExp, string]> = [
     [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
     [/Operator Assembly Instructions/i,                                                'operator-assembly scaffold block (T-28)'],
-    [/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/im,                          'process-narration "Step N (…)" line'],
+    [/^\s*#{0,4}\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+[a-z]?\s*[—:(-]/im,            'process-narration "Step N (…)" line/heading (S-37)'],
+    [/^\s*#{0,4}\s*\*{0,2}[^\n]*working log/im,                                         'selection working-log heading (S-38)'],
     [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
     [/GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check/i,                            'GATE-4 / capacity self-check (S-35)'],
     [/\b(?:T|S|WL|REG)-\d{1,3}\b/,                                                      'internal engineering identifier (S-36 / WL-14)'],
@@ -285,13 +283,33 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
 // handled by the form-strippers, not here; this layer only removes whole non-permitted sections.
 export interface SectionAllowlist { level: number; permit: string[]; }
 
+// Permit-lists reconciled against the ground-truth ×4 deliverables (Practice WS-A1 reconciliation §2).
 export const SECTION_ALLOWLISTS: Record<string, SectionAllowlist> = {
   stepB:  { level: 2, permit: ['executive summary', 'key data', 'pain point', 'detected pain', 'opportunities and hypoth', 'org and process', 'document index', 'open question', 'reviewer checklist', 'document receipt', 'a)', 'b)', 'c)', 'd)', 'e)', 'f)', 'g)', 'h)'] },
   stepC:  { level: 3, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
-  stepD:  { level: 3, permit: ['executive opportunity', 'opportunity', 'portfolio view', 'additional opportunit'] },
+  stepD:  { level: 3, permit: ['executive opportunity', 'opportunity cards', 'opportunity #', 'portfolio view', 'additional opportunit'] },
   stepD2: { level: 3, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'now', 'next', 'later', 'bridge'] },
-  stepE:  { level: 1, permit: ['executive summary', 'readiness', 'opportunity map', 'portfolio', 'recommended action', 'action sequence', 'bridge', 'next steps', 'appendix'] },
+  // §2: 8 stable Stage-5 sections, incl. "Key Findings"/"Where Value is Being Lost" and "Readiness Gaps".
+  stepE:  { level: 1, permit: ['executive summary', 'readiness', 'key findings', 'where value', 'opportunity map', 'recommended action', 'action sequence', 'gaps and recommendations', 'next steps', 'appendix'] },
 };
+
+// §3 (ground-truth): known-scaffold section headings that must be stripped REGARDLESS of permit —
+// a lenient permit substring would otherwise falsely keep them ("Step 2 — Opportunity…" contains
+// "opportunity"; "Pain Point Selection — Working Log" contains "pain point"). S-37 (Stage-3 step
+// narration), S-38 (Stage-1 selection working-logs), and the existing scaffold families.
+const SCAFFOLD_SECTION_STRIP: RegExp[] = [
+  /^(?:step|stage)\s+\d+[a-z]?\s*[—:(-]/i,                          // S-37 "Step 2 — …", "Step 3b — …"
+  /working log/i,                                                  // S-38 "… Selection — Working Log"
+  /applying the selection|candidate scoring|selection algorithm/i, // S-38
+  /producing chunk|proceeding to chunk|intake received/i,          // S-38 operator log
+  /checkpoint\s+\d+/i,                                             // CHECKPOINT
+  /operator assembly/i,                                            // operator-assembly
+  /self-check/i,                                                   // GATE-4 / capacity self-check
+  /confidence overview|low-confidence items/i,                     // LC internals leaked as headings
+];
+function isScaffoldSection(h: string): boolean {
+  return SCAFFOLD_SECTION_STRIP.some(re => re.test(h));
+}
 
 function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; removed: string[] } {
   const headingRe = new RegExp(`^#{${cfg.level}}(?!#)[ \\t]+(.+?)\\s*$`);
@@ -303,11 +321,12 @@ function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; re
   }
   const sections = blocks.filter(b => b.heading !== null);
   if (sections.length === 0) return { kept: text, removed: [] }; // no sections at this level → fail safe
-  const permitted = (h: string) => cfg.permit.some(p => h.toLowerCase().includes(p));
-  const removed = sections.filter(b => !permitted(b.heading as string)).map(b => b.heading as string);
+  // Keep a section iff it is permitted AND not a known-scaffold heading (scaffold precedence over permit).
+  const keep = (h: string) => cfg.permit.some(p => h.toLowerCase().includes(p)) && !isScaffoldSection(h);
+  const removed = sections.filter(b => !keep(b.heading as string)).map(b => b.heading as string);
   if (removed.length === 0) return { kept: text, removed: [] };          // nothing to strip
   if (removed.length === sections.length) return { kept: text, removed: [] }; // would gut the doc → fail safe
-  const kept = [blocks[0].lines.join('\n'), ...sections.filter(b => permitted(b.heading as string)).map(b => b.lines.join('\n'))]
+  const kept = [blocks[0].lines.join('\n'), ...sections.filter(b => keep(b.heading as string)).map(b => b.lines.join('\n'))]
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return { kept, removed };
 }

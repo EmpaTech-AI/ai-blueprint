@@ -4,6 +4,7 @@ import {
   stripConfidenceTags,
   stripForDelivery,
   stripOperatorAssembly,
+  stripConfidencePropagation,
   stripToAllowlistedSections,
   findNonPermittedSections,
   stripCheckpointScaffold,
@@ -1005,5 +1006,60 @@ describe('T-29 — permit-only section allowlist', () => {
   it('fail-safe: returns unchanged when ALL sections would be stripped (config/level mismatch)', () => {
     const txt = '# Mystery One\na\n# Mystery Two\nb';
     expect(stripToAllowlistedSections(txt, 'stepE')).toBe(txt);
+  });
+
+  it('keeps the ground-truth "Key Findings: Where Value is Being Lost" Stage-5 section (§2)', () => {
+    const txt = '# Executive Summary\na\n# Key Findings: Where Value is Being Lost\nb\n# AI Opportunity Map\nc';
+    const out = stripToAllowlistedSections(txt, 'stepE');
+    expect(out).toContain('# Key Findings: Where Value is Being Lost');
+  });
+});
+
+// ── Ground-truth ×4 leaks: scaffold-precedence (S-37/S-38) + CONFIDENCE_PROPAGATION (§3.3) ──
+
+describe('WS-A1 ground-truth: scaffold sections strip over a lenient permit', () => {
+  it('S-37: strips "Step 2 — Opportunity Signal Extraction" even though it contains the permit word "opportunity"', () => {
+    const stage3 = [
+      '### Executive Opportunity Summary', 'Summary.',
+      '### Step 2 — Opportunity Signal Extraction', 'internal working notes',
+      '### Portfolio View', 'buckets',
+    ].join('\n');
+    const out = stripToAllowlistedSections(stage3, 'stepD');
+    expect(out).not.toMatch(/Step 2 — Opportunity Signal Extraction/);
+    expect(out).not.toMatch(/internal working notes/);
+    expect(out).toContain('### Executive Opportunity Summary');
+    expect(out).toContain('### Portfolio View');
+  });
+
+  it('S-38: strips "Pain Point Selection — Working Log" even though it contains the permit word "pain point"', () => {
+    const stage1 = [
+      '## A) Executive Summary', 'a',
+      '## Pain Point Selection — Working Log', 'how the 8 were picked',
+      '## C) Detected Pain Points', 'the 8',
+    ].join('\n');
+    const out = stripToAllowlistedSections(stage1, 'stepB');
+    expect(out).not.toMatch(/Working Log/i);
+    expect(out).not.toMatch(/how the 8 were picked/);
+    expect(out).toContain('## C) Detected Pain Points');
+  });
+});
+
+describe('§3.3 — [CONFIDENCE_PROPAGATION] stripped from delivery only', () => {
+  it('stripConfidencePropagation removes a paired-marker block', () => {
+    const txt = '### Overall Pattern\nBody.\n[CONFIDENCE_PROPAGATION]\nData: Partial\n[END CONFIDENCE_PROPAGATION]\n### Key Constraints\nMore.';
+    const out = stripConfidencePropagation(txt);
+    expect(out).not.toMatch(/CONFIDENCE_PROPAGATION/);
+    expect(out).not.toMatch(/Data: Partial/);
+    expect(out).toContain('Overall Pattern');
+    expect(out).toContain('Key Constraints');
+  });
+
+  it('stripForDelivery removes [CONFIDENCE_PROPAGATION] (delivery copy)', () => {
+    expect(stripForDelivery('# Snapshot\n[CONFIDENCE_PROPAGATION]\nx\n[END CONFIDENCE_PROPAGATION]\nbody')).not.toMatch(/CONFIDENCE_PROPAGATION/);
+  });
+
+  it('detector flags a Step-N heading and a Working Log heading (S-37/S-38 backstop)', () => {
+    expect(detectResidualScaffold('### Step 1 — Baseline Confirmation', 'Stage 3').some(f => /S-37/.test(f))).toBe(true);
+    expect(detectResidualScaffold('## Hypothesis Selection — Working Log', 'Stage 1').some(f => /S-38/.test(f))).toBe(true);
   });
 });

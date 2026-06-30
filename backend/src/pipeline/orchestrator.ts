@@ -372,10 +372,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // whether it is anchored (real SHA present) or label-only (SHA unset → the vNN is a tag, not proof).
     const anchored = buildStampSha !== 'unset';
     log('info', `Pipeline build stamp: date=${buildStampDate} sha=${buildStampSha} anchored=${anchored}`, { jobId });
-    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.2 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
+    reviewerFlags.push(`Build: date=${buildStampDate} pipeline=v34.3 sha=${buildStampSha} anchor=${anchored ? 'sha' : 'label-only'}`);
     if (!anchored) {
       reviewerFlags.push(
-        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.2 is a human tag, not a verifiable ' +
+        'Provenance: this run is LABEL-ONLY (sha=unset) — pipeline=v34.3 is a human tag, not a verifiable ' +
         'build anchor. Populate RAILWAY_GIT_COMMIT_SHA (migrate Railway) so the SHA anchors the n=4 fleet-uniformity check.',
       );
     }
