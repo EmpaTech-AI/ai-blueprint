@@ -4,6 +4,8 @@ import {
   stripConfidenceTags,
   stripForDelivery,
   stripOperatorAssembly,
+  stripToAllowlistedSections,
+  findNonPermittedSections,
   stripCheckpointScaffold,
   stripHtmlComments,
   stripProcessNarration,
@@ -15,6 +17,7 @@ import {
   BACKEND_COMPOSITION_THRESHOLDS,
   GROUNDING_GREEN,
 } from './confidenceScorer';
+import { SAMPLE_ASSEMBLED_CONTENT } from '../docx/sampleBlueprint';
 
 // ── stripJustification ────────────────────────────────────────────────────────
 
@@ -949,5 +952,58 @@ describe('Era-L leak forms — capacity self-check (S-35) and internal identifie
   it('does NOT flag the hypothesis ID form H-RT-04 as an internal identifier (boundary safety)', () => {
     const flags = detectResidualScaffold('Opportunity H-RT-04 is sequenced into Later.');
     expect(flags.some(f => /internal engineering identifier/.test(f))).toBe(false);
+  });
+});
+
+// ── T-29: permit-only section allowlist (Approach 2) ────────────────────────────
+
+describe('T-29 — permit-only section allowlist', () => {
+  const stage5 = [
+    '# Executive Summary', 'Body.',
+    '# AI Readiness Snapshot', 'Body.',
+    '# Operator Assembly Instructions', 'Re-emit the dossier from the top.',
+    '# Recommended Action Sequence', 'Body.',
+  ].join('\n');
+
+  it('strips a non-permitted top-level Stage-5 section, keeps the permitted ones', () => {
+    const out = stripToAllowlistedSections(stage5, 'stepE');
+    expect(out).not.toMatch(/Operator Assembly Instructions/);
+    expect(out).toContain('# Executive Summary');
+    expect(out).toContain('# AI Readiness Snapshot');
+    expect(out).toContain('# Recommended Action Sequence');
+  });
+
+  it('findNonPermittedSections reports the stripped heading', () => {
+    expect(findNonPermittedSections(stage5, 'stepE')).toEqual(['Operator Assembly Instructions']);
+  });
+
+  it('Stage-4 (level 3): strips a "GATE-4 capacity self-check" section, keeps the phases', () => {
+    const stage4 = [
+      '### Sequencing Rationale', 'Why.',
+      '### GATE-4 capacity self-check', '- [ ] ≤3 per phase',
+      '### Phase 1: Now', 'Items.',
+    ].join('\n');
+    const out = stripToAllowlistedSections(stage4, 'stepD2');
+    expect(out).not.toMatch(/capacity self-check/i);
+    expect(out).toContain('### Phase 1: Now');
+    expect(out).toContain('### Sequencing Rationale');
+  });
+
+  it('does not over-strip the canonical Stage-5 sample (no permitted section lost)', () => {
+    const out = stripToAllowlistedSections(SAMPLE_ASSEMBLED_CONTENT, 'stepE');
+    expect(out).toContain('Executive Summary');
+    expect(out).toContain('AI Readiness Snapshot');
+    expect(out).toContain('AI Opportunity Map');
+    expect(out).toContain('Recommended Action Sequence');
+  });
+
+  it('fail-safe: returns unchanged when no section is at the configured level', () => {
+    const txt = '## Only level-2 here\nbody';
+    expect(stripToAllowlistedSections(txt, 'stepE')).toBe(txt); // stepE expects level 1
+  });
+
+  it('fail-safe: returns unchanged when ALL sections would be stripped (config/level mismatch)', () => {
+    const txt = '# Mystery One\na\n# Mystery Two\nb';
+    expect(stripToAllowlistedSections(txt, 'stepE')).toBe(txt);
   });
 });

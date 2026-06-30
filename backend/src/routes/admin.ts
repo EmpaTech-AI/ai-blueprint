@@ -5,7 +5,7 @@ import { getAllUsers, createUser, deleteUser, updatePassword, getUserById, getUs
 import { requireAdmin } from '../middleware/auth';
 import { generateBlueprintPdf, generateBlueprintTxt, generateBlueprintDocx } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
-import { stripForDeliveryStage5 } from '../utils/confidenceScorer';
+import { stripForDeliveryStage5, stripToAllowlistedSections } from '../utils/confidenceScorer';
 import { SAMPLE_ASSEMBLED_CONTENT, SAMPLE_CLIENT_NAME } from '../docx/sampleBlueprint';
 import path from 'path';
 import fs from 'fs';
@@ -22,7 +22,7 @@ const router = express.Router();
 type PreviewFormat = 'html' | 'pdf' | 'txt' | 'docx';
 
 async function renderPreview(format: PreviewFormat, clientName: string, rawContent: string, res: Response): Promise<void> {
-  const content = stripForDeliveryStage5(rawContent);
+  const content = stripToAllowlistedSections(stripForDeliveryStage5(rawContent), 'stepE'); // T-29 permit-only
   const name = clientName.trim() || SAMPLE_CLIENT_NAME;
 
   if (format === 'pdf') {

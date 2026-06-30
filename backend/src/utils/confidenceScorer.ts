@@ -268,6 +268,60 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
   return flags;
 }
 
+// ─── T-29: permit-only section allowlist (Approach 2 — the durable KR5 fix) ──────
+//
+// Closes the leak-FORM relocation by construction: instead of enumerating bad forms (a denylist
+// that invites the next form every era), permit only the known deliverable sections and strip any
+// other top-level section wholesale. A novel scaffold *section* (e.g. a stray "Operator Assembly"
+// or "Capacity self-check" heading) is removed because it isn't permitted — no enumeration needed.
+//
+// PROVISIONAL config: authored from the WS-A1 inventory + the stage SKILL output formats + the
+// Stage-5 sample. It MUST be reconciled against the Practice's known-good ×4 deliverables before the
+// T-10⁸ run (R1) — the SKILLs describe intent; the deliverables show the actual permitted shape.
+//
+// Fail-safe (WL-10 over-strip): if no section is found at the configured heading level, or ALL
+// sections would be stripped, the text is returned UNCHANGED — a config/level mismatch must never
+// gut a deliverable. In-section forms (a GATE-4 self-check nested under a permitted section) are
+// handled by the form-strippers, not here; this layer only removes whole non-permitted sections.
+export interface SectionAllowlist { level: number; permit: string[]; }
+
+export const SECTION_ALLOWLISTS: Record<string, SectionAllowlist> = {
+  stepB:  { level: 2, permit: ['executive summary', 'key data', 'pain point', 'detected pain', 'opportunities and hypoth', 'org and process', 'document index', 'open question', 'reviewer checklist', 'document receipt', 'a)', 'b)', 'c)', 'd)', 'e)', 'f)', 'g)', 'h)'] },
+  stepC:  { level: 3, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
+  stepD:  { level: 3, permit: ['executive opportunity', 'opportunity', 'portfolio view', 'additional opportunit'] },
+  stepD2: { level: 3, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'now', 'next', 'later', 'bridge'] },
+  stepE:  { level: 1, permit: ['executive summary', 'readiness', 'opportunity map', 'portfolio', 'recommended action', 'action sequence', 'bridge', 'next steps', 'appendix'] },
+};
+
+function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; removed: string[] } {
+  const headingRe = new RegExp(`^#{${cfg.level}}(?!#)[ \\t]+(.+?)\\s*$`);
+  const blocks: Array<{ heading: string | null; lines: string[] }> = [{ heading: null, lines: [] }];
+  for (const line of text.split('\n')) {
+    const m = line.match(headingRe);
+    if (m) blocks.push({ heading: m[1], lines: [line] });
+    else blocks[blocks.length - 1].lines.push(line);
+  }
+  const sections = blocks.filter(b => b.heading !== null);
+  if (sections.length === 0) return { kept: text, removed: [] }; // no sections at this level → fail safe
+  const permitted = (h: string) => cfg.permit.some(p => h.toLowerCase().includes(p));
+  const removed = sections.filter(b => !permitted(b.heading as string)).map(b => b.heading as string);
+  if (removed.length === 0) return { kept: text, removed: [] };          // nothing to strip
+  if (removed.length === sections.length) return { kept: text, removed: [] }; // would gut the doc → fail safe
+  const kept = [blocks[0].lines.join('\n'), ...sections.filter(b => permitted(b.heading as string)).map(b => b.lines.join('\n'))]
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { kept, removed };
+}
+
+export function stripToAllowlistedSections(text: string, stepKey: string): string {
+  const cfg = SECTION_ALLOWLISTS[stepKey];
+  return cfg ? applyAllowlist(text, cfg).kept : text;
+}
+
+export function findNonPermittedSections(text: string, stepKey: string): string[] {
+  const cfg = SECTION_ALLOWLISTS[stepKey];
+  return cfg ? applyAllowlist(text, cfg).removed : [];
+}
+
 // ─── Justification block parser ───────────────────────────────────────────────
 
 function parseJustificationBlock(text: string): { overview: string; entries: JustificationEntry[] } {

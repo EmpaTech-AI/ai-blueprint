@@ -3,7 +3,7 @@ import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { TOKENS_VERSION } from '../docx/designTokens';
-import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5 } from '../utils/confidenceScorer';
+import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5, stripToAllowlistedSections } from '../utils/confidenceScorer';
 import { requireAdmin } from '../middleware/auth';
 import path from 'path';
 import fs from 'fs';
@@ -39,7 +39,8 @@ const FIX_LINEAGE: string[] = [
   'S-26 hardening (firm-context bleed): the v32 "Petrov" was AI Assist BG\'s own CEO surname bleeding from firm standing context → v33.2 validateFirmSurnameBleed — a firm-surname stoplist (env-extensible, client-name exempt) behind the role-name guard; any firm surname in a client Blueprint is a never-ship BLOCKER',
   'S-26 roster (Practice v33.2 §1.2): v33.3 seeds the full firm roster (petrov, gumushian, montin, kara) into the default stoplist — house-fact bleed guarded proactively, not per-incident; token-scoped INTAKE_FACTS exemption disables only the specific shared surname',
   'T-28/REG-14 (whole-pipeline leak): v33.3 T-10⁶ relocated the leak to the Stage-1 Intake deliverable (T3) because the strip+detector only ran on Stage 5 → v33.4 stripForDelivery gains stripOperatorAssembly and the orchestrator runs detectResidualScaffold on EVERY staged deliverable (S1–S5), stage-labelled; any residual at any stage is a never-ship BLOCKER',
-  'S-35/S-36/REG-15 (Era-L form relocation): T-10⁷ leak moved to new forms — GATE-4 capacity self-check (2/4) and the internal "T-27 rule" task-ID (1/4) in the Stage-4 deliverable → v34.1 rewords blueprint-roadmap to keep internal task-IDs/rule-mechanics out of echo-able text (S-36 source), broadens the GATE-4 self-check strip/detect to the capacity variant (S-35), and adds an internal-identifier detector (bounded complete class T/S/WL/REG-NN, WL-14). Durable structural fix (allowlist render contract / ADR-001) pending ratification',
+  'S-35/S-36/REG-15 (Era-L form relocation): T-10⁷ leak moved to new forms — GATE-4 capacity self-check (2/4) and the internal "T-27 rule" task-ID (1/4) in the Stage-4 deliverable → v34.1 rewords blueprint-roadmap to keep internal task-IDs/rule-mechanics out of echo-able text (S-36 source), broadens the GATE-4 self-check strip/detect to the capacity variant (S-35), and adds an internal-identifier detector (bounded complete class T/S/WL/REG-NN, WL-14)',
+  'T-29/ADR-001 (Approach 2 — durable KR5): v34.2 adds a permit-only section allowlist (stripToAllowlistedSections) per stage — any non-permitted top-level section is stripped wholesale, closing leak-FORM relocation by construction (not enumeration). Applied on every delivery path (orchestrator S1–S5, per-step download, Stage-5 render, Document Lab). Fail-safe: never strips when the level/config mismatches or all sections would go. PROVISIONAL permit-lists — reconcile against the known-good ×4 deliverables before T-10⁸. Approach 3 (generation render-from-template) committed as the follow-on (R1 render-cost = Large)',
 ];
 
 router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {
@@ -444,7 +445,7 @@ router.get('/:jobId/preview', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
     const html = job.outputHtmlData
-      ?? (job.stepE_assembly ? generateBlueprintHtml(job.clientName, stripForDeliveryStage5(job.stepE_assembly)) : undefined);
+      ?? (job.stepE_assembly ? generateBlueprintHtml(job.clientName, stripToAllowlistedSections(stripForDeliveryStage5(job.stepE_assembly), 'stepE')) : undefined);
     if (!html) {
       res.status(404).send('<p>Preview not available — pipeline not complete.</p>');
       return;
@@ -655,8 +656,11 @@ function buildStepContent(step: string, raw: string): { title: string; markdown:
 
   // Steps B–E: strip build stamp / LC tags / justification before rendering. Step E (the client
   // deliverable) also gets the position-envelope guarantee; intermediate stages don't (they don't
-  // start with a `# ` header, so the envelope must not run on them).
-  const clean = step.toUpperCase() === 'E' ? stripForDeliveryStage5(raw) : stripForDelivery(raw);
+  // start with a `# ` header, so the envelope must not run on them). T-29: then permit-only the
+  // known sections for this stage (any non-permitted top-level section is stripped wholesale).
+  const STEP_TO_KEY: Record<string, string> = { B: 'stepB', C: 'stepC', D: 'stepD', D2: 'stepD2', E: 'stepE' };
+  const base = step.toUpperCase() === 'E' ? stripForDeliveryStage5(raw) : stripForDelivery(raw);
+  const clean = stripToAllowlistedSections(base, STEP_TO_KEY[step.toUpperCase()] ?? '');
   const markdown = clean.trimStart().startsWith('#') ? clean : `# ${title}\n\n${clean}`;
   return { title, markdown };
 }
