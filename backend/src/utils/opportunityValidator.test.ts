@@ -207,4 +207,32 @@ describe('validateStrictDependencyPhases — strict ⇒ Later, unconditionally',
     const { reviewerFlags } = validateStrictDependencyPhases(table, stage3);
     expect(reviewerFlags).toEqual([]);
   });
+
+  // ── T-30: strict-dependency decomposition (the Era-M T4 fork) ──────────────────
+  it('T-30: BLOCKER when a strict Big Bet is SPLIT across phases (scoping Next + deployment Later)', () => {
+    const split = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| Predictive analytics — Pilot Scoping | H-RT-04 | Big Bet | Next | scoping |',
+      '| Predictive analytics — Full Deployment | H-RT-04 | Big Bet | Later | phase_dependency=strict |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(split, stage3);
+    expect(reviewerFlags.some(f => /T-30.*decomposition.*H-RT-04/.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('T-30: BLOCKER on an ID-less split-phrasing row in Next (sub-component dropped the ID)', () => {
+    const idless = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| AI Sourcing — Pilot Scoping |  | Big Bet | Next | begins the Big Bet |',
+      '| Predictive analytics | H-RT-04 | Big Bet | Later | phase_dependency=strict |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(idless, stage3);
+    expect(reviewerFlags.some(f => /T-30.*decomposition/.test(f))).toBe(true);
+  });
+
+  it('T-30: a clean undivided strict-in-Later roadmap does NOT false-fire', () => {
+    expect(validateStrictDependencyPhases(phaseTable('Later'), stage3).reviewerFlags).toEqual([]);
+  });
 });

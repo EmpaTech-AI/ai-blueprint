@@ -13,10 +13,9 @@ const router = express.Router();
 
 // T-07: build provenance. parent_build anchors the fleet-uniformity check; fix_lineage records
 // which prior batch each surface descends from so a reviewer can trace a fix to its origin.
-// Note: the T-28 build was stamped v33.4 in code; the Practice's Era-L report labels that build
-// "v34". From here the stamp adopts the Practice's era vocabulary — v34.1 ≡ the v33.4 (T-28) build
-// plus the Era-L S-35/S-36 containment guards.
-const PARENT_BUILD = 'v34 / v33.4 (T-28 whole-pipeline leak; T-10⁷ = 5/6, leak relocated to forms S-35/S-36)';
+// Provenance label realigned to the Practice era vocabulary (the v34.5/v35 drift the Era-M report
+// flagged): the Era-M T-10⁸ build (stamped v34.5 in code) = "v35"; this is v35.1 (T-30 + delivery export).
+const PARENT_BUILD = 'v35 / v34.5 (T-10⁸ = 4/6, Era M: KR3 decomposition fork at T4 + staged raw-copy extraction)';
 // T-07 Option B: document the historical stamp drift so the fleet-uniformity check anchors on the
 // SHA from v33 onward, not the hand-set vNN label (which lagged — confirmed in git history).
 const STAMP_LINEAGE_NOTE: string[] = [
@@ -44,6 +43,8 @@ const FIX_LINEAGE: string[] = [
   'WS-A1 ground-truth reconciliation (v34.3): permit-lists tightened to the actual ×4 sections (stepE Key Findings/Where Value/Gaps); scaffold-strip precedence force-strips known-scaffold headings over a lenient permit (closes S-37 Stage-3 "Step N" narration + S-38 Stage-1 selection working-logs, which a substring permit would otherwise keep); [CONFIDENCE_PROPAGATION] stripped from the delivery copy only (§3.3/R3, handoff copy intact). S-39 (H-RT-07 label drift) logged as an Approach-3 DERIVE line item',
   'V1/V2 (Practice WS-A1 ratification, v34.4): V1 permit match is now ANCHORED (normalise leading enumerator/bold → startsWith an exact ×4 prefix), so a permit word mid-heading no longer permits a section — minimising scaffold-backstop reliance. V2/WL-15 (fail-open-silent): the WL-10 fail-safe no-op (no headings at the configured level / all-would-strip) now emits a distinct ⚠ "allowlist NO-OP — stage UNVERIFIED" reviewer flag so it can never read as clean; T-10⁸ must confirm no no-op engaged on any of the 4×5 deliverables',
   'Practice §2 (WL-15 evidence, v34.5): the reviewer-metadata bundle now carries an AFFIRMATIVE per-stage T-29 allowlist run-status for EVERY stage incl. clean — "ran — clean" / "ran — stripped N" / "⚠ NO-OP — …" — so the Practice verifies the allowlist ran on all 4×5 from evidence, not by inferring it from the absence of a flag',
+  'T-30 (Era-M KR3 fix, v35.1): the strict-dependency guard now reads EVERY Phase Summary occurrence (not a last-wins map), so a strict Big Bet split into a Next "scoping" row + a Later "deployment" row is caught — BLOCKER on (a) any non-Later placement, (b) the same strict id across >1 phase, (c) an ID-less split-phrasing row in a pre-Later phase. Closes the T4 opportunity-decomposition fork that defeated T-27.',
+  'Delivery-only export (v35.1, Era-M KR5 root cause): new GET /step/:step/delivery serves the stripped+allowlisted per-stage copy (text/markdown) for acceptance extraction; the raw /step/:step endpoint is relabelled "RAW-handoff" — the staged S1–S4 "leak" was raw inter-stage handoff copies (R3, unstripped by design) being scanned instead of delivery copies, not a strip regression (S5 was clean ×4).',
 ];
 
 router.get('/:jobId', requireAdmin, (req: Request, res: Response) => {
@@ -529,7 +530,27 @@ router.get('/:jobId/step/:step/docx', requireAdmin, async (req: Request, res: Re
   } catch { res.status(500).json({ error: 'Failed to generate DOCX' }); }
 });
 
-// Intermediate output download
+// Step DELIVERY export (stripped markdown) — the clearly-labelled clean per-stage copy.
+// USE THIS for acceptance extraction / leak scanning: it is the same stripForDelivery + T-29
+// allowlist copy the pdf/docx render from. The raw `/step/:step` endpoint below is the unstripped
+// inter-stage HANDOFF copy (R3) and must NOT be used to judge a deliverable's cleanliness.
+router.get('/:jobId/step/:step/delivery', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const job = loadJob(req.params.jobId);
+    const raw = getStepRaw(job, req.params.step);
+    if (!raw) { res.status(404).json({ error: 'Step output not available' }); return; }
+    const { title, markdown } = buildStepContent(req.params.step, raw);
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(job.clientName)} - ${title} (DELIVERY, stripped).md"`);
+    res.send(markdown);
+  } catch {
+    res.status(404).json({ error: 'Job not found' });
+  }
+});
+
+// Intermediate output download — RAW inter-stage HANDOFF copy (unstripped BY DESIGN: downstream
+// stages read its INTAKE_FACTS / score / CONFIDENCE_PROPAGATION channels, R3). NOT a deliverable —
+// for the clean per-stage copy use `/step/:step/delivery` above. Filename marked RAW to disambiguate.
 router.get('/:jobId/step/:step', requireAdmin, (req: Request, res: Response) => {
   try {
     const job = loadJob(req.params.jobId);
@@ -548,7 +569,7 @@ router.get('/:jobId/step/:step', requireAdmin, (req: Request, res: Response) => 
     }
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="step-${req.params.step}-${req.params.jobId}.txt"`);
+    res.setHeader('Content-Disposition', `attachment; filename="step-${req.params.step}-${req.params.jobId}.RAW-handoff.txt"`);
     res.send(content);
   } catch (err) {
     res.status(404).json({ error: 'Job not found' });

@@ -386,22 +386,30 @@ export function validateFirmSurnameBleed(deliverable: string, stage1Dossier?: st
 // Phase Summary table, and raises a BLOCKER if any strict opportunity is not in Later. A fork
 // becomes a clean acceptance failure rather than a silent decision-layer drift.
 
-// Parses the Stage-4 Phase Summary table (fixed schema: | Title | H-RT-NN | Class | Phase | Driver |)
-// into an id→phase map. Robust to the per-phase detail sections below the table because only the
-// summary rows pair an H-RT-NN id cell with a bare Now/Next/Later phase cell on the same row.
-function parsePhaseSummaryTable(roadmapOutput: string): Map<string, 'Now' | 'Next' | 'Later'> {
-  const map = new Map<string, 'Now' | 'Next' | 'Later'>();
+type Phase = 'Now' | 'Next' | 'Later';
+
+// Parses EVERY Stage-4 Phase Summary row (schema | Title | H-RT-NN | Class | Phase | Driver |),
+// NOT deduped to one phase per id. The Era-M T4 fork (T-30) split a strict Big Bet into a Next-phase
+// "Pilot Scoping" row + a Later-phase "Full Deployment" row; a map keyed by id (last-wins) saw only
+// the Later row and passed. Capturing all occurrences + the row text makes the split visible. Only
+// rows with a bare Now/Next/Later cell are taken, so the per-phase detail sections are excluded.
+function parsePhaseSummaryRows(roadmapOutput: string): Array<{ id: string | null; phase: Phase; text: string }> {
+  const rows: Array<{ id: string | null; phase: Phase; text: string }> = [];
   for (const line of roadmapOutput.split('\n')) {
     if (!line.includes('|')) continue;
     const cells = line.split('|').map(c => c.trim());
-    const idCell = cells.find(c => /^H-RT-\d+$/i.test(c));
     const phaseCell = cells.find(c => /^(Now|Next|Later)$/i.test(c));
-    if (!idCell || !phaseCell) continue;
-    const phase = (phaseCell[0].toUpperCase() + phaseCell.slice(1).toLowerCase()) as 'Now' | 'Next' | 'Later';
-    map.set(idCell.toUpperCase(), phase);
+    if (!phaseCell) continue;
+    const idCell = cells.find(c => /^H-RT-\d+$/i.test(c));
+    const phase = (phaseCell[0].toUpperCase() + phaseCell.slice(1).toLowerCase()) as Phase;
+    rows.push({ id: idCell ? idCell.toUpperCase() : null, phase, text: line.toLowerCase() });
   }
-  return map;
+  return rows;
 }
+
+// Split-opportunity phrasing — the ID-less form of a decomposition (a "Pilot Scoping" sub-row that
+// carries no H-RT id). Tight, to avoid false-positives on ordinary placement prose.
+const DECOMPOSITION_PHRASING = /\b(?:pilot scoping|full deployment|scoping (?:phase|pilot|component)|deployment (?:phase|component)|prerequisite (?:phase|component))\b/i;
 
 export function validateStrictDependencyPhases(roadmapOutput: string, stage3Opportunities: string): { reviewerFlags: string[] } {
   const reviewerFlags: string[] = [];
@@ -411,19 +419,42 @@ export function validateStrictDependencyPhases(roadmapOutput: string, stage3Oppo
     .map(([id]) => id);
   if (strictIds.length === 0) return { reviewerFlags };
 
-  const phaseById = parsePhaseSummaryTable(roadmapOutput);
+  const rows = parsePhaseSummaryRows(roadmapOutput);
+  if (rows.length === 0) return { reviewerFlags };
+
   for (const id of strictIds) {
-    const phase = phaseById.get(id);
-    // Absent from the Phase Summary table is a completeness concern handled by GATE 4, not here.
-    if (!phase) continue;
-    if (phase !== 'Later') {
+    const occ = rows.filter(r => r.id === id);
+    if (occ.length === 0) continue; // absent → GATE-4 completeness, not here
+    const phases = [...new Set(occ.map(r => r.phase))];
+    const nonLater = phases.filter(p => p !== 'Later');
+
+    // (a) T-27: any non-Later placement of a strict opportunity.
+    if (nonLater.length > 0) {
       reviewerFlags.push(
         `${BLOCKER_PREFIX} GATE 4 FAIL T-27 (strict-dependency phase): ${id} carries phase_dependency=strict ` +
-        `but is placed in ${phase}. The pinned rule places every strict-dependency opportunity in Later ` +
-        `unconditionally (regardless of the antecedent's phase) — a strict dependent in ${phase} is the ` +
-        `S-30 / H-RT-04 phase fork. Re-place ${id} in Later before delivery.`,
+        `but is placed in ${nonLater.join('/')}. A strict opportunity is placed in Later unconditionally — re-place ${id} in Later.`,
       );
     }
+    // (b) T-30: the same strict id appears across more than one phase = decomposition (the Era-M T4
+    // fork — scoping in Next + deployment in Later). A strict opportunity must be a single Later row.
+    if (phases.length > 1) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 4 FAIL T-30 (strict-dependency decomposition): ${id} appears across multiple ` +
+        `phases (${phases.join(', ')}) — a strict Big Bet was split into phase sub-components (e.g. scoping in ` +
+        `Next + deployment in Later). A strict opportunity must remain one undivided row in Later; re-merge ${id}.`,
+      );
+    }
+  }
+
+  // (c) T-30 backstop: a non-Later Phase Summary row using split-opportunity phrasing but carrying no
+  // H-RT id — the decomposition where the sub-component drops the ID. Only runs when strict opps exist.
+  const decomposed = rows.find(r => r.phase !== 'Later' && !r.id && DECOMPOSITION_PHRASING.test(r.text));
+  if (decomposed) {
+    reviewerFlags.push(
+      `${BLOCKER_PREFIX} GATE 4 FAIL T-30 (strict-dependency decomposition): a ${decomposed.phase}-phase roadmap ` +
+      `row uses split-opportunity phrasing ("pilot scoping" / "full deployment" / etc.) with no opportunity ID — ` +
+      `an opportunity appears to have been decomposed into a pre-Later component. Keep each opportunity undivided.`,
+    );
   }
   return { reviewerFlags };
 }
