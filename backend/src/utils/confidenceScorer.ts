@@ -131,8 +131,10 @@ export function stripProcessNarration(text: string): string {
 // next heading, horizontal rule, justification block, or EOF.
 export function stripGate4SelfCheck(text: string): string {
   return text
+    // Heading match tolerant of the capacity-self-check variant (S-35): "GATE-4 self-check",
+    // "GATE-4 capacity self-check", "Capacity self-check" — consume to next heading/HR/justification/EOF.
     .replace(
-      /\n*(?:-{3,}[ \t]*\n+)?#{1,4}[ \t]*GATE-?\s*4 self-check[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\n[ \t]*-{3,}[ \t]*\n|\[END JUSTIFICATION\]|$)/gi,
+      /\n*(?:-{3,}[ \t]*\n+)?#{1,4}[ \t]*\*{0,2}(?:GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check)[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\n[ \t]*-{3,}[ \t]*\n|\[END JUSTIFICATION\]|$)/gi,
       '',
     )
     .replace(/\n{3,}/g, '\n\n')
@@ -245,7 +247,8 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
     [/Operator Assembly Instructions/i,                                                'operator-assembly scaffold block (T-28)'],
     [/^\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+\s*[—:(]/im,                          'process-narration "Step N (…)" line'],
     [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
-    [/GATE-?\s*4 self-check/i,                                                          'GATE-4 self-check'],
+    [/GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check/i,                            'GATE-4 / capacity self-check (S-35)'],
+    [/\b(?:T|S|WL|REG)-\d{1,3}\b/,                                                      'internal engineering identifier (S-36 / WL-14)'],
     [/<!--/,                                                                            'HTML comment / machine marker'],
     [/\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i, 'inline confidence tag'],
     [/\[JUSTIFICATION\]/i,                                                              'JUSTIFICATION block'],

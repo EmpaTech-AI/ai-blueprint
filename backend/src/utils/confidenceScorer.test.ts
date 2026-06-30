@@ -923,3 +923,31 @@ describe('T-28 — operator-assembly leak strip + whole-pipeline detection', () 
     expect(detectResidualScaffold('CHECKPOINT 2 leaked')[0]).toMatch(/Stage 5/);
   });
 });
+
+// ── S-35 / S-36: capacity self-check + internal-identifier bleed (Era L) ────────
+
+describe('Era-L leak forms — capacity self-check (S-35) and internal identifiers (S-36/WL-14)', () => {
+  it('detects a GATE-4 capacity self-check variant (S-35)', () => {
+    expect(detectResidualScaffold('## GATE-4 capacity self-check\n- [ ] ≤3 per phase').length).toBeGreaterThan(0);
+    expect(detectResidualScaffold('Capacity self-check: 3 items in Now.').length).toBeGreaterThan(0);
+  });
+
+  it('stripGate4SelfCheck removes the capacity-self-check block but keeps real content', () => {
+    const input = '## GATE-4 capacity self-check\n- [ ] all assigned\n\n## Phase 1: Now\nReal content.';
+    const out = stripGate4SelfCheck(input);
+    expect(out).not.toMatch(/capacity self-check/i);
+    expect(out).toContain('Phase 1: Now');
+    expect(out).toContain('Real content.');
+  });
+
+  it('detects an internal engineering identifier (S-36): "Per the T-27 rule…"', () => {
+    const flags = detectResidualScaffold('Per the T-27 rule, this Big Bet is placed in Later.', 'Stage 4 (Roadmap)');
+    expect(flags.some(f => /internal engineering identifier/.test(f))).toBe(true);
+    expect(flags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('does NOT flag the hypothesis ID form H-RT-04 as an internal identifier (boundary safety)', () => {
+    const flags = detectResidualScaffold('Opportunity H-RT-04 is sequenced into Later.');
+    expect(flags.some(f => /internal engineering identifier/.test(f))).toBe(false);
+  });
+});

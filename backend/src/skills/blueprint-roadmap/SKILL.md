@@ -192,7 +192,7 @@ no enforcement date documented [Inferred]."
 | Big Bet + depends on any Next-assigned item | **Later** |
 | Big Bet + no explicit dependency documented | **Later** |
 
-**Strict dependency rule (T-18 / T-27 — mandatory, deterministic, when `phase_dependency=strict`):**
+**Strict dependency rule (mandatory, deterministic, when `phase_dependency=strict`):**
 
 Read the `phase_dependency` field from the `<!-- score: id=H-RT-XX ... phase_dependency=<value> ... -->`
 comment in the dossier Section D. The field value **alone** determines the placement. This rule
@@ -206,11 +206,11 @@ inputs it must produce the same phase every run.
   in **Later** — do NOT reason "the antecedent is in Now, so the dependent is eligible for Next."
   Do NOT apply a pilot-scope or partial-delivery exception ("a scoped pilot can begin independently").
 
-  > **T-27 — why this is pinned to one outcome.** The earlier wording pinned only the
-  > "antecedent in Next → Later" case and was silent on "antecedent in Now," so the model resolved
-  > it two ways across runs: completion-based ("H-RT-07 completes in Next → Later") vs phase-based
-  > ("H-RT-07 is in Now → Next"). That fork moved H-RT-04 between phases and failed KR3. The fork is
-  > closed by removing antecedent-phase reasoning entirely: **`strict` ⇒ Later, full stop.**
+  > **Why this is pinned to one outcome (internal design rationale — DO NOT reproduce in the
+  > deliverable).** Earlier wording covered only the "antecedent in Next → Later" case and was silent
+  > on "antecedent in Now," so the rule was resolved two ways across runs. It is closed by removing
+  > antecedent-phase reasoning entirely: `strict` ⇒ Later, full stop. The client document states the
+  > placement and its plain-language reason — never this rule's mechanics or any internal identifier.
 
 - When `phase_dependency=flexible` → a scoped pilot may begin independently of the antecedent's
   phase; apply standard dependency judgment (the table above).
@@ -307,7 +307,7 @@ Pin the citation to the field, exactly as the decision is pinned to the field.
 - **Field-driven placements** → cite the field with the `[Form-Stated — <field>=<value> from Stage 1 score comment]` form. Examples:
   - `Placed in Next [Form-Stated — d_gate4=yes from Stage 1 score comment]`
   - `Placed in Now [Form-Stated — system_event_deadline=2026-07-31 from Stage 1 score comment, within Month 1–3]`
-  - `Placed in Later [Form-Stated — phase_dependency=strict from Stage 1 score comment]` (per T-27 the antecedent's phase is NOT cited — `strict` always means Later)
+  - `Placed in Later [Form-Stated — phase_dependency=strict from Stage 1 score comment]` (the antecedent's phase is NOT cited — `strict` always means Later)
 - **Score references** → cite the locked score as `[Archetype-Anchored — Feasibility 4/5 locked at Stage 1]`, NOT a re-derived `[Document-Backed]` per run. The score basis is reproducible by construction (see S-23 in `methodology-and-contracts`).
 - **Genuine client-evidence and predictions** (maturity gaps, expected results, adoption estimates) → keep `[Document-Backed]`/`[Form-Stated]`/`[Inferred]`/`[Assumption]` as today. These are the only citations that may legitimately vary, and only when the underlying evidence does.
 
@@ -470,6 +470,12 @@ Before finalising the Action Sequence, scan for and remove:
 - Test metadata in the document header (`TEST`, `DEBUG`, `DRAFT`, temp markers)
 - Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 4 output`, `this skill produces`, etc.)
 - Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
+- **Internal engineering identifiers and rule-mechanics (S-36 / WL-14)** — never write an engineering
+  task code (a letter-number code such as `T-27`, `S-26`, `WL-13`, `REG-14`, or a `GATE-N` reference)
+  or meta-commentary about the pipeline's own rules ("per the … rule, strict dependency places…").
+  State the recommendation and its plain-language reason; never the internal rule that produced it.
+- **GATE-4 / capacity self-checks** — the phase-capacity and GATE-4 validation steps are INTERNAL;
+  never transcribe a capacity self-check, checklist, or "GATE-4" line into the Action Sequence.
 - Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
 - **Invented person names (S-26)** — any client/CEO/staff name in a rationale or the
   [JUSTIFICATION] block must be the exact name from the Stage 1 `<!-- INTAKE_FACTS -->` block
