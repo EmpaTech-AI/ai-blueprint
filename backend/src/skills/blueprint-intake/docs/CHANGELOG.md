@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.0.0] — 2026-07-21 — `intake_v1.1` version event (CORE pattern / ARIA enhancement)
+
+Transcribes the Meridian Golden Benchmark v1.1 §A encoding register (18 items; Practice
+confirmation 2026-07-20). All 5 pipeline skills + orchestrator + validators + the golden anchor
+bumped together. Prose-era transcription (P2); ADR-001 render-from-contract remains the committed
+terminal architecture.
+
+### Added
+- `archetypes/_core.md` — universal CORE pattern: PP-CORE-00 (instantiation gate, absorption/tombstone),
+  H-CORE-00 (gated reserved slot, promotion gate), band decision table, v1.1 severity enum
+- `references/intake_v1.1.md` — new schema (v1.0 kept for lineage; schema-aware validation)
+- `blueprint-aria-spec` skill (Layer B, post-Gate-5, read-only) + 3 band Build Sheet goldens
+- `[BAND_ASSIGNMENT]` block in blueprint-maturity + `check_band_assignment()` validator
+- INTAKE_FACTS fields `INTEGRATION_STATUS`, `ORG_FRICTION_SIGNAL` + `check_intake_facts()`
+- Section H expected-contradictions register (CR-IDs) + cross-run CR-ID comparison in `check_stability.py`
+- `fixtures/band2_calibration.md`, `fixtures/band3_calibration.md` (anti-fabrication test)
+- `docs/DELIVERY_RUNBOOK_N2.md` — the n=2 delivery double-run protocol
+- preflight Pattern Set 8 (product/tier language forbidden in diagnostic stages)
+
+### Changed
+- Pain-point selection: Stage 0 eligibility filter (process/organisational/product-gap),
+  PP-0 gate + 2-emergent accounting, PP-0→form-order→score ordering contract
+- Hypothesis selection: `band1_pool`/`h0_consumer` pool filters, Stage 4b H-0 reserved slot,
+  H-0 slot-0 presentation; H-RT-10 re-anchored (3×3×5, re-scoped BD+RPO support)
+- Golden anchor regenerated (v1.1, full machine spine: pp-ids, 14-field markers, INTAKE_FACTS,
+  17-entry canonical JUSTIFICATION); `examples/` duplicate retired (single-anchor rule)
+- JUSTIFICATION format unified to `#### N. [Tag]` everywhere (schema §4.12, preflight PS6,
+  `check_stability.py` parser); linkage rule extended (strategic-priority anchor)
+- Roadmap capacity: Now/Next capped at 3, Later uncapped; GATE-4 counts 7-or-8
+- `gate.sh`: working-interpreter detection (Windows Store alias stubs skipped)
+- `example_materials.json`: fictional company renamed (Borealis) — S-26/S-33-class collision removed
+
+---
+
 ## [1.0.0] — May 2026
 
 Initial release.

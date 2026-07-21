@@ -104,7 +104,7 @@ bash harness/gate.sh dossier_BP-YYYY-NNN.md
 
 **You should see:**
 ```
-GATE 1: PASS — dossier conforms to intake_v1.0. Safe to invoke blueprint-maturity.
+GATE 1: PASS — dossier conforms to its declared intake schema. Safe to invoke blueprint-maturity.
 ```
 
 **If you see GATE 1: FAIL:**

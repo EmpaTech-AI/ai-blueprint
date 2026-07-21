@@ -123,12 +123,15 @@ After all sanitization, run the full validator (`harness/validate_intake.py`). A
 
 ### Pattern Set 6 — Reasoning Preambles Inside the JUSTIFICATION Section
 
-The `## [JUSTIFICATION]` block must open directly with `**Item 1 —`. Any reasoning or
-stage-acknowledgement text appearing between the section heading and the first `**Item 1`
-line fails pre-flight. This closes the v11_t1 defect class (leaked preamble inside the
-appendix section).
+The `## [JUSTIFICATION]` block must open directly with `### Confidence Overview`, followed by
+the tag-free overview sentence, then the first entry in the canonical form `#### 1. [Inferred]`
+or `#### 1. [Assumption]` (per `intake_v1.1.md` §4.12 and `methodology-and-contracts` — the
+old `**Item 1 —` form is retired and itself fails pre-flight). Any reasoning or
+stage-acknowledgement text appearing between the section heading and `### Confidence Overview`,
+or between the overview and the first `#### 1.` entry, fails pre-flight. This closes the
+v11_t1 defect class (leaked preamble inside the appendix section).
 
-The following patterns are forbidden anywhere between `## [JUSTIFICATION]` and `**Item 1`:
+The following patterns are forbidden anywhere between `## [JUSTIFICATION]` and the first `#### 1.` entry:
 
 ```regex
 ^Re-reading (Checkpoint|chunk|section)   e.g. "Re-reading Checkpoint 2 to confirm…"
@@ -141,9 +144,10 @@ The following patterns are forbidden anywhere between `## [JUSTIFICATION]` and `
 ```
 
 **Harness enforcement:** After locating `## [JUSTIFICATION]`, scan forward to the first
-`**Item 1 —` line. If any non-blank, non-heading line is found before `**Item 1 —` that
-matches Pattern Set 6 (or Pattern Set 2), fail validation with:
-`"JUSTIFICATION preamble detected — section must open directly with **Item 1. Regenerate chunk 3."`
+`#### 1.` entry line. If any non-blank, non-heading line other than the `### Confidence Overview`
+heading and its overview sentence is found before it that matches Pattern Set 6 (or Pattern
+Set 2), fail validation with:
+`"JUSTIFICATION preamble detected — section must open with ### Confidence Overview then #### 1. [Tag]. Regenerate chunk 3."`
 
 Unlike Pattern Set 3 (body contamination), JUSTIFICATION preambles are recoverable by
 stripping the offending lines. However, a preamble indicates the model is reasoning mid-output
@@ -177,6 +181,37 @@ validation with:
 Unlike JUSTIFICATION preambles (Pattern Set 6), self-tagged overviews are recoverable by
 stripping the tag. However, a self-tagged sentence indicates the model has confused a
 meta-description with a substantive claim — regeneration is preferred over patching.
+
+### Pattern Set 8 — Product/Tier Language and Internal Registers in Diagnostic Stages (v1.1)
+
+The diagnostic stages (1–4) and the client-facing body of Stage 5 must never emit the firm's
+own product branding, tiering, or pricing — the diagnostic is an audit, not a brochure. The
+single sanctioned exception is the pinned recommendation sentence in Stage 5 Section 7
+(see `blueprint-assembly/SKILL.md`), rendered only when the `blueprint-aria-spec` gates pass.
+
+Forbidden anywhere in Stage 1–4 output and in Stage 5 client-facing sections:
+
+```
+\bARIA\b                       (product name — Build Sheet and the pinned §7 sentence only)
+\bFoundry\b                    (delivery-model name)
+Standard tier|Pro tier|Premium tier|Custom tier
+€\s?\d[\d,.]*\s?K?\s?/\s?mo    (retainer pricing forms)
+setup fee|tier ceiling|adapter availability
+Band [123]\b                   (band is internal routing — never client-facing prose)
+```
+
+Also forbidden in any client-facing copy (internal dossier Sections H/E may carry them):
+
+```
+tombstone                      (absorption/tombstone notes are internal register entries)
+absorbed into PP-0             (client copy states the finding, not the register mechanics)
+runner-up register
+band1_pool|h0_consumer|agent_shaped   (library column names)
+```
+
+**Why:** the two-layer boundary (diagnostic vs productization) is a diagnostic-integrity
+guarantee — clients failing the recommendation gates must receive no product recommendation
+at all, and no run may convert the audit into a sales document (Golden Benchmark §A-15/A-16).
 
 ## Operator Override
 

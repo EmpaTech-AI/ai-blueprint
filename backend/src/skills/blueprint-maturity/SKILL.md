@@ -9,9 +9,9 @@ description: >
   Also trigger on "run Blueprint step 2", "how ready are they for the Blueprint", or "light maturity
   score". This is NOT the full 5-level maturity assessment — it produces a 1-page snapshot with 3
   levels, not the full 10–15 page report.
-schema_version: intake_v1.0
-skill_version: 1.1.0
-last_updated: 2026-06-17
+schema_version: intake_v1.1
+skill_version: 2.0.0
+last_updated: 2026-07-21
 ---
 
 # Blueprint Maturity Scorer
@@ -303,6 +303,40 @@ Overall grounding: {High — all 6 dimensions fully document/form-backed | Parti
 - **Partial** — dimension score uses one or more `[Inferred]` or `[Assumption]` claims as supporting evidence
 - **Low** — dimension score rests primarily on `[Inferred]` or `[Assumption]` claims; direct evidence is absent or minimal
 
+## Band Assignment Output Field (Mandatory — v1.1)
+
+Append this structured block immediately after `[CONFIDENCE_PROPAGATION]` and before the
+`## [JUSTIFICATION]` block. It derives the engagement band **deterministically** from the six
+dimension levels plus two INTAKE_FACTS evidence fields — apply the decision table in
+`../blueprint-intake/archetypes/_core.md` §4 exactly; no interpolation prose, no judgment.
+
+**Inputs (read, never re-derive):** the six levels you just assigned; `INTEGRATION_STATUS` and
+`ORG_FRICTION_SIGNAL` from the Stage 1 `<!-- INTAKE_FACTS -->` block; the Section C PP-0 verdict.
+
+```
+## [BAND_ASSIGNMENT]
+
+Schema: maturity_v1.1
+Layer-1 grade: {FRAGMENTED | USABLE | SOUND} — {rule row that fired, e.g. "Data=Early + zero-integration evidence (INTEGRATION_STATUS)"}
+Alignment grade: {FRICTION | ALIGNED} — {rule row that fired, e.g. "documented resistance (ORG_FRICTION_SIGNAL)"}
+Band: {1 | 2 | 3}
+PP-0 posture consistency: {consistent — Section C verdict matches band | INCONSISTENT — flag for review}
+Tier ceiling (internal routing only): {Standard | Standard/Pro | Pro/Premium}
+
+[END BAND_ASSIGNMENT]
+```
+
+**Rules:** the band is internal routing metadata — it must NEVER appear in client-facing prose
+(assembly renders the 6-dimension narrative, not the band; preflight Pattern Set 8). The block
+is consumed by `blueprint-aria-spec` and by the acceptance harness. A `PP-0 posture consistency:
+INCONSISTENT` line does not change any score — it flags a contract violation for the operator.
+
+**Calibration (Meridian Talent Partners):** Data Early + zero-integration INTEGRATION_STATUS →
+FRAGMENTED; Senior-Partner resistance in ORG_FRICTION_SIGNAL → FRICTION → **Band 1 on every
+run.** A run assigning Meridian Band 2 or 3 is wrong. **Band 3 anti-fabrication test:** an
+integrated, governed client (see `../blueprint-intake/fixtures/band3_calibration.md`) must
+yield SOUND + ALIGNED → Band 3 — and Stage 1 must NOT have fabricated a PP-0 for it.
+
 ## Methodology Reference
 
 For the full shared methodology, read `../methodology-and-contracts/SKILL.md`.
@@ -354,6 +388,7 @@ Exit code 1 = FAIL (the report itemises which checks failed; correct or regenera
 The harness enforces:
 - `check_confidence_annotation()` — every dimension whose rationale uses `[Inferred]` or `[Assumption]` carries a confidence annotation; no level value has changed (cardinal regression trap)
 - `check_propagation_field()` — `[CONFIDENCE_PROPAGATION]` block is present, all 6 dimensions present, grounding values valid, `[END CONFIDENCE_PROPAGATION]` present
+- `check_band_assignment()` (v1.1) — `[BAND_ASSIGNMENT]` block present, grades and band consistent with the `_core.md` §4 decision table given the stated inputs, `[END BAND_ASSIGNMENT]` present
 
 Downstream skills (`blueprint-opportunities`, `blueprint-roadmap`, `blueprint-assembly`) are entitled to assume a passing snapshot conforms to the v9 confidence-propagation contract.
 
@@ -374,5 +409,6 @@ When the user provides the Compressed Client Dossier:
 1. Confirm you received it and summarize key client facts
 2. Produce the full Readiness Snapshot immediately
 3. If the dossier is missing critical sections, produce partial scoring with clear `[Insufficient Evidence]` flags
-4. Append the `## [CONFIDENCE_PROPAGATION]` field (2B) after Key Constraints and before [JUSTIFICATION]
-5. Append the mandatory [JUSTIFICATION] block at the very end
+4. Append the `## [CONFIDENCE_PROPAGATION]` field (2B) after Key Constraints
+5. Append the `## [BAND_ASSIGNMENT]` field (v1.1) after CONFIDENCE_PROPAGATION and before [JUSTIFICATION]
+6. Append the mandatory [JUSTIFICATION] block at the very end

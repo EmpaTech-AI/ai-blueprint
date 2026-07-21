@@ -11,9 +11,9 @@ description: >
   trigger on "run Blueprint step 3", "score the Blueprint opportunities", or "opportunity map
   for the Blueprint". This is NOT the full opportunity backlog — it produces 5–7 opportunities
   with half-page cards, not the full 10–12 with detailed cards and discovery questions.
-schema_version: intake_v1.0
-skill_version: 1.1.0
-last_updated: 2026-06-17
+schema_version: intake_v1.1
+skill_version: 2.0.0
+last_updated: 2026-07-21
 ---
 
 # Blueprint Opportunity Harvester
@@ -379,10 +379,18 @@ Before finalising the Opportunity Map, scan for and remove:
 **Score marker completeness check (mandatory — run before emitting output):**
 
 Count the `<!-- score: id=... -->` markers in the output. The count must equal the number
-of hypotheses in the intake dossier Section D (typically 7 for a recruitment engagement).
-If any hypothesis ID is missing a marker, add it before finalising — even if the opportunity
-appears only in prose. A prose card without a machine-readable score marker is invisible to
-downstream pipeline steps (Stage 4, Stage 5, and all validators).
+of hypotheses in the intake dossier Section D — **7, or 8 when H-CORE-00 was gated in**
+(v1.1). If any hypothesis ID is missing a marker, add it before finalising — even if the
+opportunity appears only in prose. A prose card without a machine-readable score marker is
+invisible to downstream pipeline steps (Stage 4, Stage 5, and all validators).
+
+**H-CORE-00 handling (v1.1):** the AI Company Brain opportunity is locked to its Stage 1
+scores like every other hypothesis and receives D6 adjustments normally (for a Data-Early
+client, `ml_heavy` + `multi_source` both fire: Feasibility 2 − 2 → floor at 1; classification
+remains Big Bet by the pinned D6b tree). It is **one card, one marker, one undivided entity** —
+never split into phases, pilots, or sub-components (T-30). Its card describes capability,
+evidence, and prerequisites only: no product names, tiers, or pricing (preflight Pattern Set 8 —
+the non-salesy rule applies with special force to our own product's foundational rung).
 
 Example gap to catch: "H-RT-08 (RPO Product Infrastructure)" described in a card but no
 `<!-- score: id=H-RT-08 ... -->` line beneath the Scores line. This is a pre-flight FAIL.

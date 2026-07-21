@@ -136,8 +136,8 @@ def main():
     # Test 6: Section C count violation — drop a pain point so count != 8
     print("\n[Test 6] Section C with only 7 pain points (FIXED=8) must be rejected")
     bad_count = golden_text.replace(
-        "### Pain Point 8 — Interview & Offer Coordination Friction",
-        "### REMOVED — used to be Pain Point 8"
+        "### Pain Point 7 — Researcher Turnover and Knowledge Retention",
+        "### REMOVED — used to be Pain Point 7"
     )
     if assert_fails_with(bad_count, "section_c_count", "Section C pain point count"):
         passed += 1
@@ -147,7 +147,7 @@ def main():
     # Test 7: Section D count violation — drop a hypothesis
     print("\n[Test 7] Section D with only 6 hypotheses (FIXED=7) must be rejected")
     bad_d = golden_text.replace(
-        "### Hypothesis 7 — RPO Service Design Supported by AI Delivery Infrastructure",
+        "### Hypothesis 7 — BD Proposal Automation + RPO Productisation Support",
         "### REMOVED — used to be Hypothesis 7"
     )
     if assert_fails_with(bad_d, "section_d_count", "Section D hypothesis count"):
@@ -158,7 +158,7 @@ def main():
     # Test 8: Missing justification entry — body references appendix item 9 with no entry
     print("\n[Test 8] Body reference to non-existent appendix item must be rejected")
     bad_just = golden_text.replace(
-        "[Assumption — appendix item 5]",
+        "[Assumption — appendix item 15]",
         "[Assumption — appendix item 99]"
     )
     if assert_fails_with(bad_just, "justification_missing_entry", "Orphan appendix reference"):

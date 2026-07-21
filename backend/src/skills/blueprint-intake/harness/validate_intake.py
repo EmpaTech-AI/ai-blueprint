@@ -504,16 +504,52 @@ def check_pandoc_artifacts(text: str, report: ValidationReport) -> None:
                 f"any DOCX conversion. See OPERATIONS.md §'Gate Invocation Point Policy'."
             )
 
+def detect_schema_version(text: str) -> str:
+    """Return the declared schema version ('intake_v1.1' or 'intake_v1.0').
+    Schema-aware validation: v1.0 dossiers keep validating under v1.0 rules."""
+    head = "\n".join(text.split("\n")[:60])
+    if "intake_v1.1" in head:
+        return "intake_v1.1"
+    return "intake_v1.0"
+
 def check_header_block(text: str, report: ValidationReport) -> None:
     # First 60 lines should contain schema version
     head = "\n".join(text.split("\n")[:60])
-    if "intake_v1.0" not in head:
-        report.add_fail("schema_version", "Header", "Schema version 'intake_v1.0' not declared in header")
+    if ("intake_v1.0" not in head) and ("intake_v1.1" not in head):
+        report.add_fail("schema_version", "Header", "Schema version ('intake_v1.0' or 'intake_v1.1') not declared in header")
     # No forbidden header patterns
     for pat in FORBIDDEN_HEADER_PATTERNS:
         m = pat.search(head)
         if m:
             report.add_fail("forbidden_header_pattern", "Header", f"Forbidden pattern '{m.group(0)}' found in header block")
+
+INTAKE_FACTS_CORE_FIELDS = [
+    "CLIENT_NAME", "CEO_NAME", "INDUSTRY", "ARCHETYPE", "HEADCOUNT",
+    "REVENUE_RANGE", "JURISDICTION_LIST", "TOP_PRIORITIES",
+    "KEY_METRIC_1", "SYSTEM_EVENT_CUTOVER",
+]
+INTAKE_FACTS_V11_FIELDS = ["INTEGRATION_STATUS", "ORG_FRICTION_SIGNAL"]
+
+def check_intake_facts(text: str, report: ValidationReport) -> None:
+    """intake_v1.1 §4.11: the INTAKE_FACTS machine block is mandatory (v1.1 dossiers);
+    v1.0 dossiers get a WARN (the block was introduced by SKILL.md before the schema
+    formalized it). Field presence: core fields FAIL when absent; v1.1-only fields WARN."""
+    schema = detect_schema_version(text)
+    m = re.search(r"<!--\s*INTAKE_FACTS\b(.*?)-->", text, re.DOTALL)
+    if not m:
+        if schema == "intake_v1.1":
+            report.add_fail("intake_facts_missing", "Section I", "Mandatory <!-- INTAKE_FACTS --> block missing (intake_v1.1 §4.11)")
+        else:
+            report.add_warn("intake_facts_missing", "Section I", "<!-- INTAKE_FACTS --> block not found (recommended)")
+        return
+    block = m.group(1)
+    for field in INTAKE_FACTS_CORE_FIELDS:
+        if not re.search(rf"^\s*{field}:", block, re.MULTILINE):
+            report.add_fail("intake_facts_field", "Section I", f"INTAKE_FACTS missing required field '{field}'")
+    if schema == "intake_v1.1":
+        for field in INTAKE_FACTS_V11_FIELDS:
+            if not re.search(rf"^\s*{field}:", block, re.MULTILINE):
+                report.add_warn("intake_facts_field_v11", "Section I", f"INTAKE_FACTS missing v1.1 field '{field}' (feeds the PP-0 gate and band assignment)")
 
 def check_leading_paragraphs(text: str, sections: dict, report: ValidationReport) -> None:
     if "A" not in sections:
@@ -725,11 +761,16 @@ def check_section_c(sections: dict, report: ValidationReport, arch_defaults: dic
     report.metrics["section_c_pain_points"] = len(matches)
     if len(matches) != arch["section_c_pain_points"]:
         report.add_fail("section_c_count", "Section C", f"Found {len(matches)} pain points; FIXED count requires exactly {arch['section_c_pain_points']}")
-    # Check numbering 1..N
+    # Check numbering. v1.1: when PP-CORE-00 is instantiated the register is numbered
+    # 0..N-1 (Pain Point 0 first); otherwise 1..N (v1.0 behaviour).
     numbers = [int(n) for n in matches]
-    expected = list(range(1, arch["section_c_pain_points"] + 1))
-    if numbers != expected:
-        report.add_fail("section_c_numbering", "Section C", f"Pain points must be numbered sequentially 1..{arch['section_c_pain_points']}; found {numbers}")
+    n_total = arch["section_c_pain_points"]
+    expected_v10 = list(range(1, n_total + 1))
+    expected_v11 = list(range(0, n_total))
+    if numbers not in (expected_v10, expected_v11):
+        report.add_fail("section_c_numbering", "Section C", f"Pain points must be numbered sequentially 0..{n_total - 1} (with PP-0) or 1..{n_total}; found {numbers}")
+    if numbers == expected_v11 and "PP-CORE-00" not in sections["C"]:
+        report.add_fail("section_c_pp0_id", "Section C", "Register starts at Pain Point 0 but no <!-- pp-id: PP-CORE-00 --> comment found (gate-consistency)")
     # Each PP must have Statement, Evidence, Impact area, Severity, Confidence
     pp_chunks = re.split(r"^###\s+Pain Point\s+\d+\s+—", sections["C"], flags=re.MULTILINE)[1:]
     for i, chunk in enumerate(pp_chunks):
@@ -744,13 +785,21 @@ def check_section_d(sections: dict, report: ValidationReport, arch_defaults: dic
     h_pattern = re.compile(r"^###\s+Hypothesis\s+(\d+)\s+—", re.MULTILINE)
     matches = h_pattern.findall(sections["D"])
     report.metrics["section_d_hypotheses"] = len(matches)
-    if len(matches) != arch["section_d_hypotheses"]:
-        report.add_fail("section_d_count", "Section D", f"Found {len(matches)} hypotheses; FIXED count requires exactly {arch['section_d_hypotheses']}")
-    # Each hypothesis must reference a linked Pain Point
+    numbers_d = [int(n) for n in matches]
+    base_count = arch["section_d_hypotheses"]
+    has_h0 = 0 in numbers_d
+    # v1.1: base count, plus H-CORE-00 in a gated reserved slot (numbered Hypothesis 0)
+    expected_count = base_count + 1 if has_h0 else base_count
+    if len(matches) != expected_count:
+        report.add_fail("section_d_count", "Section D", f"Found {len(matches)} hypotheses; contract requires exactly {base_count} (+1 when H-CORE-00 is gated in, numbered Hypothesis 0)")
+    if has_h0 and "H-CORE-00" not in sections["D"]:
+        report.add_fail("section_d_h0_id", "Section D", "Hypothesis 0 present but no id=H-CORE-00 score marker found (gate-consistency)")
+    # Each hypothesis must reference a linked Pain Point — or, per the v1.1 linkage
+    # extension, a named strategic priority (with runner-up register anchor).
     h_chunks = re.split(r"^###\s+Hypothesis\s+\d+\s+—", sections["D"], flags=re.MULTILINE)[1:]
     for i, chunk in enumerate(h_chunks):
-        if not re.search(r"\*\*Linked Pain Point\(s\):\*\*\s*PP\d+", chunk):
-            report.add_fail("section_d_pp_link", f"Hypothesis {i+1}", "Missing or malformed Linked Pain Point(s) reference (must reference at least one PP)")
+        if not re.search(r"\*\*Linked Pain Point\(s\):\*\*\s*(?:PP\d+|Strategic Priority\s+\d+)", chunk):
+            report.add_fail("section_d_pp_link", f"Hypothesis {i+1}", "Missing or malformed Linked Pain Point(s) reference (must reference at least one PP, or a named Strategic Priority per the v1.1 linkage extension)")
         if not re.search(r"\*\*Classification(?: hypothesis)?:\*\*\s*(Quick Win|Foundation Builder(?:\s+\(enabler\))?|Big Bet)", chunk):
             report.add_fail("section_d_classification", f"Hypothesis {i+1}", "Missing or invalid Classification field (must be Quick Win, Foundation Builder, Foundation Builder (enabler), or Big Bet)")
 
@@ -809,6 +858,10 @@ def check_section_d_cluster_ordering(sections: dict, report: ValidationReport) -
         score_m = score_comment_re.search(chunk)
         score = int(score_m.group(1)) if score_m else None
         h_num = h_numbers[i] if i < len(h_numbers) else i + 1
+        if h_num == 0:
+            # v1.1: H-CORE-00 occupies fixed slot 0 ahead of the clusters (A-11) —
+            # exempt from cluster/score ordering checks by contract.
+            continue
         is_enabler = "(enabler)" in classification.lower()
         if "Quick Win" in classification:
             cluster = "Quick Win"
@@ -1238,7 +1291,9 @@ def validate(path: Path, archetype: str = "auto", size_band: str = "auto", richn
     check_pandoc_artifacts(text, report)
 
     # Pre-flight
+    report.metrics["schema_version"] = detect_schema_version(text)
     check_header_block(text, report)
+    check_intake_facts(text, report)
     check_forbidden_tags(text, report)
 
     # Section structure
@@ -1298,12 +1353,12 @@ def format_report(report: ValidationReport, path: Path) -> str:
     lines = []
     lines.append("=" * 70)
     lines.append(f"PIO Framework Validation Report")
-    lines.append(f"Schema: intake_v1.0")
+    lines.append(f"Schema: {report.metrics.get('schema_version', 'intake_v1.x')}")
     lines.append(f"File: {path}")
     lines.append("=" * 70)
     lines.append("")
     if report.passed:
-        lines.append("RESULT: PASS — dossier conforms to schema intake_v1.0")
+        lines.append(f"RESULT: PASS — dossier conforms to schema {report.metrics.get('schema_version', 'intake_v1.x')}")
     else:
         fail_count = sum(1 for i in report.issues if i.severity == "FAIL")
         warn_count = sum(1 for i in report.issues if i.severity == "WARN")

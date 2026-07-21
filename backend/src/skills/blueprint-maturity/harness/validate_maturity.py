@@ -290,6 +290,47 @@ def check_confidence_annotation(text: str, report: ValidationReport) -> None:
     report.metrics["dimensions_with_invalid_level"] = invalid_level
 
 
+
+BAND_BLOCK_START_RE = re.compile(r"^##\s+\[BAND_ASSIGNMENT\]", re.MULTILINE)
+BAND_BLOCK_END_STR = "[END BAND_ASSIGNMENT]"
+_BAND_TABLE = {("FRAGMENTED", "FRICTION"): "1", ("FRAGMENTED", "ALIGNED"): "1",
+               ("USABLE", "FRICTION"): "1", ("USABLE", "ALIGNED"): "2",
+               ("SOUND", "FRICTION"): "2", ("SOUND", "ALIGNED"): "3"}
+
+def check_band_assignment(text: str, report: ValidationReport) -> None:
+    """v1.1: the [BAND_ASSIGNMENT] block must be present, carry valid Layer-1 and
+    Alignment grades, and its Band must equal the pinned _core.md SS4 lookup for
+    those grades. Deterministic contract — no judgment surface. Absent block is a
+    WARN for pre-v1.1 snapshots (schema maturity_v1.0) and a FAIL when the block
+    header declares maturity_v1.1 elsewhere or the snapshot cites intake_v1.1."""
+    m = BAND_BLOCK_START_RE.search(text)
+    if not m:
+        if "maturity_v1.1" in text or "intake_v1.1" in text:
+            report.add_fail("band_assignment_missing", "[BAND_ASSIGNMENT]",
+                            "Mandatory [BAND_ASSIGNMENT] block missing (v1.1 contract)")
+        else:
+            report.add_warn("band_assignment_missing", "[BAND_ASSIGNMENT]",
+                            "[BAND_ASSIGNMENT] block not found (pre-v1.1 snapshot)")
+        return
+    block = text[m.end(): text.find(BAND_BLOCK_END_STR, m.end()) if BAND_BLOCK_END_STR in text[m.end():] else len(text)]
+    if BAND_BLOCK_END_STR not in text[m.end():]:
+        report.add_fail("band_assignment_unclosed", "[BAND_ASSIGNMENT]",
+                        f"Missing terminator '{BAND_BLOCK_END_STR}'")
+    layer_m = re.search(r"Layer-1 grade:\s*(FRAGMENTED|USABLE|SOUND)", block)
+    align_m = re.search(r"Alignment grade:\s*(FRICTION|ALIGNED)", block)
+    band_m = re.search(r"Band:\s*([123])", block)
+    if not (layer_m and align_m and band_m):
+        report.add_fail("band_assignment_fields", "[BAND_ASSIGNMENT]",
+                        "Block must carry 'Layer-1 grade: FRAGMENTED|USABLE|SOUND', "
+                        "'Alignment grade: FRICTION|ALIGNED', and 'Band: 1|2|3'")
+        return
+    expected = _BAND_TABLE[(layer_m.group(1), align_m.group(1))]
+    if band_m.group(1) != expected:
+        report.add_fail("band_assignment_table", "[BAND_ASSIGNMENT]",
+                        f"Band {band_m.group(1)} inconsistent with pinned lookup: "
+                        f"({layer_m.group(1)}, {align_m.group(1)}) -> Band {expected} "
+                        "(archetypes/_core.md SS4)")
+
 def check_propagation_field(text: str, report: ValidationReport) -> None:
     """AC5 / 2B: The [CONFIDENCE_PROPAGATION] block must be present, contain all
     6 dimensions with valid grounding values (High / Partial / Low), include an
@@ -395,6 +436,7 @@ def validate(path: Path) -> ValidationReport:
     check_scorecard_dimensions(text, report)
     check_confidence_annotation(text, report)   # AC4 / 2A
     check_propagation_field(text, report)        # AC5 / 2B
+    check_band_assignment(text, report)          # v1.1 band contract
     check_justification_block(text, report)
 
     return report

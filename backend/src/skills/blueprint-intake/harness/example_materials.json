@@ -1,11 +1,11 @@
 {
   "engagement_ref": "BP-EXAMPLE-001",
-  "client_name": "Meridian Talent Partners OOD",
+  "client_name": "Borealis Staffing Partners EOOD",
   "industry": "Recruitment",
-  "engagement_notes": "Example materials file — used for CI validation and dry-run testing. See docs/MATERIALS_JSON_CONTRACT.md for schema reference.",
+  "engagement_notes": "Example materials file (fictional company Borealis — deliberately distinct from the Meridian golden fixture to prevent name/fact bleed, S-26/S-33 class). See docs/MATERIALS_JSON_CONTRACT.md for schema reference.",
   "intake_form": {
     "company_fundamentals": {
-      "legal_name": "Meridian Talent Partners OOD",
+      "legal_name": "Borealis Staffing Partners EOOD",
       "founded": "2014",
       "headquarters": "Sofia, Bulgaria",
       "employee_count": "45",
@@ -38,7 +38,7 @@
       "support_team_size": "7 (operations, finance, marketing)",
       "ai_readiness_self_assessment": "3/5 — team is open but cautious; some resistance from senior consultants concerned about job security",
       "training_budget_available": "Yes, approximately EUR 15,000 for FY2026",
-      "change_sponsor": "CEO (Sara Georgieva) is the AI champion with board backing"
+      "change_sponsor": "CEO (Lidia Antonova) is the AI champion with board backing"
     },
     "data_readiness": {
       "crm_data_quality": "Poor — many duplicate records, inconsistent tagging, gaps in contact history",

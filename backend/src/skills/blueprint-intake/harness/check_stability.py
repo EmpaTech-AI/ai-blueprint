@@ -68,6 +68,10 @@ from pathlib import Path
 
 _HYPOTHESIS_ALIAS_REGISTRY = {
     "recruitment": {
+        "h-core-00": [
+            "ai company brain", "unified data foundation", "company brain",
+            "ai knowledge layer",
+        ],
         "h-rt-01": [
             "ai-assisted specialist sourcing", "specialist sourcing", "loxo",
             "fetcher", "gem sourcing",
@@ -128,6 +132,10 @@ _HYPOTHESIS_ALIAS_REGISTRY = {
 
 _PAIN_POINT_ALIAS_REGISTRY = {
     "recruitment": {
+        "pp-core-00": [
+            "fragmented data infrastructure", "no integrated single source of truth",
+            "single source of truth",
+        ],
         "pp-rt-01": [
             "manual candidate sourcing bottleneck", "sourcing bottleneck",
             "manual sourcing", "candidate sourcing bottleneck",
@@ -213,9 +221,12 @@ _JUSTIFICATION_ITEM_RE = re.compile(r"^\*\*Item\s+\d+\s+—\s+(.+?)\*\*", re.MUL
 # score: now has optional id= as first field
 _SCORE_COMMENT_RE = re.compile(
     r"<!--\s*score:\s*(?:id=([\w-]+)\s+)?impact=(\d+)\s+feasibility=(\d+)\s+"
-    r"alignment=(\d+)\s+product=(\d+)\s+class=(\w+)\s*-->",
+    r"alignment=(\d+)\s+product=(\d+)\s+class=(\w+)[^>]*?-->",
     re.MULTILINE,
 )
+# v1.1 (A-16): Section H expected-contradictions register rows carry CR-N identifiers;
+# the CR-ID set is part of the cross-run spine on pinned fixtures.
+_CONTRADICTION_ID_RE = re.compile(r"\bCR-(\d+)\b")
 
 # pain point canonical ID comment
 _PP_ID_COMMENT_RE = re.compile(r"<!--\s*pp-id:\s*([\w-]+)\s*-->", re.MULTILINE)
@@ -319,8 +330,13 @@ def extract_justification_entries(text: str) -> list:
     if not just_m:
         return []
     just_text = text[just_m.end():]
-    item_re = re.compile(r"^\*\*Item\s+\d+\s+—\s+(.+?)\*\*", re.MULTILINE)
+    # Canonical format (intake_v1.1 / methodology-and-contracts): '#### N. [Tag] Label'
+    item_re = re.compile(r"^####\s+\d+\.\s+\[(?:Inferred|Assumption)\]\s+(.+?)$", re.MULTILINE)
     matches = list(item_re.finditer(just_text))
+    if not matches:
+        # Legacy pre-v1.1 format: '**Item N — Label**'
+        item_re = re.compile(r"^\*\*Item\s+\d+\s+—\s+(.+?)\*\*", re.MULTILINE)
+        matches = list(item_re.finditer(just_text))
     entries = []
     for i, m in enumerate(matches):
         title = m.group(1).strip()
@@ -564,6 +580,7 @@ def run_stability_check(paths: list, strict: bool = False,
             "justification_element_fcat":  element_fcat,   # advisory F-cat per element
             "justification_warns":         just_warns,
             "candidate_pool":              extract_candidate_pool(text),
+            "contradiction_ids":           sorted({f"cr-{n}" for n in _CONTRADICTION_ID_RE.findall(text)}),
         })
 
     fail_issues = []
@@ -576,6 +593,14 @@ def run_stability_check(paths: list, strict: bool = False,
     fail_issues.extend(check_set_stability(
         [r["pain_point_ids"] for r in per_run], "Pain point selected set"
     ))
+
+    # v1.1 (A-16): Section H contradiction-register CR-ID sets must match across runs.
+    # Legacy dossiers carry no CR-IDs — skip when no run has any.
+    cr_sets = [r["contradiction_ids"] for r in per_run]
+    if any(cr_sets):
+        fail_issues.extend(check_set_stability(
+            cr_sets, "Section H contradiction register (CR-IDs)"
+        ))
 
     # JUSTIFICATION: B4 spine-derived floor gate
     floor_counts = [len(r["justification_floor_ids"]) for r in per_run]

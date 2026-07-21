@@ -10,9 +10,9 @@ description: >
   the Blueprint opportunities". This is NOT the full implementation roadmap — it produces a directional
   sequence without milestones, dependencies, or capacity planning. Those are reserved for the full
   AI Company Audit.
-schema_version: intake_v1.0
-skill_version: 1.1.0
-last_updated: 2026-06-19
+schema_version: intake_v1.1
+skill_version: 2.0.0
+last_updated: 2026-07-21
 ---
 
 # Blueprint Roadmap Composer
@@ -223,12 +223,21 @@ Stage 1 score comment]."
 
 ### Phase capacity check (apply after all assignments above)
 
-Maximum **3 items per phase**. If a phase has more than 3 after the decision tree:
+**Now and Next are capped at 3 items each; Later is uncapped** (v1.1 — the caps protect
+executive attention and delivery capacity in the commitment horizon; Later is a direction,
+not a workload commitment, and strict-dependency Big Bets must always be placeable there
+without forcing a rule conflict). If Now or Next has more than 3 after the decision tree:
 
 1. Find the item with the lowest (Impact × Feasibility) product in the over-capacity phase.
 2. Bump it to the next phase (Now → Next, Next → Later).
-3. Re-apply the capacity check to the receiving phase recursively.
+3. Re-apply the capacity check to the receiving phase (Later absorbs without limit).
 4. **Tie-break:** when products are equal, keep the item in the earlier phase (don't bump it).
+
+**H-CORE-00 (v1.1):** `phase_dependency=strict` ⇒ Later, through the existing pinned rule —
+no special-casing. It appears as **one undivided Phase-Summary row**; emitting any
+"Brain Genesis", "pilot scoping", or similar sub-row for it is a T-30 violation and an
+acceptance FAIL. (Internal note — its phased delivery decomposition belongs exclusively to
+the post-Gate-5 Build Sheet, never to this document.)
 
 ### GATE-4 self-check (INTERNAL — run before producing output, do NOT emit)
 
@@ -240,8 +249,9 @@ silently; emit only the Action Sequence and the [JUSTIFICATION] block.
 Before writing the Action Sequence, verify:
 
 - [ ] At least 1 Quick Win is in **Now** OR (if all Quick Wins are D-GATE4-gated) at least 1 Quick Win is in **Next** — no Quick Win in Later
-- [ ] All 7 opportunities from Stage 3 are assigned to exactly one phase
-- [ ] No phase has more than 3 items after the capacity check
+- [ ] All Stage 3 opportunities (7, or 8 incl. H-CORE-00) are assigned to exactly one phase
+- [ ] Now ≤ 3 and Next ≤ 3 after the capacity check (Later uncapped)
+- [ ] H-CORE-00, when present, occupies exactly one row (no sub-entity rows anywhere)
 - [ ] Every item in Next or Later has a rationale citing the specific gate condition, dependency, or maturity gap preventing earlier placement — tagged inline
 
 If GATE-4 fails, resolve before producing output. Document the failure in the [JUSTIFICATION] block.

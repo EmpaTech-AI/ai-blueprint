@@ -1,8 +1,9 @@
 # Recruitment & Talent Solutions — Archetype
 
-**Schema:** `intake_v1.0`
+**Schema:** `intake_v1.1`
 **Status:** ACTIVE
-**Golden Output:** `golden/recruitment_meridian_v1.md`
+**Golden Output:** `golden/recruitment_meridian_v1.md` (the single anchor — v1.1, full machine spine)
+**CORE pattern:** this archetype includes `_core.md` (PP-CORE-00, H-CORE-00, band table, CORE columns). Read `_core.md` together with this file — the universal entries are defined there, once, for all archetypes.
 **Covers:** Permanent placement, executive search, RPO, contract staffing, HR consulting
 
 ---
@@ -57,27 +58,28 @@ The metrics Section B must surface for a recruitment firm. Sourced from the eigh
 
 ## 2. Pain Point Library
 
-Common pain points for recruitment firms. Use as candidates during selection; promote those backed by document evidence per `pain_point_selection.md`.
+Common pain points for recruitment firms. Use as candidates during selection; promote those backed by document evidence per `pain_point_selection.md`. The `eligibility` column (v1.1, per `_core.md` §5) determines pool entry: only `process` pains enter the Section C candidate pool.
 
-| ID | Pain Point | Default Severity | Default Impact Area |
-|---|---|---|---|
-| PP-RT-01 | Manual candidate sourcing bottleneck | High | Revenue/Time |
-| PP-RT-02 | Unusable historical candidate database | High | Cost/Time |
-| PP-RT-03 | CV formatting consuming consultant time | High | Cost/Time |
-| PP-RT-04 | Client communication inconsistency | High | Customer/Revenue |
-| PP-RT-05 | Interview & offer coordination friction | Medium | Time/Customer |
-| PP-RT-06 | No real-time pipeline visibility for leadership | Medium-High | Risk/Time |
-| PP-RT-07 | Ungoverned AI use creating data protection compliance risk | High | Compliance/Risk |
-| PP-RT-08 | RPO product not formally structured | High | Strategic/Revenue |
-| PP-RT-09 | Executive search practice operating semi-independently | Medium | Strategic/Team |
-| PP-RT-10 | High researcher turnover (>25%) | Medium | Team/Cost |
-| PP-RT-11 | Cold outreach conversion below industry average | Medium | Revenue |
-| PP-RT-12 | Manual BD proposal creation | Medium | Time/Revenue |
-| PP-RT-13 | Fragmented client account management | Medium | Customer |
-| PP-RT-14 | No standard SOP adoption by senior staff | Medium | Quality/Strategic |
-| PP-RT-15 | Cross-border placement complexity | Low-Medium | Compliance/Time |
+| ID | Pain Point | Default Severity | Default Impact Area | `eligibility` |
+|---|---|---|---|---|
+| PP-CORE-00 | Fragmented data infrastructure: no integrated single source of truth (see `_core.md` §2 — instantiation gate, not scored competition) | Critical (systemic) | Strategic/Risk/Time | process (gated) |
+| PP-RT-01 | Manual candidate sourcing bottleneck | Critical (acute) | Revenue/Time | process |
+| PP-RT-02 | Unusable historical candidate database | High | Cost/Time | process |
+| PP-RT-03 | CV formatting consuming consultant time | High | Cost/Time | process |
+| PP-RT-04 | Client communication inconsistency | High | Customer/Revenue | process |
+| PP-RT-05 | Interview & offer coordination friction | Medium | Time/Customer | process |
+| PP-RT-06 | No real-time pipeline visibility for leadership | Medium-High | Risk/Time | process — **absorbs into PP-0** when PP-CORE-00 instantiates (no-SSOT symptom; tombstone per `_core.md` §2) |
+| PP-RT-07 | Ungoverned AI use creating data protection compliance risk | High | Compliance/Risk | process |
+| PP-RT-08 | RPO product not formally structured | High | Strategic/Revenue | **product-gap** — never a Section C pain; opportunity context only |
+| PP-RT-09 | Executive search practice operating semi-independently | Medium | Strategic/Team | **organisational** — tracked as delivery risk, not a pain |
+| PP-RT-10 | High researcher turnover (>25%) | Medium | Team/Cost | process |
+| PP-RT-11 | Cold outreach conversion below industry average | Medium | Revenue | process |
+| PP-RT-12 | Manual BD proposal creation | Medium | Time/Revenue | process |
+| PP-RT-13 | Fragmented client account management | Medium | Customer | process |
+| PP-RT-14 | No standard SOP adoption by senior staff | Medium | Quality/Strategic | organisational — adoption/compliance friction, not a process defect; feeds the Alignment grade |
+| PP-RT-15 | Cross-border placement complexity | Low-Medium | Compliance/Time | process |
 
-The 5 form-stated pain points always make the list. The selection algorithm picks 3 more from this library + any document-surfaced emergent candidates.
+The 5 form-stated pain points always make the list. When the PP-CORE-00 gate fires, Section C = 5 stated + PP-0 + top **2** eligible emergent; otherwise 5 + top **3** (per `pain_point_selection.md` v1.1).
 
 ## 3. Hypothesis Library
 
@@ -141,17 +143,38 @@ established before the new ATS goes live.
 | H-RT-07 | Data Protection Compliance Foundation (Sprint 0 enabler) | 3 | 4 | 5 | Foundation Builder | no | no | yes | no | yes | no | none | none | n/a |
 | H-RT-08 | RPO Product Infrastructure (AI-enabled delivery layer) | 5 | 2 | 5 | Big Bet | yes | yes | no | yes | yes | no | none | none | strict |
 | H-RT-09 | Executive Search Workflow Intelligence | 4 | 2 | 4 | Big Bet | yes | yes | no | no | yes | no | none | none | strict |
-| H-RT-10 | BD Proposal Automation (template + AI personalisation) | 3 | 3 | 2 | Foundation Builder | no | no | no | no | no | no | none | none | n/a |
+| H-RT-10 | BD Proposal Automation + RPO Productisation Support (template + AI drafting; RPO tier/SLA/pricing documentation) | 3 | 3 | 5 | Foundation Builder | no | no | no | no | no | no | none | none | n/a |
 | H-RT-11 | Automated Candidate Pre-Screening (chatbot or async) | 3 | 3 | 3 | Foundation Builder | no | no | no | no | yes | no | none | none | n/a |
 | H-RT-12 | AI-Powered Job Description Generation | 2 | 4 | 2 | Quick Win | no | no | no | no | no | no | none | none | n/a |
 | H-RT-13 | Predictive Time-to-Fill Modelling | 3 | 2 | 3 | Big Bet | yes | yes | no | no | no | no | none | none | strict |
 
-The selection algorithm picks 7. Coverage rules ensure all 4 strategic priorities have at least one selected hypothesis.
+### CORE columns (v1.1 — per `_core.md` §5; ratified 2026-07-20)
+
+| ID | `agent_shaped` | `h0_consumer` | `band1_pool` | Notes |
+|---|---|---|---|---|
+| H-CORE-00 | n/a | n/a | yes | Reserved-slot entry; promotion gate per `_core.md` §3 |
+| H-RT-01 | **yes** | no | yes | Matching intelligence over grounded placement data |
+| H-RT-02 | no | no | yes | One-off drafting aid (HITL) — not agent-shaped |
+| H-RT-03 | **yes** | no | yes | Cadence-run automated reporting from grounded ATS data |
+| H-RT-04 | no | no | yes | Governed-data build, not a recurring agent |
+| H-RT-05 | no | no | yes | Configuration/standardisation — not agent-shaped |
+| H-RT-06 | **yes** | **yes** | yes | Visibility dashboard = brain consumer; excluded from pool when H-0 promotes (tombstone) |
+| H-RT-07 | no | no | yes | Governance sprint |
+| H-RT-08 | no | no | **no** | Standalone product-build bet — excluded when PP-0 is Critical (systemic) |
+| H-RT-09 | no | no | **no** | Standalone product-build bet — excluded when PP-0 is Critical (systemic) |
+| H-RT-10 | no | no | yes | Re-scoped v1.1 (covers RPO Scale priority at Alignment 5) |
+| H-RT-11 | no | no | yes | |
+| H-RT-12 | no | no | yes | |
+| H-RT-13 | **yes** | no | yes | Predictive modelling over grounded data (cadence-run) |
+
+The selection algorithm picks 7, plus H-CORE-00 in its reserved slot when the promotion gate passes (`_core.md` §3). Coverage rules ensure all 4 strategic priorities have at least one selected hypothesis — the v1.1 pool changes are calibrated so the RPO Scale priority is covered by re-scoped H-RT-10 when H-RT-08 is band-excluded.
 
 ## 4. Archetype Defaults (for BOUNDED schema fields)
 
 | Field | Recruitment Default | Acceptable Range |
 |---|---|---|
+| Section C pain points | 8 (5 stated + PP-0 + 2 emergent when PP-0 gate fires; else 5 + 3) | FIXED at 8 |
+| Section D hypotheses | 7 + H-CORE-00 (GATED per `_core.md` §3) | 7 or 8 |
 | Section A word count | 300 words | 250–350 (hard ceiling — no ±20% expansion) |
 | Section B row count | 40 rows | 35–50 |
 | Section E org bullets | 5 (FIXED) | 5 |

@@ -24,8 +24,15 @@ if [[ ! -f "${DOSSIER_PATH}" ]]; then
     exit 2
 fi
 
-if ! command -v python3 &>/dev/null; then
-    echo "ERROR: python3 not found in PATH" >&2
+PYTHON_BIN=""
+for CAND in python3 python; do
+    if command -v "${CAND}" &>/dev/null && "${CAND}" -c "import sys" &>/dev/null; then
+        PYTHON_BIN="$(command -v "${CAND}")"
+        break
+    fi
+done
+if [[ -z "${PYTHON_BIN}" ]]; then
+    echo "ERROR: no working python3/python found in PATH (Windows Store alias stubs are skipped)" >&2
     exit 2
 fi
 
@@ -35,7 +42,7 @@ if [[ ! -f "${VALIDATOR}" ]]; then
 fi
 
 # Run the harness; capture output so we can post-process the Section A word count (HR-06)
-HARNESS_OUTPUT=$(python3 "${VALIDATOR}" "${DOSSIER_PATH}" 2>&1)
+HARNESS_OUTPUT=$("${PYTHON_BIN}" "${VALIDATOR}" "${DOSSIER_PATH}" 2>&1)
 HARNESS_EXIT=$?
 echo "${HARNESS_OUTPUT}"
 
@@ -54,7 +61,7 @@ fi
 
 echo ""
 if [[ $HARNESS_EXIT -eq 0 ]]; then
-    echo "GATE 1: PASS — dossier conforms to intake_v1.0. Safe to invoke blueprint-maturity."
+    echo "GATE 1: PASS — dossier conforms to its declared intake schema. Safe to invoke blueprint-maturity."
     exit 0
 elif [[ $HARNESS_EXIT -eq 1 ]]; then
     echo "GATE 1: FAIL — violations detected. See report above. DO NOT invoke blueprint-maturity."

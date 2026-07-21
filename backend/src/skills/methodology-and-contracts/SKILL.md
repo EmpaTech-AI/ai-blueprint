@@ -8,9 +8,9 @@ description: >
   blueprint-roadmap, and blueprint-assembly before producing output. This is a reference
   document, not an active skill — it has no operating procedure or first-turn behavior.
 metadata:
-  schema_version: intake_v1.0
-  skill_version: 1.0.0
-  last_updated: 2026-05-27
+  schema_version: intake_v1.1
+  skill_version: 1.1.0
+  last_updated: 2026-07-21
 ---
 
 # AI Value Blueprint — Shared Methodology & Data Contracts
@@ -201,10 +201,11 @@ Each applicable dimension reduces Feasibility **independently** — never collap
 
 | Handoff | What Must Be Present | Quality Gate |
 |---------|---------------------|-------------|
-| Intake → Maturity | Sections A–D complete; pain points (C) with `<!-- pp-id: PP-RT-XX -->` comment; hypotheses (D) with `<!-- score: id=H-RT-XX ... -->` comment; ID-keyed `[JUSTIFICATION]` Confidence Overview (H-RT-XX / PP-RT-XX IDs, not item positions); Section I `<!-- INTAKE_FACTS -->` block present | All sections present. H-RT-XX `id=` field present on all 7 hypotheses. Confidence Overview uses element IDs. INTAKE_FACTS block present (§4.9). |
-| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + `[CONFIDENCE_PROPAGATION]` field + **confidence annotations** on inferred-score dimensions | `[CONFIDENCE_PROPAGATION]` present and well-formed. All 6 dimensions present. Confidence annotations present. |
-| Opportunities → Roadmap | Scored opportunities with `<!-- score: id=H-RT-XX ... -->` comment on each card; ID-keyed `[JUSTIFICATION]` Confidence Overview using H-RT-XX IDs | `id=H-RT-XX` present on all opportunity score comments. At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels. |
-| Roadmap → Assembly | Phase assignments with H-RT-XX references in placement rationales; ID-keyed `[JUSTIFICATION]` Confidence Overview | All opportunities assigned to a phase. Inherited LC items reference upstream stage (e.g. `Element: H-RT-05 (S3)`). |
+| Intake → Maturity | Sections A–D complete; pain points (C) with `<!-- pp-id: PP-RT-XX / PP-CORE-00 -->` comment; hypotheses (D) with `<!-- score: id=H-RT-XX / H-CORE-00 ... -->` comment; ID-keyed `[JUSTIFICATION]` Confidence Overview; Section I `<!-- INTAKE_FACTS -->` block (incl. v1.1 fields `INTEGRATION_STATUS`, `ORG_FRICTION_SIGNAL`) | All sections present. `id=` field present on all hypotheses (7, or 8 incl. H-CORE-00). Confidence Overview uses element IDs. INTAKE_FACTS block present (`intake_v1.1` §4.11). |
+| Intake + Maturity → Opportunities | Compressed dossier + all 6 dimension scores with rationale + `[CONFIDENCE_PROPAGATION]` field + **confidence annotations** on inferred-score dimensions + `[BAND_ASSIGNMENT]` block (v1.1) | `[CONFIDENCE_PROPAGATION]` and `[BAND_ASSIGNMENT]` present and well-formed. All 6 dimensions present. Confidence annotations present. |
+| Opportunities → Roadmap | Scored opportunities with `<!-- score: id=... -->` comment on each card; ID-keyed `[JUSTIFICATION]` Confidence Overview | `id=` present on all opportunity score comments; marker count = Stage 1 Section D count (7 or 8). At least 5 scored opportunities with Quick Win / Foundation / Big Bet labels. |
+| Roadmap → Assembly | Phase assignments with canonical-ID references in placement rationales; H-CORE-00 (when present) as one undivided row; ID-keyed `[JUSTIFICATION]` Confidence Overview | All opportunities assigned to a phase. Inherited LC items reference upstream stage (e.g. `Element: H-RT-05 (S3)`). |
+| Gate 5 → blueprint-aria-spec (v1.1, conditional) | The three locked outputs (dossier, snapshot incl. `[BAND_ASSIGNMENT]`, opportunity map + phase map) — read-only | aria-spec never modifies pipeline outputs; it emits the Build Sheet + honesty-gate report on its own single emission surface. |
 
 ## Confidence Propagation Contract
 

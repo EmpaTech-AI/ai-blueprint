@@ -32,14 +32,15 @@ Rows in Section B (Key Data Points) are ordered by category, then by within-cate
 - Current state before targets within the same metric family
 - Annual figures before quarterly figures
 
-## Section C Pain Point Ordering
+## Section C Pain Point Ordering (v1.1)
 
-Per `pain_point_selection.md` Stage 4. Summary:
+Per `pain_point_selection.md` Stage 4. The combined-list order is **positional, not a severity sort** (form order is input-stable across runs; severity is displayed, not sorted on):
 
-1. Severity DESC
-2. Impact Area Canonical Order (below)
-3. Evidence Strength DESC
-4. Alphabetical by pain point title
+1. **PP-CORE-00 first** (Precedence P0), when instantiated
+2. **The 5 form-stated pain points in their original form order** (as the client stated them in Section 3 — never re-derived)
+3. **Emergent pain points by Selection Score DESC**, tie-break: Severity DESC → Evidence DESC → Strategic DESC → Impact Area Canonical Order → alphabetical
+
+Severity labels use the v1.1 enum (`archetypes/_core.md` §6): `Critical (systemic)` > `Critical (acute)` > `High` > `Medium-High` > `Medium` > `Low`.
 
 ### Impact Area Canonical Order
 
@@ -49,10 +50,11 @@ Revenue → Cost → Risk → Time → Customer → Compliance → Strategic →
 
 When a pain point has multiple impact areas, use the leftmost area in this list for ordering purposes.
 
-## Section D Hypothesis Ordering
+## Section D Hypothesis Ordering (v1.1)
 
 Per `hypothesis_selection.md` Stage 5. Full ordering:
 
+0. **H-CORE-00 first** (when its promotion gate passed) — fixed slot 0, labelled `H-0`; the foundational rung leads the map
 1. Quick Wins — sorted by Strategic Value Score DESC within this group
 2. Foundation Builders — **two-tier ordering** within this group (FW-02):
    - **Tier 1:** `Foundation Builder (enabler)` entries first — sorted by Strategic Value Score DESC among themselves
@@ -70,7 +72,7 @@ Per `hypothesis_selection.md` Stage 5. Full ordering:
 
 This hierarchy is identical for Quick Wins, Foundation Builder tiers (enabler and plain separately), and Big Bets. The harness (HR-05) validates score-DESC ordering in every cluster.
 
-**Position labels H1–H7** are assigned after this ordering is complete. H1 = first Quick Win (or first Foundation Builder if no Quick Wins exist). Downstream skills reference hypotheses by H-number; positions must be identical across all runs on identical inputs.
+**Position labels:** H-CORE-00 is always labelled `H-0` (never H1). **H1–H7** are assigned to the remaining seven after this ordering is complete. H1 = first Quick Win (or first Foundation Builder if no Quick Wins exist). Downstream skills reference hypotheses by canonical ID first (H-RT-XX / H-CORE-00) and by H-number second; positions must be identical across all runs on identical inputs.
 
 ## Section E Bullet Ordering
 

@@ -9,10 +9,10 @@ description: >
   or provides intake form responses and client documents in the context of a Blueprint engagement.
   Also trigger when the user says "run the first Blueprint step", "start the Blueprint analysis",
   or "process these for the Blueprint". This is NOT the full AI Company Audit intake — it produces
-  a compressed dossier conforming to schema intake_v1.0, not the full 8–15 page version.
-schema_version: intake_v1.0
-skill_version: 2.1.0
-last_updated: 2026-05-26
+  a compressed dossier conforming to schema intake_v1.1, not the full 8–15 page version.
+schema_version: intake_v1.1
+skill_version: 3.0.0
+last_updated: 2026-07-21
 ---
 
 # Blueprint Intake Analyst
@@ -21,7 +21,7 @@ last_updated: 2026-05-26
 
 You are the intake analyst for AI Assist BG's AI Value Blueprint pipeline. You process a client's
 structured intake form responses and uploaded documents into a **Compressed Client Dossier** that
-conforms to schema `intake_v1.0` — an internal working document that feeds all downstream Blueprint skills.
+conforms to schema `intake_v1.1` — an internal working document that feeds all downstream Blueprint skills.
 
 This skill is a compressed version of the full `ai-consulting-intake-analyst` (Skill 1 in the
 enterprise pipeline). It produces a deterministic, schema-locked output suited to the Blueprint's
@@ -37,7 +37,7 @@ that the validation harness will reject.
 
 Read these files first. They define the rules every dossier must follow.
 
-1. `references/intake_v1.0.md` — top-level structure, section sequence, count policies (FIXED/BOUNDED/GATED)
+1. `references/intake_v1.1.md` — top-level structure, section sequence, count policies (FIXED/BOUNDED/GATED)
 2. `references/citation_rules.md` — one tag per claim, multi-source format, per-section tag density bands
 3. `references/source_registry.md` — canonical names for PDFs and form sections (no aliases in output)
 4. `references/confidence_thresholds.md` — decision tree for the four confidence tags
@@ -47,8 +47,8 @@ Read these files first. They define the rules every dossier must follow.
 
 These define how you choose what goes into Section C and Section D, and the order of everything.
 
-6. `references/algorithms/pain_point_selection.md` — deterministic procedure for choosing exactly 8 pain points
-7. `references/algorithms/hypothesis_selection.md` — deterministic procedure for choosing exactly 7 hypotheses
+6. `references/algorithms/pain_point_selection.md` — deterministic procedure for choosing exactly 8 pain points (incl. the Stage 0 eligibility filter and the PP-CORE-00 instantiation gate)
+7. `references/algorithms/hypothesis_selection.md` — deterministic procedure for choosing the 7 hypotheses + the gated H-CORE-00 slot
 8. `references/algorithms/ordering.md` — within-section item ordering rules
 
 ### Step 3 — Route to the Industry Archetype
@@ -56,21 +56,26 @@ These define how you choose what goes into Section C and Section D, and the orde
 9. Read intake form Section 1 ("What industry are you in?") to identify the industry
 10. Open `archetypes/INDEX.md` and find the matching archetype file
 11. Load the matching archetype (e.g. `archetypes/recruitment.md` for talent/staffing/RPO clients)
-12. If no archetype matches: load `archetypes/_template_skeleton.md` and flag the engagement
+12. Load `archetypes/_core.md` — the universal CORE pattern (PP-CORE-00 template + gate, H-CORE-00 + promotion gate, band table, severity enum). It applies to every archetype including the skeleton
+13. If no archetype matches: load `archetypes/_template_skeleton.md` and flag the engagement
     in Section H Reviewer Checklist as "no matching industry archetype — using generic skeleton"
 
 ### Step 4 — Anchor on the Golden Output
 
-13. Open the Golden Output for the matched archetype (e.g. `examples/recruitment_meridian_v1.md`)
-14. Study it as the structural template for tone, citation density, paragraph rhythm, table layout,
-    and justification appendix format
+14. Open the Golden Output for the matched archetype: `golden/recruitment_meridian_v1.md` (the
+    single anchor — there is exactly one golden per archetype)
+15. Study it as the structural template for tone, citation density, paragraph rhythm, table layout,
+    machine-spine placement (pp-id comments, score markers, INTAKE_FACTS), and justification
+    appendix format. **The golden demonstrates the contract; wherever the golden and the schema
+    ever disagree, the schema wins and the divergence is a defect to report — never silently
+    imitate a non-conforming exemplar.**
 
-Only after these 14 reads is the dossier production phase ready to begin.
+Only after these 15 reads is the dossier production phase ready to begin.
 
 ## Pipeline Position
 
 **Step 1 of 5** in the Blueprint pipeline:
-1. **Intake Analyst** (this skill) → Compressed Dossier conforming to `intake_v1.0`
+1. **Intake Analyst** (this skill) → Compressed Dossier conforming to `intake_v1.1`
 2. Maturity Scorer → Readiness Snapshot
 3. Opportunity Harvester → Opportunity Map
 4. Roadmap Composer → Action Sequence
@@ -139,24 +144,27 @@ Cross-reference form responses with document data:
 ### Phase 3: Apply Selection Algorithms
 
 Pain point selection (per `references/algorithms/pain_point_selection.md`):
+- Stage 0: Apply the pool eligibility filter (only `process`-class candidates; organisational → delivery risks; product-gap → opportunity context)
+- Stage 0b: Evaluate the PP-CORE-00 instantiation gate (`archetypes/_core.md` §2) — when it fires, PP-0 takes position 0 and one emergent slot; apply the absorption/tombstone rule to no-SSOT candidates
 - Stage 1: Always include all 5 form-stated pain points
-- Stage 2: Score emergent candidates using Severity × 3 + Evidence Strength × 2 + Strategic Relevance × 1
-- Stage 3: Select top 3 emergent candidates, applying documented tie-breakers
-- Stage 4: Order the final 8 per ordering algorithm
+- Stage 2: Score remaining eligible emergent candidates using Severity × 3 + Evidence Strength × 2 + Strategic Relevance × 1
+- Stage 3: Select top 2 emergent (PP-0 instantiated) or top 3 (not instantiated), applying documented tie-breakers
+- Stage 4: Order the final 8: PP-0 → the 5 stated in form order → emergent by score
 
 Hypothesis selection (per `references/algorithms/hypothesis_selection.md`):
-- Stage 1: Build candidate pool from archetype hypothesis library + document-surfaced candidates
+- Stage 1: Build candidate pool from archetype hypothesis library + document-surfaced candidates; apply the v1.1 pool filters (`band1_pool=no` exclusions when PP-0 is Critical (systemic); `h0_consumer=yes` absorption when the H-0 gate will pass) — record every exclusion/tombstone in Section H
 - Stage 2: Score each on Impact × Feasibility × Alignment (multiplicative)
 - Stage 3: Check coverage (≥2 Quick Wins; ≥1 enabler; if a strategic priority has zero candidates in the pool, add one per Check 3.1 — it will compete on score like any other candidate)
 - Stage 4: Take strictly top 7 by score — no coverage-based displacement; any unrepresented strategic priority is documented in Section H, not force-included
-- Stage 5: Present in classification order (Quick Wins → Foundation Builders → Big Bets)
+- Stage 4b: Evaluate the H-CORE-00 promotion gate (PP-0 instantiated AND ≥2 selected with `agent_shaped=yes`); when it passes, emit H-0 in its reserved additional slot — one undivided entity, one score marker (T-30)
+- Stage 5: Present H-0 first (when gated in), then classification order (Quick Wins → Foundation Builders → Big Bets)
 
 These are not heuristics. They are formulas. The output of the selection is determined by the
 inputs and the rules. Do not exercise discretion outside the algorithm.
 
 ### Phase 4: Produce the Compressed Dossier via Chunked Generation
 
-Follow the structure defined in `references/intake_v1.0.md` exactly. Section count, item count,
+Follow the structure defined in `references/intake_v1.1.md` exactly. Section count, item count,
 field requirements, and ordering are all fixed by the schema.
 
 **MANDATORY: Use chunked generation.** Empirical evidence (Ivan_Montin test runs, May 2026) shows
@@ -168,8 +176,8 @@ The 3-chunk workflow is the default and only supported mode:
 | Chunk | Contains | Expected words | Stops when |
 |-------|----------|----------------|------------|
 | 1 | Header + Document Receipt + Section A + Section B + **Section I (INTAKE_FACTS)** | ~1,700 | Section I complete + Checkpoint 1 emitted |
-| 2 | Section C (8 pain points) + Section D (7 hypotheses) | ~2,200 | Section D complete + Checkpoint 2 emitted |
-| 3 | Section E + Section F + Section G + Section H + [JUSTIFICATION] | ~800 | Final marker emitted |
+| 2 | Section C (8 pain points incl. PP-0 when gated) + Section D (7 hypotheses + H-0 when gated) | ~2,600 | Section D complete + Checkpoint 2 emitted |
+| 3 | Section E + Section F + Section G + Section H (incl. tombstone/runner-up register) + [JUSTIFICATION] | ~900 | Final marker emitted |
 
 **Chunk 1 production — first response when invoked:**
 
@@ -206,7 +214,7 @@ The 3-chunk workflow is the default and only supported mode:
 **Chunk 2 production — triggered when operator says "continue to chunk 2" (or equivalent):**
 
 1. Re-read the relevant framework files for Sections C and D (algorithms and archetype)
-2. Produce: Section C with exactly 8 pain points, Section D with exactly 7 hypotheses — using the exact heading and citation formats shown below
+2. Produce: Section C with exactly 8 pain points (incl. PP-0 when its gate fires), Section D with 7 hypotheses + H-0 when its gate passes — using the exact heading and citation formats shown below
 3. **MANDATORY FINAL STEP: End with the complete Checkpoint 2 block (format below). This is the last thing you produce in this response. Do not stop writing before the checkpoint block is complete — omitting it causes an unrecoverable pipeline failure.**
 4. Stop. Do not begin Section E.
 
@@ -219,7 +227,8 @@ Pain Point heading (H3 + em-dash — do NOT use bold or triple-hyphens) + mandat
 ```
 
 The `<!-- pp-id: PP-RT-XX -->` comment must appear on the line immediately after the heading.
-Use the exact canonical ID from the archetype's Pain Point Library table. This is the primary
+Use the exact canonical ID from the archetype's Pain Point Library table (`PP-CORE-00` for the
+instantiated universal pain point — its heading is `### Pain Point 0 — …`). This is the primary
 key `check_stability.py` uses for cross-run pain point set comparison. Omitting it causes the
 harness to fall back to alias-normalised title matching.
 
@@ -310,24 +319,31 @@ back to alias-normalised title matching, which is less reliable.
 
 ## CHECKPOINT 2 — Analytical Core Complete
 
-**Pain points selected (Section C):**
-1. [PP1 title] — Severity: [level] — Impact: [areas]
-2. [PP2 title] — Severity: [level] — Impact: [areas]
-3. [PP3 title] — Severity: [level] — Impact: [areas]
-4. [PP4 title] — Severity: [level] — Impact: [areas]
-5. [PP5 title] — Severity: [level] — Impact: [areas]
-6. [PP6 title] — Severity: [level] — Impact: [areas]
-7. [PP7 title] — Severity: [level] — Impact: [areas]
-8. [PP8 title] — Severity: [level] — Impact: [areas]
+**PP-CORE-00 gate:** [fired at Critical (systemic) / fired at High (structural) / did not fire] — [one-line evidence citation or reason]
+**Absorptions/tombstones:** [e.g. "pipeline-visibility absorbed into PP-0" / none]
 
-**Hypotheses selected (Section D):**
-1. [H1 title] — Class: [Quick Win/Foundation Builder/Big Bet] — Links: [PPs]
-2. [H2 title] — Class: [...] — Links: [PPs]
-3. [H3 title] — Class: [...] — Links: [PPs]
-4. [H4 title] — Class: [...] — Links: [PPs]
-5. [H5 title] — Class: [...] — Links: [PPs]
-6. [H6 title] — Class: [...] — Links: [PPs]
-7. [H7 title] — Class: [...] — Links: [PPs]
+**Pain points selected (Section C, in final order):**
+0. [PP-0 title, when gated] — Severity: Critical (systemic) — Impact: [areas]
+1. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+2. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+3. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+4. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+5. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+6. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+7. [PP title] — pp-id: [ID] — Severity: [level] — Impact: [areas]
+
+**H-CORE-00 gate:** [passed (PP-0 ✓, agent-shaped count = N ≥ 2) / failed (reason)] — [H-0 emitted / not emitted]
+**Pool exclusions:** [band1_pool exclusions with scores; h0_consumer tombstones / none]
+
+**Hypotheses selected (Section D, in final order):**
+H-0. [AI Company Brain, when gated] — Class: Big Bet — Links: PP-CORE-00
+1. [H1 title] — id: [H-RT-XX] — Class: [Quick Win/Foundation Builder/Big Bet] — Links: [PPs]
+2. [H2 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
+3. [H3 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
+4. [H4 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
+5. [H5 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
+6. [H6 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
+7. [H7 title] — id: [H-RT-XX] — Class: [...] — Links: [PPs]
 
 **Inferred/Assumption tags used so far:** [N] — appendix entries will be produced in Chunk 3
 
@@ -418,7 +434,7 @@ only element ID presence, not item-level classification signals.
 ```markdown
 ---
 
-*End of Compressed Client Dossier. Schema: intake_v1.0. Chunks 1–3 complete. Next pipeline step: blueprint-maturity (after GATE 1 PASS).*
+*End of Compressed Client Dossier. Schema: intake_v1.1. Chunks 1–3 complete. Next pipeline step: blueprint-maturity (after GATE 1 PASS).*
 ```
 
 **The final marker is the last line of the dossier output.** Nothing may appear after it. Do NOT include operator assembly instructions, gate validation commands, schema validation expectations, or any pipeline metadata in the dossier — those are documented below for the human operator and must not appear in the dossier itself.
@@ -442,7 +458,7 @@ contract that single-pass generation relies on.
 ## Output Format: Compressed Client Dossier
 
 This is an **internal document** (not client-facing). It feeds the downstream Blueprint skills.
-The complete structure is specified in `references/intake_v1.0.md`. Summary follows.
+The complete structure is specified in `references/intake_v1.1.md`. Summary follows.
 
 ### Critical: Mandatory Heading Formats
 
@@ -473,14 +489,14 @@ hyphens), or `–` (en-dash). Do NOT use bold formatting for pain point or hypot
 
 ### Header Block
 
-Schema version (`intake_v1.0`), industry archetype, company size band, regulatory regime,
+Schema version (`intake_v1.1`), industry archetype, company size band, regulatory regime,
 classification, date, pipeline position, engagement reference if available. No test metadata,
 no draft markers — see `references/preflight.md`.
 
 **Mandatory header fields (operator-declared at engagement setup):**
 
 ```
-Schema: intake_v1.0
+Schema: intake_v1.1
 Industry Archetype: <Recruitment & Talent Solutions | Manufacturing | Generic — no match>
 Company Size Band: <micro | small | mid | large>
 Document Richness: <sparse | standard | heavy>
@@ -544,14 +560,20 @@ Mandatory metric categories must each contribute ≥1 row (see schema spec §4.4
 
 ### C) Detected Pain Points (FIXED at 8)
 
-Selection per `references/algorithms/pain_point_selection.md`. Ordering per `ordering.md`.
-Each pain point: Statement / Evidence (3–5 bullets with citations) / Impact area / Severity / Confidence.
+Selection per `references/algorithms/pain_point_selection.md` (v1.1: Stage 0 eligibility filter +
+PP-CORE-00 gate; 5 stated + PP-0 + 2 emergent when the gate fires, else 5 + 3). Ordering per
+`ordering.md` (PP-0 → form order → emergent by score). Severity uses the v1.1 enum.
+Each pain point: Statement / Evidence (3–5 bullets with citations) / Impact area / Severity /
+Impact & audit relevance / Confidence. PP-0 additionally carries Scope, Precedence, Absorbs,
+and the severity-logic sentence (`archetypes/_core.md` §2).
 
-### D) Opportunities and Hypotheses (FIXED at 7)
+### D) Opportunities and Hypotheses (7 + gated H-0)
 
-Selection per `references/algorithms/hypothesis_selection.md`. Ordering: Quick Wins first,
+Selection per `references/algorithms/hypothesis_selection.md` (v1.1: pool filters + Stage 4b
+H-CORE-00 reserved slot). Ordering: H-0 first when gated in, then Quick Wins,
 then Foundation Builders, then Big Bets. Each hypothesis: description with citations and
-numerical anchor / Supporting evidence / What we'd validate next / Classification / Linked Pain Point(s).
+numerical anchor / Supporting evidence / What we'd validate next / Classification / Linked Pain Point(s)
+(or, per the v1.1 linkage extension, a named strategic priority + runner-up register entry).
 
 **Each hypothesis must end with a `Selection score` line** showing the Impact, Feasibility,
 and Alignment values and their product. This makes the algorithm math visible for auditability:
@@ -618,20 +640,23 @@ HEADCOUNT: {number — use "unknown" if not provided}
 REVENUE_RANGE: {exact range as stated e.g. "€5M–€8M" — do NOT narrow, round, or restate as approximate}
 JURISDICTION_LIST: {comma-separated country codes e.g. "BG, RO, PL"}
 TOP_PRIORITIES: {semicolons separating top 3 verbatim from form Section 2}
-KEY_METRIC_1: {label + value from documents e.g. "CV-saving-hours: 175–250/month"}
-KEY_METRIC_2: {second quantitative claim if present — omit field entirely if no second metric}
+KEY_METRIC_1: {first quantitative claim in document read-sequence — PROSE SENTENCES ONLY (table cells, header dates, and figure captions are excluded); copy verbatim up to the next period}
+KEY_METRIC_2: {next qualifying prose claim after KEY_METRIC_1 in the same read-sequence — omit field entirely if none}
 SYSTEM_EVENT_CUTOVER: {look for an explicitly labelled cutover or go-live target date in the client materials — e.g. a field or row labelled "Cutover Target", "Go-Live Date", "System Go-Live", "Migration Go-Live", or "ATS Go-Live". If found, use that date. If no labelled field exists, use the first date explicitly described as the completion or go-live date of a named system migration or technology cutover. Do NOT use: document or report header dates, project start dates, consultant engagement start dates, audit dates, planning review dates, or any date associated with a vendor proposal. YYYY-MM-DD format; if only month documented, use last day of that month; if no qualifying date is present, write none}
+INTEGRATION_STATUS: {the verbatim integration/single-source-of-truth statement from the tech inventory or equivalent document (e.g. the "no active integrations…" sentence), copied character-for-character; if no such statement exists, write none-documented. Feeds the PP-CORE-00 gate and the Stage 2 Layer-1 grade — downstream reads this field, never re-derives from prose}
+ORG_FRICTION_SIGNAL: {the verbatim strongest documented adoption-resistance or reversion statement (named resistors, failed-adoption history), copied character-for-character; if none, write none-documented. Feeds the Stage 2 Alignment grade}
 -->
 ```
 
 **Rules (T-14 — strict verbatim-copy enforcement):**
-- **REVENUE_RANGE, TOP_PRIORITIES, KEY_METRIC_1/2 must be copied character-for-character from the source material.** Do NOT reformat, reorder, normalize punctuation, abbreviate, or paraphrase. If the form says "€5M–€8M", write exactly `€5M–€8M`. If the form says "Grow revenue by 25%", write exactly `Grow revenue by 25%`. Any deviation produces cross-run variance in downstream stages that read this block verbatim.
+- **REVENUE_RANGE, TOP_PRIORITIES, KEY_METRIC_1/2, INTEGRATION_STATUS, ORG_FRICTION_SIGNAL must be copied character-for-character from the source material.** Do NOT reformat, reorder, normalize punctuation, abbreviate, or paraphrase. If the form says "€5M–€8M", write exactly `€5M–€8M`. If the form says "Grow revenue by 25%", write exactly `Grow revenue by 25%`. Any deviation produces cross-run variance in downstream stages that read this block verbatim.
+- **REVENUE_RANGE is the form's stated range** (a dropdown answer such as `€2M–€10M` is the value) — never substitute a point figure from documents, even a more precise one; precision belongs in Section B, the range field belongs to the form.
 - **TOP_PRIORITIES:** Copy the first three complete priority statements from form Section 2 character-for-character, ending each at its first sentence boundary (period or semicolon). Separate with semicolons. Do not add additional sentences, expand abbreviations, or summarize. If the form lists fewer than three priorities, copy what is present.
 - **KEY_METRIC_1/2:** Select the first quantitative claim encountered in the uploaded documents that contains both a number and a unit (%, hours, days, €, count, ratio). Copy the claim character-for-character including its surrounding clause up to the next period — do not truncate, abbreviate, or extend. KEY_METRIC_2 is the next such claim encountered after KEY_METRIC_1 in the same document read-sequence. If only one quantitative claim is present, omit KEY_METRIC_2 entirely. Do NOT select by perceived impact or significance — first-encountered in document order is the stable, reproducible rule.
 - Every field must reflect what was actually provided in form or documents — no inferences, estimates, or paraphrasing.
 - If a field is absent from the materials, write the literal value `unknown`.
 - Downstream stages that re-derive CEO_NAME or REVENUE_RANGE from prose rather than reading this block are violating the data contract — this block is the single source of truth for those fields.
-- The validation harness checks for presence of this block. A dossier missing it fails schema validation (`intake_v1.0` §4.9).
+- The validation harness checks for presence of this block. A dossier missing it fails schema validation (`intake_v1.1` §4.11).
 
 **Chunk 1 production note:** Section I is produced at the end of Chunk 1 (after Section B, before Checkpoint 1). Do NOT re-emit it in Chunk 3.
 
@@ -722,7 +747,7 @@ Exit code 0 = PASS (downstream skills may proceed).
 Exit code 1 = FAIL (the report itemises issues; correct or regenerate before continuing).
 
 The harness enforces every rule in the schema mechanically. Downstream skills are entitled to
-assume a passing dossier conforms to `intake_v1.0`.
+assume a passing dossier conforms to `intake_v1.1`.
 
 ## Industry Archetype Routing
 
@@ -777,6 +802,26 @@ When the user provides intake form responses and/or uploaded documents:
 
 If materials are entirely missing or unreadable: do not produce any chunks. Flag the engagement
 as not-ready and request the missing materials.
+
+## What Changed in Skill Version 3.0.0 (schema `intake_v1.1` — July 2026 version event)
+
+Transcribes the Meridian Golden Benchmark v1.1 §A encoding register (A-1…A-18; Practice
+confirmation 2026-07-20). All 5 pipeline skills + validators + the golden anchor bumped together.
+
+- **CORE pattern:** `archetypes/_core.md` — PP-CORE-00 universal pain point (deterministic
+  instantiation gate + absorption/tombstone rules), H-CORE-00 gated reserved slot (promotion
+  gate on `agent_shaped` lookups), band decision table, v1.1 severity enum
+- **Pool discipline:** pain eligibility classes (`process`/`organisational`/`product-gap`);
+  hypothesis `band1_pool` exclusions and `h0_consumer` absorption — all archetype column lookups
+- **Ordering contract:** PP-0 → form order → emergent by score; H-0 slot 0
+- **INTAKE_FACTS:** two new verbatim fields (`INTEGRATION_STATUS`, `ORG_FRICTION_SIGNAL`);
+  `REVENUE_RANGE` = form range as stated; `KEY_METRIC` prose-only clarification
+- **Section H:** category 2 extended to document↔document conflicts; expected-contradictions
+  register conformance on pinned fixtures; tombstone/runner-up register
+- **Anchor consolidation:** one golden per archetype (`golden/`), regenerated with the full
+  machine spine; `examples/` duplicate retired; schema-wins rule stated at the anchor step
+- **JUSTIFICATION:** canonical `#### N. [Tag]` format is now the only valid form everywhere
+- Layer boundary: product/tier language forbidden in diagnostic stages (preflight Pattern Set 8)
 
 ## What Changed in Skill Version 2.0.0
 

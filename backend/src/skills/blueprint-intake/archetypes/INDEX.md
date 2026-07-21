@@ -30,6 +30,14 @@ The intake skill detects industry from intake form Section 1 ("What industry are
 4. First match (in table order) wins.
 5. If no match, use the fallback skeleton + flag in Section H Reviewer Checklist.
 
+## The CORE Pattern (applies to every archetype)
+
+`_core.md` holds the universal entries every archetype includes: PP-CORE-00 (fragmented-data
+pain point with its deterministic instantiation gate), H-CORE-00 (AI Company Brain gated slot),
+the band decision table, the v1.1 severity enum, and the CORE columns every library must carry
+(`eligibility`, `agent_shaped`, `h0_consumer`, `band1_pool`). Read it together with the matched
+archetype — new archetypes reference it rather than duplicating the pattern.
+
 ## What an Archetype Provides
 
 Each archetype file contains:

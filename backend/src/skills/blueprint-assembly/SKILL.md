@@ -10,9 +10,9 @@ description: >
   or has completed all prior Blueprint steps and wants the final output. Also trigger on "run
   Blueprint step 5", "finalize the Blueprint", or "package the Blueprint for the client". This
   skill should NOT be run until Steps 1–4 are complete.
-schema_version: intake_v1.0
-skill_version: 1.0.0
-last_updated: 2026-05-27
+schema_version: intake_v1.1
+skill_version: 2.0.0
+last_updated: 2026-07-21
 ---
 
 # Blueprint Assembly
@@ -87,7 +87,12 @@ where Early = red/orange, Developing = amber/yellow, Established = green.
 ### 3. Key Findings: Where Value is Being Lost (2–3 pages)
 
 Transform the pain points from the Dossier (Section C) into a client-facing narrative:
-- Lead with the most impactful findings
+- **When the dossier contains Pain Point 0 (fragmented data infrastructure), lead with it as
+  the systemic finding** — it is the structural cause the other findings hang from; present it
+  in plain business language ("your systems don't talk to each other; every report is compiled
+  by hand; there is no single source of truth"), never with internal register language
+  (no "PP-0", no "tombstone", no band references — preflight Pattern Set 8)
+- Then the most impactful acute findings
 - Connect each pain point to a quantifiable impact where possible
 - Use evidence from the uploaded documents to substantiate claims
 - Frame findings constructively: "Opportunity to recover..." not "You're losing..."
@@ -139,6 +144,18 @@ Provide 3–4 concrete, actionable next steps the client can take immediately:
 - At least 1 that connects to AI Assist BG's services (Workspace Enablement Sprint,
   Managed Revenue Workforce, or full AI Company Audit)
 - Frame the AI Assist BG service recommendations as honest consulting advice, not sales copy
+
+**Pinned foundational-rung sentence (v1.1 — conditional, exact string):** when and only when
+the engagement's `blueprint-aria-spec` run has emitted `recommendation: proceed` (all honesty
+gates passed), include the following sentence verbatim as one of the next steps — this is the
+ONLY place in the client deliverable where the product may be named, and its wording is fixed:
+
+> "Based on the systemic data-foundation finding in this Blueprint, AI Assist BG recommends
+> the AI Company Brain foundation — delivered as an ARIA instance — as the natural next rung;
+> the accompanying Build Sheet specifies the scope, phasing, and prerequisites."
+
+When aria-spec did not run or did not emit `proceed`, no product mention appears anywhere —
+the recommendation must be earned by the gates, never defaulted (preflight Pattern Set 8).
 
 End with: "This Blueprint provides the diagnostic foundation. The opportunities identified
 here represent significant potential value. The next step — whether pursued internally or

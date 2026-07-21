@@ -9,9 +9,9 @@ description: >
   Blueprint skill should I run next", "what's the Blueprint status", or wants guidance on Blueprint
   delivery sequencing. If the user uploads client documents and mentions "Blueprint" or "diagnostic",
   use this skill to determine the right starting point and coordinate the flow.
-schema_version: intake_v1.0
-skill_version: 2.1.0
-last_updated: 2026-05-26
+schema_version: intake_v1.1
+skill_version: 3.0.0
+last_updated: 2026-07-21
 ---
 
 # AI Value Blueprint — Pipeline Orchestrator
@@ -75,7 +75,7 @@ bash /mnt/skills/user/blueprint-intake/harness/gate.sh <dossier_path>
 
 Expected output for a passing dossier:
 ```
-GATE 1: PASS — dossier conforms to intake_v1.0. Safe to invoke blueprint-maturity.
+GATE 1: PASS — dossier conforms to its declared intake schema. Safe to invoke blueprint-maturity.
 ```
 
 Expected output for a failing dossier:
@@ -105,8 +105,12 @@ all of the following. Do NOT invoke `blueprint-roadmap` until every check passes
 GATE 3 checklist:
 
 [ ] Score marker count: exactly N <!-- score: id=... --> markers present, where N = the number
-    of hypotheses in the Step 1 dossier Section D (typically 7 for recruitment engagements).
+    of hypotheses in the Step 1 dossier Section D (7, or 8 when H-CORE-00 was gated in — v1.1).
     A missing marker means the downstream roadmap and assembly will silently drop that opportunity.
+
+[ ] H-CORE-00 consistency (v1.1): if the Step 1 dossier contains PP-CORE-00 and an H-0 entry,
+    the Step 3 map carries exactly one id=H-CORE-00 marker (one undivided card — any split is a FAIL);
+    if the dossier has no H-0, the Step 3 map must not introduce one.
 
 [ ] Classification conformance: for every score marker, verify the class= value obeys the
     D6b pinned decision tree:
@@ -127,6 +131,13 @@ Do not proceed to Step 4 with a failing Gate 3.
 **Step 4 — Roadmap:** Invoke `blueprint-roadmap` with the scored opportunities + maturity
 snapshot. Review the Now/Next/Later sequence. Verify maturity gating was respected and that
 Quick Wins from Step 3 are sequenced first.
+
+**Step 5.5 — Build Sheet (conditional, post-Gate-5):** after GATE 5 passes, invoke
+`blueprint-aria-spec` when the engagement's outputs contain PP-CORE-00 or `[BAND_ASSIGNMENT]`
+Band 1/2 — it reads the three locked outputs (never modifies them) and emits the ARIA Build
+Sheet plus the honesty-gate report. Assembly's Section 7 pinned recommendation sentence renders
+only when aria-spec emitted `recommendation: proceed`. If aria-spec is skipped or gates fail,
+the client deliverable carries no product recommendation.
 
 **Step 5 — Assembly:** Invoke `blueprint-assembly` with all outputs from Steps 1–4. The assembly
 skill uses a **3-chunk workflow** — the operator MUST actively trigger all three chunks.
@@ -174,18 +185,17 @@ After each skill completes, verify before proceeding:
 For the full methodology standards, scoring frameworks, data contracts, and scope boundaries,
 read the PIO Framework files in `../blueprint-intake/references/`:
 
-- `intake_v1.0.md` — the master schema for Step 1 output (the foundation of all downstream stages)
+- `intake_v1.1.md` — the master schema for Step 1 output (the foundation of all downstream stages)
 - `citation_rules.md` — citation format used across the pipeline
 - `source_registry.md` — canonical source names
 - `confidence_thresholds.md` — confidence tag definitions
 - `algorithms/pain_point_selection.md` — how Step 1 picks pain points (drives Step 3 opportunities)
 - `algorithms/hypothesis_selection.md` — how Step 1 picks hypotheses (drives Step 3 and Step 4)
 - `algorithms/ordering.md` — within-section ordering
+- `archetypes/_core.md` — the universal CORE pattern (PP-CORE-00/H-CORE-00 gates, band table)
 - `preflight.md` — forbidden patterns across all stages
 
-The schema spec `intake_v1.0.md` is the canonical reference document for cross-stage contracts.
-Until this file exists at the path above, the pipeline operates on prose guidance only and outputs
-will vary between runs (see TEST 1 vs TEST 2 audit findings).
+The schema spec `intake_v1.1.md` is the canonical reference document for cross-stage contracts.
 
 ## Handling Incomplete Inputs
 
@@ -229,16 +239,14 @@ When the user invokes this skill:
 
 Once Steps 1–4 are complete and before invoking Step 5 (Assembly), verify:
 
-**Hypothesis identity check (match by title, not position):**
-- Extract the 7 hypothesis titles from Step 1 Section D (e.g., "AI-Powered CV Formatting", "ATS-Driven Client Status Updates", etc.)
-- Extract the opportunity titles from Step 3
-- Verify that each Step 1 hypothesis title maps to exactly one Step 3 opportunity title (allowing minor rephrasing for client-facing language, but NOT addition or removal)
-- **Do NOT match by position number (H1, H2, etc.).** Position numbers in Step 1 reflect the presentation ordering algorithm (Quick Wins → Foundation Builders → Big Bets) and may change between runs if FW-02 ordering resolves differently. Matching by title is robust to any ordering variance.
-- Flag any Step 3 opportunity that has no corresponding Step 1 hypothesis by title (addition)
-- Flag any Step 1 hypothesis that has no corresponding Step 3 opportunity (removal)
+**Hypothesis identity check (match by canonical ID first, title second):**
+- Extract the canonical IDs (`id=H-RT-XX` / `id=H-CORE-00`) from the Step 1 Section D score markers and from the Step 3 opportunity markers — the ID sets must be identical (no addition, no removal)
+- Where markers are absent (legacy dossiers), fall back to title matching (allowing minor rephrasing for client-facing language, but NOT addition or removal)
+- **Do NOT match by position number (H1, H2, etc.).** Position numbers reflect the presentation ordering and may change; canonical IDs never do. H-CORE-00, when present in Step 1, must be present in Step 3 as exactly one card
+- Flag any Step 3 opportunity with no corresponding Step 1 ID (addition) and any Step 1 ID missing from Step 3 (removal)
 
 **Pain point reference check:**
-- The 8 pain points named in Step 1 Section C are referenced by the Step 3 opportunities
+- The 8 pain points named in Step 1 Section C (incl. PP-CORE-00 when gated in) are referenced by the Step 3 opportunities
 
 **Sequencing integrity check:**
 - The Step 4 Now/Next/Later sequence respects the Step 3 classifications (Quick Wins in Now, Foundation Builders in Next, Big Bets in Later — with documented exceptions only)
@@ -261,14 +269,16 @@ Current versions (as of this SKILL.md update):
 
 | Skill | Version | Schema |
 |-------|---------|--------|
-| blueprint-orchestrator | 2.1.0 | intake_v1.0 |
-| blueprint-intake | 2.1.0 | intake_v1.0 |
-| blueprint-maturity | 1.1.0 | intake_v1.0 |
-| blueprint-opportunities | 1.1.0 | intake_v1.0 |
-| blueprint-roadmap | 1.0.0 | intake_v1.0 |
-| blueprint-assembly | 1.0.0 | intake_v1.0 |
+| blueprint-orchestrator | 3.0.0 | intake_v1.1 |
+| blueprint-intake | 3.0.0 | intake_v1.1 |
+| blueprint-maturity | 2.0.0 | intake_v1.1 |
+| blueprint-opportunities | 2.0.0 | intake_v1.1 |
+| blueprint-roadmap | 2.0.0 | intake_v1.1 |
+| blueprint-assembly | 2.0.0 | intake_v1.1 |
+| blueprint-aria-spec | 1.0.0 | intake_v1.1 (read-only consumer; versioned independently) |
+| methodology-and-contracts | 1.1.0 | intake_v1.1 |
 
-All skills now carry `schema_version: intake_v1.0` in their frontmatter. If the schema bumps to
+All skills now carry `schema_version: intake_v1.1` in their frontmatter. If the schema bumps to
 `intake_v2.0`, each downstream skill must be updated before it is used with dossiers produced under
 the new schema. The orchestrator must refuse to invoke a downstream skill whose declared schema_version
 does not match the dossier's schema version header.

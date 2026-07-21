@@ -108,7 +108,7 @@ bash harness/gate.sh path/to/dossier.md
 
 Expected output for a PASSING dossier:
 ```
-GATE 1: PASS — dossier conforms to intake_v1.0. Safe to invoke blueprint-maturity.
+GATE 1: PASS — dossier conforms to its declared intake schema. Safe to invoke blueprint-maturity.
 ```
 
 Expected output for a FAILING dossier:
