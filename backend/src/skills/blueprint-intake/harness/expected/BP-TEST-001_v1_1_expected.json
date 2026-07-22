@@ -3,9 +3,11 @@
   "source_of_truth": "rework_docs/Meridian_Golden_Benchmark_v1_1_PINNED.md (benchmark of record, confirmed 2026-07-20)",
   "written_before_batch": true,
   "signoff": {
-    "practice": "",
-    "engineering": "",
-    "date": ""
+    "practice": "Claude (Fable 5), validation analyst — signing for Practice per the adjudicator directive relayed 2026-07-22; derives verbatim from the benchmark of record (Practice-confirmed 2026-07-20)",
+    "engineering": "Viktor Serafimov — encoding verified faithful to the benchmark; checker (check_expectation.py) reads all fields",
+    "date": "2026-07-22",
+    "content_sha256": "5a8060b8660abdc788e4cff4de3831867989a3321b2c3c2c9a274caacb945a8f",
+    "seal_procedure": "This manifest is FROZEN as of the signing date. The git commit containing this signed file must precede the acceptance batch; the run bundle cites that commit SHA + this content hash. Any post-batch edit is a new commit and voids the pre-registration for that batch. Verify: recompute SHA-256 over the JSON minus this signoff block (sort_keys, compact separators) and compare."
   },
   "input_fixture": "ValueBlueprint docs/test/ per the SHA-256 manifest in the pinned benchmark §I — runs on non-matching inputs are not comparable",
   "pain_point_ids_ordered": [

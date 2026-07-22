@@ -206,7 +206,12 @@
       "Bash(python check_expectation.py expected/BP-TEST-001_v1_1_expected.json ../golden/recruitment_meridian_v1.md)",
       "Bash(python tests/test_seeded_battery.py)",
       "Bash(python -c \"import yaml,io; yaml.safe_load\\(open\\('../../../../.github/workflows/framework-ci.yml',encoding='utf-8'\\)\\); print\\('workflow YAML valid'\\)\")",
-      "Bash(python -c \"print\\('\\(PyYAML not installed - YAML syntax not machine-checked; edit was a quoted one-line regex change\\)'\\)\")"
+      "Bash(python -c \"print\\('\\(PyYAML not installed - YAML syntax not machine-checked; edit was a quoted one-line regex change\\)'\\)\")",
+      "Bash(grep -n \"H-RT\\\\|H-\\\\[A-Z\\\\]\\\\|\\\\[\\\\\\\\\\\\\\\\w-\\\\]\\\\|id=\" opportunityValidator.ts)",
+      "Bash(grep -rn 'H-RT-\\\\\\\\d' --include=\"*.ts\" utils/ pipeline/)",
+      "Bash(grep -v \"^\\\\s*//\")",
+      "Bash(grep -iE \"regex|test\\\\\\(|match|RegExp|/\\\\^?H-RT\")",
+      "Bash(bash backend/verify_all.sh)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

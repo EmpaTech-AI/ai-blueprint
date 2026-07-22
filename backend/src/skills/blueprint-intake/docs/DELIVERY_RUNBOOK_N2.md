@@ -1,6 +1,6 @@
-# Delivery Run-Book — the n=2 Double-Run Protocol (effective immediately)
+# Delivery Run-Book — the n=2 Double-Run Protocol (PROPOSED — pending Practice ruling)
 
-**AI Assist BG · Blueprint Practice · v1.0 · 2026-07-21**
+**AI Assist BG · Blueprint Practice · v1.0-draft · 2026-07-21 · STATUS: PROPOSED delivery-process design — adoption is Ivan's ruling (per the Era-N adjudication's delegation boundaries); not in the ledger; nothing in the acceptance gates depends on it**
 **Audience:** consultants and operators running client engagements.
 **Supersedes:** the testing procedure in `Blueprint_Testing_Guide_for_Consultants.pdf` (v2.0-era —
 its prompt-based QG gates, "Quality Self-Assessment" blocks, and single-run flow predate skills

@@ -221,6 +221,44 @@ describe('validateStrictDependencyPhases — strict ⇒ Later, unconditionally',
     expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
   });
 
+  // ── T-30 at the v1.1 scope: the H-CORE-00 reserved-slot entity (Era-N remediation) ─────
+  const stage3Core =
+    '<!-- score: id=H-CORE-00 impact=5 feasibility=2 alignment=5 product=50 class=BigBet ' +
+    'ml_heavy=yes multi_source=yes regulated=no large_integration=yes adoption_dependent=yes ' +
+    'd_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=strict -->';
+
+  it('T-30 (H-CORE-00): BLOCKER when the AI Company Brain is split into phase sub-components', () => {
+    const split = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| AI Company Brain — Pilot Scoping | H-CORE-00 | Big Bet | Next | pilot scoping |',
+      '| AI Company Brain — Full Deployment | H-CORE-00 | Big Bet | Later | phase_dependency=strict |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(split, stage3Core);
+    expect(reviewerFlags.some(f => /T-30.*decomposition.*H-CORE-00/i.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('T-27 (H-CORE-00): BLOCKER when the strict Brain is placed in Next undivided', () => {
+    const next = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| AI Company Brain | H-CORE-00 | Big Bet | Next | consultant judgment |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(next, stage3Core);
+    expect(reviewerFlags.some(f => /T-27.*H-CORE-00.*placed in Next/i.test(f))).toBe(true);
+  });
+
+  it('H-CORE-00 clean undivided strict-in-Later does NOT false-fire', () => {
+    const clean = [
+      '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',
+      '|---|---|---|---|---|',
+      '| AI Company Brain | H-CORE-00 | Big Bet | Later | phase_dependency=strict |',
+    ].join('\n');
+    const { reviewerFlags } = validateStrictDependencyPhases(clean, stage3Core);
+    expect(reviewerFlags).toEqual([]);
+  });
+
   it('T-30: BLOCKER on an ID-less split-phrasing row in Next (sub-component dropped the ID)', () => {
     const idless = [
       '| Opportunity | H-RT ID | Class | Phase | Primary placement driver |',

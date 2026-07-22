@@ -400,7 +400,10 @@ function parsePhaseSummaryRows(roadmapOutput: string): Array<{ id: string | null
     const cells = line.split('|').map(c => c.trim());
     const phaseCell = cells.find(c => /^(Now|Next|Later)$/i.test(c));
     if (!phaseCell) continue;
-    const idCell = cells.find(c => /^H-RT-\d+$/i.test(c));
+    // v1.1 (Era-N remediation): accept ANY canonical hypothesis-ID namespace, not only H-RT-NN —
+    // the H-CORE-00 reserved-slot entity was invisible to this parser under /^H-RT-\d+$/, which
+    // left the strict/T-30 guards blind to exactly the entity most tempted to decompose.
+    const idCell = cells.find(c => /^H-[A-Z]+-\d+$/i.test(c));
     const phase = (phaseCell[0].toUpperCase() + phaseCell.slice(1).toLowerCase()) as Phase;
     rows.push({ id: idCell ? idCell.toUpperCase() : null, phase, text: line.toLowerCase() });
   }
