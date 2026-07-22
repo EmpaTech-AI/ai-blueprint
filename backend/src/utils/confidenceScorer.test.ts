@@ -980,16 +980,24 @@ describe('T-29 — permit-only section allowlist', () => {
     expect(findNonPermittedSections(stage5, 'stepE')).toEqual(['Operator Assembly Instructions']);
   });
 
-  it('Stage-4 (level 3): strips a "GATE-4 capacity self-check" section, keeps the phases', () => {
+  it('Stage-4 (level 2 — v1.1 heading contract): strips a "GATE-4 capacity self-check" section, keeps the phases', () => {
+    // v1.1 re-key (Era-N S-44): Stage-4 sections are H2 per the Mandatory Heading Contract
+    // in blueprint-roadmap/SKILL.md; stepD2 allowlist keys on level 2 accordingly.
     const stage4 = [
-      '### Sequencing Rationale', 'Why.',
-      '### GATE-4 capacity self-check', '- [ ] ≤3 per phase',
-      '### Phase 1: Now', 'Items.',
+      '## Sequencing Rationale', 'Why.',
+      '## GATE-4 capacity self-check', '- [ ] ≤3 per phase',
+      '## Phase 1: Now (Months 1–3)', 'Items.',
     ].join('\n');
     const out = stripToAllowlistedSections(stage4, 'stepD2');
     expect(out).not.toMatch(/capacity self-check/i);
-    expect(out).toContain('### Phase 1: Now');
-    expect(out).toContain('### Sequencing Rationale');
+    expect(out).toContain('## Phase 1: Now');
+    expect(out).toContain('## Sequencing Rationale');
+  });
+
+  it('Stage-4 legacy level-3 documents NO-OP fail-safe (stage unverified, nothing silently stripped)', () => {
+    const legacy = ['### Sequencing Rationale', 'Why.', '### Phase 1: Now', 'Items.'].join('\n');
+    const out = stripToAllowlistedSections(legacy, 'stepD2');
+    expect(out).toContain('### Phase 1: Now'); // fail-safe: no L2 headings -> allowlist does not run
   });
 
   it('does not over-strip the canonical Stage-5 sample (no permitted section lost)', () => {

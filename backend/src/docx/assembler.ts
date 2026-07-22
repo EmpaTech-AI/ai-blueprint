@@ -266,9 +266,12 @@ function buildSection(section: Section): (Paragraph | Table)[] {
       continue;
     }
 
-    // H3
+    // H3 — T-32/S-44: carry a real Word heading style (HEADING_3), not a bold run alone.
+    // Bold-only rendering made structure invisible to every downstream checker (Era-N NO-OPs)
+    // and to Word's own navigation/TOC. Styling runs are kept; the style level is added.
     if (trimmed.startsWith('### ')) {
       elements.push(new Paragraph({
+        heading: HeadingLevel.HEADING_3,
         children: [new TextRun({ text: trimmed.slice(4), bold: true, size: BRAND.h3Size, color: BRAND.teal, font: BRAND.bodyFont })],
         spacing: { before: 240, after: 120 },
       }));
@@ -276,9 +279,10 @@ function buildSection(section: Section): (Paragraph | Table)[] {
       continue;
     }
 
-    // H2 — left bar (blue) per the type-scale treatment.
+    // H2 — left bar (blue) per the type-scale treatment. T-32/S-44: real HEADING_2 style.
     if (trimmed.startsWith('## ')) {
       elements.push(new Paragraph({
+        heading: HeadingLevel.HEADING_2,
         children: [new TextRun({ text: trimmed.slice(3), bold: true, size: BRAND.h2Size, color: BRAND.primaryBlue, font: BRAND.bodyFont })],
         spacing: { before: 360, after: 200 },
         border: { left: { color: BRAND.primaryBlue, size: 18, style: BorderStyle.SINGLE, space: 8 } },

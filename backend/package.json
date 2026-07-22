@@ -52,5 +52,6 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     }
-  }
+  },
+  "pipelineLabel": "v36.1"
 }

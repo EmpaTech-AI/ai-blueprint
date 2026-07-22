@@ -281,9 +281,12 @@ export interface SectionAllowlist { level: number; permit: string[]; }
 
 export const SECTION_ALLOWLISTS: Record<string, SectionAllowlist> = {
   stepB:  { level: 2, permit: ['executive summary', 'key data', 'detected pain', 'opportunities and hypoth', 'org and process', 'document index', 'open question', 'reviewer checklist', 'document receipt'] },
-  stepC:  { level: 3, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
+  // v1.1 re-key (Era-N S-44): the Mandatory Heading Contracts pin S2/S4 sections at LEVEL 2
+  // (see blueprint-maturity/blueprint-roadmap SKILL.md and harness/permit_manifest_intake_v1_1.json —
+  // regenerate these lists from that manifest at every version event; hand-tuned lists drift, WL-18).
+  stepC:  { level: 2, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
   stepD:  { level: 3, permit: ['executive opportunity', 'opportunity cards', 'opportunity #', 'portfolio view', 'additional opportunit'] },
-  stepD2: { level: 3, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'bridge'] },
+  stepD2: { level: 2, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'bridge'] },
   // §2: 8 stable Stage-5 sections (anchored prefixes; "ai readiness"/"ai opportunity" carry the "AI " prefix).
   stepE:  { level: 1, permit: ['executive summary', 'ai readiness', 'readiness gaps', 'key findings', 'where value', 'ai opportunity', 'recommended action', 'recommended next', 'gaps and recommendations', 'appendix'] },
 };
