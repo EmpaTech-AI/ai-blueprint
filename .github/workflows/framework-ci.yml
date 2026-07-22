@@ -145,7 +145,10 @@ jobs:
           from pathlib import Path
 
           index_text = Path("archetypes/INDEX.md").read_text()
-          refs = re.findall(r'\b(\w+)\.md\b', index_text)
+          # Bare NAME.md tokens are archetype references and must exist in archetypes/.
+          # Path-qualified references (e.g. ../docs/EXPANSION_ARCHITECTURE.md) point outside
+          # the archetype registry and are excluded via the (?<!/) lookbehind.
+          refs = re.findall(r'(?<!/)\b(\w+)\.md\b', index_text)
           missing = []
           for ref in refs:
               if ref in ("INDEX", "_template_skeleton"):
