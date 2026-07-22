@@ -201,7 +201,10 @@
       "Bash(python tests/test_cross_run_regression.py)",
       "Bash(python tests/test_cross_run_regression.py ../golden/recruitment_meridian_v1.md ../golden/recruitment_meridian_v1.md)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('validate_maturity.py',encoding='utf-8'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('validate_intake.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('check_stability.py',encoding='utf-8'\\).read\\(\\)\\); print\\('all harness syntax OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('validate_intake.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('check_stability.py',encoding='utf-8'\\).read\\(\\)\\); print\\('all harness syntax OK'\\)\")",
+      "Bash(python -c \"import json; json.load\\(open\\('permit_manifest_intake_v1_1.json',encoding='utf-8'\\)\\); json.load\\(open\\('expected/BP-TEST-001_v1_1_expected.json',encoding='utf-8'\\)\\); print\\('JSON valid'\\)\")",
+      "Bash(python check_expectation.py expected/BP-TEST-001_v1_1_expected.json ../golden/recruitment_meridian_v1.md)",
+      "Bash(python tests/test_seeded_battery.py)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

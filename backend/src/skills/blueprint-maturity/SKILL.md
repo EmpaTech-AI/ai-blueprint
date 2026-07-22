@@ -242,6 +242,30 @@ Review all 6 scores together:
 
 ## Output Format: AI Readiness Snapshot
 
+### Mandatory Heading Contract (T-32 / S-44 — the allowlist keys on these levels)
+
+The emitted snapshot MUST use exactly this heading skeleton — the per-stage allowlist and the
+structural detectors key on these levels; content emitted as bold text or under a lone H1
+registers as *missing* even when present (the Era-N S2 NO-OP). Do NOT substitute bold for
+headings anywhere in this skeleton:
+
+```markdown
+# AI Readiness Snapshot — {CLIENT_NAME}     ← H1, exactly one
+## Readiness Scorecard                       ← H2 + the 6-row table
+## Dimension Rationales                      ← H2
+### Strategy — {Level}                       ← H3, one per dimension, all six
+### Data — {Level}
+### Technology — {Level}
+### People — {Level}
+### Processes — {Level}
+### Governance — {Level}
+## Overall Pattern                           ← H2
+## Key Constraints for AI Adoption           ← H2
+## [CONFIDENCE_PROPAGATION]                  ← H2 (block as specified)
+## [BAND_ASSIGNMENT]                         ← H2 (block as specified)
+## [JUSTIFICATION]                           ← H2
+```
+
 ### Readiness Scorecard
 
 | Dimension | Level | Key Evidence | Confidence Tag |
@@ -257,9 +281,9 @@ Use the single most conservative tag that applies to the primary evidence for th
 
 ### Dimension Rationales
 
-For each dimension, provide:
+For each dimension, provide (heading, not bold — per the Mandatory Heading Contract above):
 
-**{Dimension Name}: {Level}**
+### {Dimension Name} — {Level}
 
 {2–4 sentence rationale. **Every sentence must carry an inline confidence tag.** Explain why this level and not the adjacent one, citing specific evidence from the dossier with appropriate tags. Example structure: "The org chart shows a defined IT function of 3 people [Document-Backed]. No cloud infrastructure or AI/ML tooling is listed in the technology inventory [Document-Backed]. The form states that Salesforce and Xero are the core systems [Form-Stated], and their API capabilities were not confirmed [Inferred]."}
 

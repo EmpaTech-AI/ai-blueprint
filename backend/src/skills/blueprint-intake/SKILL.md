@@ -334,6 +334,7 @@ back to alias-normalised title matching, which is less reliable.
 
 **H-CORE-00 gate:** [passed (PP-0 ✓, agent-shaped count = N ≥ 2) / failed (reason)] — [H-0 emitted / not emitted]
 **Pool exclusions:** [band1_pool exclusions with scores; h0_consumer tombstones / none]
+**Absorption-whitelist assertion:** only `h0_consumer=yes` IDs were absorbed; every top-7-scoring, non-excluded candidate is present in Section D — [confirmed / VIOLATION: <ID> missing]
 
 **Hypotheses selected (Section D, in final order):**
 H-0. [AI Company Brain, when gated] — Class: Big Bet — Links: PP-CORE-00

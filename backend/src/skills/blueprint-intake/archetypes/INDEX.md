@@ -51,6 +51,11 @@ Each archetype file contains:
 
 ## Adding a New Archetype
 
+**The full activation process (Archetype Factory) is specified in `../docs/EXPANSION_ARCHITECTURE.md`**
+— including the senior-consultant vetting step, the derivation proof, pre-registered expectations,
+band-2/3 calibration fixtures, and the n=4 + seeded-battery activation gate. The steps below are
+the construction summary only; an archetype is not ACTIVE until the activation gate passes.
+
 1. Copy `_template_skeleton.md` to `<industry>.md`
 2. Populate all 6 sections (see template structure)
 3. Build a Golden Output dossier using a realistic test case in that industry

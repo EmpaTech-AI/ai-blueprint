@@ -427,14 +427,14 @@ BD proposals take 4–8 hours to prepare with no standard template, across ~200 
 ## H) Reviewer Checklist
 
 **Highest-risk numbers to verify**
-- Delivery FTE count: 51 current (org chart role table) vs 42 FY2025 average (P&L note) — confirm which figure applies for revenue-per-FTE calculations; the org chart overview's "64% of headcount" line is also inconsistent with 51/68
-- Revenue-per-delivery-FTE FY2026 target: EUR 125,000 (strategic plan p.2, Financial Targets) vs EUR 120,000 (financial summary p.3 commentary) — strategic plan treated as authoritative for FY2026 targets; verify at kickoff
-- Stale records estimate: ~35% (tech inventory) vs 30–40% range (form) — consistent range-vs-point; confirm before sizing database revival
-- Mandate win rate: 34% competitive pitches FY2025 (financial summary) vs 72% Q1 2026 service-line average (sales pipeline) — different denominators, not a conflict; 34% is the strategic-target figure
+- CR-3 — Delivery FTE count: 51 current (org chart role table) vs 42 FY2025 average (P&L note) — confirm which figure applies for revenue-per-FTE calculations; the org chart overview's "64% of headcount" line is also inconsistent with 51/68
+- CR-1 — Revenue-per-delivery-FTE FY2026 target: EUR 125,000 (strategic plan p.2, Financial Targets) vs EUR 120,000 (financial summary p.3 commentary) — strategic plan treated as authoritative for FY2026 targets; verify at kickoff
+- CR-5 — Stale records estimate: ~35% (tech inventory) vs 30–40% range (form) — consistent range-vs-point; confirm before sizing database revival
+- CR-4 — Mandate win rate: 34% competitive pitches FY2025 (financial summary) vs 72% Q1 2026 service-line average (sales pipeline) — different denominators, not a conflict; 34% is the strategic-target figure
 - CV formatting baseline: intake form says 1.5–2 hours; SOP step decomposition gives 95–125 minutes — confirm which is the current measured state
 
 **Contradictions detected**
-- Lusha trial timing: previous AI initiatives dates it Jan–Jun 2023 (6-month trial); tech inventory lists it "Cancelled 2025"; the form says it was stopped "after 3 months" — a three-way directional conflict on when and how long. The lesson (CEE data quality) is unaffected, but the record should be reconciled with the client
+- CR-2 — Lusha trial timing: previous AI initiatives dates it Jan–Jun 2023 (6-month trial); tech inventory lists it "Cancelled 2025"; the form says it was stopped "after 3 months" — a three-way directional conflict on when and how long. The lesson (CEE data quality) is unaffected, but the record should be reconciled with the client
 
 **Low-confidence extractions**
 - 17 items in the [JUSTIFICATION] appendix carry Inferred or Assumption tags (items 1–8 scope the pain-point register; items 9–17 the hypotheses). None block the Maturity Scorer; two (Assumption items 15 and 16) affect opportunity sizing accuracy for the Opportunity Harvester

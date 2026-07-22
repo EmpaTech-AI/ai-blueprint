@@ -243,12 +243,17 @@ and only supported mode.
 
 1. Produce Sections 5 (Action Sequence), 6 (Readiness Gaps), 7 (Next Steps), 8 (Methodology Appendix)
 2. Append the mandatory [JUSTIFICATION] block (one entry per [Inferred] and [Assumption] used in Chunks 1–2)
-3. End with the Final marker:
+3. End with the Final marker. **Build-stamp rule (T-07, single-source):** the three stamp
+   values (`date`, `pipeline`, `sha`) are SUPPLIED by the run environment/bundle — copy them
+   verbatim. NEVER type a remembered or example version constant (the Era-N batch shipped a
+   stale `pipeline=v35.1` label from a hardcoded constant — that class of label drift is
+   forbidden). If any value is not supplied, write `unknown` — an honest unknown beats a
+   confident wrong label:
 
 ```markdown
 ---
 
-<!-- build: date=YYYY-MM-DD pipeline=v28 sha=unset -->
+<!-- build: date={supplied} pipeline={supplied} sha={supplied} -->
 *End of AI Value Blueprint. Chunks 1–3 complete. Engagement: [reference]. Document ready for DOCX conversion and client delivery.*
 ```
 

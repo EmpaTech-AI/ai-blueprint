@@ -35,6 +35,20 @@ Deduplicate by hypothesis identity (not by phrasing). If two candidates target t
 1. **`band1_pool=no` exclusion:** when PP-CORE-00 was instantiated at `Critical (systemic)` in Section C, remove every candidate whose archetype row carries `band1_pool=no` (standalone product-build bets a fragile Layer 1 cannot carry — e.g. H-RT-08, H-RT-09 in the recruitment archetype). Record each exclusion in Section H with its score, so the reviewer sees the trade-off.
 2. **`h0_consumer=yes` absorption:** when the H-CORE-00 promotion gate will pass (evaluate the gate on the provisional top-7 — see Stage 4b), remove every candidate whose row carries `h0_consumer=yes` (e.g. H-RT-06 Pipeline Visibility Dashboard) — it is an output of the brain; keeping both double-counts the same value. Tombstone in Section H. When H-0 is not promoted, these candidates compete normally.
 
+**ABSORPTION WHITELIST (KR2 / REG-19 pin — non-negotiable):** the `h0_consumer` column is the
+**only** mechanism by which a candidate may ever leave the pool by absorption into H-0. Do NOT
+absorb, merge, or drop any other candidate on the reasoning that it is "part of the brain,"
+"a Brain Genesis component," "a prerequisite phase of H-0," or similar — that reasoning is
+forbidden here. In particular, **governance/compliance hypotheses (e.g. H-RT-07) and
+data-revival hypotheses (e.g. H-RT-04) are NEVER absorbed**: they are independently scored
+siblings with their own pain linkages; the Build Sheet maps them onto H-0's phases downstream,
+the pipeline never does (`archetypes/_core.md` §3, T-30 mirror). **Completeness assertion
+(verify before emitting Section D):** every candidate whose Strategic Value Score places it in
+the top 7 appears in Section D unless its ID is recorded in Section H as a `band1_pool`
+exclusion or an `h0_consumer` tombstone. Emitting 7 hypotheses while a top-7-scoring,
+non-excluded candidate is missing is a selection-integrity violation (the Era-N T3 fork —
+H-RT-04 silently dropped — is exactly this defect).
+
 ## Stage 2 — Score Each Candidate
 
 For each hypothesis, compute a Strategic Value Score:

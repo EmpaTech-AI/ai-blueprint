@@ -1,0 +1,204 @@
+{
+  "manifest": "Pre-registered expected outputs — BP-TEST-001 (Meridian Talent Partners OOD), schema intake_v1.1",
+  "source_of_truth": "rework_docs/Meridian_Golden_Benchmark_v1_1_PINNED.md (benchmark of record, confirmed 2026-07-20)",
+  "written_before_batch": true,
+  "signoff": {
+    "practice": "",
+    "engineering": "",
+    "date": ""
+  },
+  "input_fixture": "ValueBlueprint docs/test/ per the SHA-256 manifest in the pinned benchmark §I — runs on non-matching inputs are not comparable",
+  "pain_point_ids_ordered": [
+    "pp-core-00",
+    "pp-rt-01",
+    "pp-rt-02",
+    "pp-rt-04",
+    "pp-rt-03",
+    "pp-rt-05",
+    "pp-rt-07",
+    "pp-rt-10"
+  ],
+  "hypothesis_ids_ordered": [
+    "h-core-00",
+    "h-rt-02",
+    "h-rt-03",
+    "h-rt-05",
+    "h-rt-07",
+    "h-rt-01",
+    "h-rt-04",
+    "h-rt-10"
+  ],
+  "stage1_markers": {
+    "h-core-00": {
+      "impact": 5,
+      "feasibility": 2,
+      "alignment": 5,
+      "product": 50,
+      "class": "BigBet",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "strict"
+    },
+    "h-rt-02": {
+      "impact": 5,
+      "feasibility": 4,
+      "alignment": 5,
+      "product": 100,
+      "class": "QuickWin",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "n/a"
+    },
+    "h-rt-03": {
+      "impact": 4,
+      "feasibility": 4,
+      "alignment": 5,
+      "product": 80,
+      "class": "QuickWin",
+      "d_gate4": "yes",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "n/a"
+    },
+    "h-rt-05": {
+      "impact": 3,
+      "feasibility": 5,
+      "alignment": 4,
+      "product": 60,
+      "class": "QuickWin",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "n/a"
+    },
+    "h-rt-07": {
+      "impact": 3,
+      "feasibility": 4,
+      "alignment": 5,
+      "product": 60,
+      "class": "FoundationBuilder",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "2026-07-31",
+      "phase_dependency": "n/a"
+    },
+    "h-rt-01": {
+      "impact": 5,
+      "feasibility": 3,
+      "alignment": 5,
+      "product": 75,
+      "class": "FoundationBuilder",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "strict"
+    },
+    "h-rt-04": {
+      "impact": 4,
+      "feasibility": 3,
+      "alignment": 4,
+      "product": 48,
+      "class": "FoundationBuilder",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "2026-07-31",
+      "phase_dependency": "strict"
+    },
+    "h-rt-10": {
+      "impact": 3,
+      "feasibility": 3,
+      "alignment": 5,
+      "product": 45,
+      "class": "FoundationBuilder",
+      "d_gate4": "no",
+      "compliance_deadline": "none",
+      "system_event_deadline": "none",
+      "phase_dependency": "n/a"
+    }
+  },
+  "stage3_post_adjustment": {
+    "h-rt-02": {
+      "product": 100,
+      "class": "QuickWin"
+    },
+    "h-rt-03": {
+      "product": 80,
+      "class": "QuickWin"
+    },
+    "h-rt-05": {
+      "product": 60,
+      "class": "QuickWin"
+    },
+    "h-rt-07": {
+      "product": 45,
+      "class": "FoundationBuilder"
+    },
+    "h-rt-10": {
+      "product": 45,
+      "class": "FoundationBuilder"
+    },
+    "h-rt-01": {
+      "product": 25,
+      "class": "BigBet"
+    },
+    "h-core-00": {
+      "product": 25,
+      "class": "BigBet"
+    },
+    "h-rt-04": {
+      "product": 16,
+      "class": "BigBet"
+    }
+  },
+  "maturity": {
+    "Strategy": "Developing",
+    "Data": "Early",
+    "Technology": "Developing",
+    "People": "Developing",
+    "Processes": "Developing",
+    "Governance": "Early"
+  },
+  "band": {
+    "layer1": "FRAGMENTED",
+    "alignment": "FRICTION",
+    "band": 1
+  },
+  "phase_map": {
+    "now": [
+      "h-rt-02",
+      "h-rt-05",
+      "h-rt-07"
+    ],
+    "next": [
+      "h-rt-03",
+      "h-rt-10"
+    ],
+    "later": [
+      "h-rt-01",
+      "h-rt-04",
+      "h-core-00"
+    ]
+  },
+  "deadline_now_ids": [
+    "h-rt-07"
+  ],
+  "undivided_ids": [
+    "h-core-00"
+  ],
+  "ceo_name": "Popov",
+  "contradiction_register_ids": [
+    "cr-1",
+    "cr-2",
+    "cr-3",
+    "cr-4",
+    "cr-5"
+  ],
+  "notes": [
+    "h-rt-04 carries system_event_deadline but its post-D6 class is BigBet with phase_dependency=strict, so the FB deadline rule does not apply — Later is correct.",
+    "Fixture staleness (logged 2026-07-22): the 2026-07-31 cutover date passes in days; the imminence pin (roadmap SKILL.md) makes passed dates still place in Now — a run placing h-rt-07 outside Now is a FAIL, not a fixture artifact."
+  ],
+  "system_event_cutover": "2026-07-31",
+  "ceo_full_name": "Dimitar Popov"
+}

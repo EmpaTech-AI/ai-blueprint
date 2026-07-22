@@ -251,3 +251,19 @@ Estimated effort per industry: 3–4 hours.
 - **Archetype coverage is incomplete.** Only Recruitment is currently ACTIVE. New industries require the procedure above.
 - **Archetype auto-detection requires a well-formed header.** If the `Industry Archetype:` line is missing from the header, the harness defaults to recruitment and emits a warning.
 - **The harness operates on native markdown only.** DOCX-roundtripped files fail immediately with `pandoc_artifact_detected`. See §'Gate Invocation Point Policy' above — this is by design, not a bug.
+
+## Version-Event Checklist Amendment (Era N lesson — mandatory)
+
+A schema/skill version event is NOT complete until ALL FOUR layers bump together:
+
+1. **Skills + references + algorithms + archetypes** (this repo, `backend/src/skills/`)
+2. **Validators + stability harness + goldens + fixtures** (this repo, `harness/`, `golden/`)
+3. **App-layer instrumentation** (app repo): WS-A1 permit/allowlist lists, GATE detectors,
+   dimension/structure detectors, the delivery-path renderer, and the build-stamp constant —
+   re-keyed from the schema (consume `harness/permit_manifest_<schema>.json`; never hand-tuned)
+4. **Pre-registered expectations**: the signed expected-outputs manifest for the acceptance
+   fixture (`harness/expected/`), written BEFORE the batch runs
+
+The Era-N batch ran v1.1 skills against v1.0-era app instrumentation because layer 3 lived in
+a different repo and the checklist did not name it. Never again: a version event that has not
+bumped all four layers is a version split, and its acceptance numbers are uninterpretable.

@@ -151,6 +151,18 @@ Tag when this fires: "Placed in Now — system_event_deadline=YYYY-MM-DD within 
   the engagement. If yes → **Now**; stop. If no → proceed to Step 3.
 - When `compliance_deadline=none` → proceed to Step 3.
 
+**Imminence pin (T-32-phase / REG-20 — applies to BOTH deadline fields, non-negotiable):**
+"Within Month 1–3" includes dates that are **imminent (days away) or already passed** at the
+time of the engagement. **Proximity is never a deferral reason.** Do NOT reason "the work
+cannot finish before the date, so Next" — that reasoning is forbidden; the dated trigger
+exists precisely because the work is *urgent*, not because it is *comfortably schedulable*.
+A passed or imminent date places the Foundation Builder in **Now** with a JUSTIFICATION
+entry flagging the compressed/passed window for consultant attention (e.g. "system event
+date has passed/is imminent — scope the immediately-executable governance subset first").
+The only things that can move a deadline-carrying FB out of Now are: the field itself reads
+`none`, or the gate condition is documented as already complete. (Era-N T2 deferred H-RT-07
+to Next against its 2026-07-31 date by exactly the forbidden reasoning — this pin closes it.)
+
 Tag when this fires: "Placed in Now — compliance_deadline=YYYY-MM-DD within Month 1–3;
 legally-mandated enforcement date documented [Form-Stated]."
 
@@ -252,6 +264,10 @@ Before writing the Action Sequence, verify:
 - [ ] All Stage 3 opportunities (7, or 8 incl. H-CORE-00) are assigned to exactly one phase
 - [ ] Now ≤ 3 and Next ≤ 3 after the capacity check (Later uncapped)
 - [ ] H-CORE-00, when present, occupies exactly one row (no sub-entity rows anywhere)
+- [ ] **Deadline audit (imminence pin):** every opportunity whose score marker carries
+      `system_event_deadline` or `compliance_deadline` with a date within Month 1–3 —
+      **including imminent or passed dates** — sits in **Now**. Any such item in Next/Later
+      is a GATE-4 FAIL; re-place it before emitting output
 - [ ] Every item in Next or Later has a rationale citing the specific gate condition, dependency, or maturity gap preventing earlier placement — tagged inline
 
 If GATE-4 fails, resolve before producing output. Document the failure in the [JUSTIFICATION] block.
@@ -336,6 +352,24 @@ documents to justify a placement the field already determines.
 Produce **exactly** these elements, in this order, **every run**. The structure is fixed — do
 not add, omit, or reorder elements run-to-run (the v32 S-25 fork came from a variable structure).
 
+**Mandatory Heading Contract (T-32 / S-44 — the allowlist keys on these levels).** The emitted
+Action Sequence MUST use exactly this skeleton; bold-instead-of-heading or a lone H1 makes the
+stage unverifiable (the Era-N S4 NO-OP and the GATE-4 false-fail):
+
+```markdown
+# Recommended Action Sequence — {CLIENT_NAME}   ← H1, exactly one
+## Sequencing Rationale                          ← H2
+## Phase Summary                                 ← H2 + the mandatory table
+## Phase 1: Now (Months 1–3)                     ← H2
+### {Opportunity Title}                          ← H3, one per opportunity in the phase
+## Phase 2: Next (Months 3–6)                    ← H2
+### {Opportunity Title}
+## Phase 3: Later (Months 6–12)                  ← H2
+### {Opportunity Title}
+## Bridge to Deeper Engagement                   ← H2
+## [JUSTIFICATION]                               ← H2
+```
+
 ### Sequencing Rationale (3–5 sentences)
 
 Why this order. What the overall logic is. Which maturity gaps most influence the sequence. Which phase delivers the first visible win and why that matters for building momentum. **Tag every maturity gap reference and sequencing constraint inline.**
@@ -357,7 +391,7 @@ these rows; it must not contradict them.
 
 For each opportunity in this phase:
 
-**{Opportunity Title}** (Quick Win / Foundation Builder)
+### {Opportunity Title} (Quick Win / Foundation Builder)
 *Why now:* {1–2 sentences grounded in feasibility, urgency, and/or maturity readiness — **tag every evidence reference inline**. Cite the locked score with the field-anchored form (S-24), e.g. "Feasibility 4/5 [Archetype-Anchored — locked at Stage 1] supported by existing CRM data [Document-Backed] and available API access [Form-Stated]."}
 *Expected early result:* {1 sentence — what the client will see within 3 months, tagged if it's a prediction: "Initial time saving of 30–40% on sourcing tasks expected [Assumption — no baseline time-tracking to anchor the figure]"}
 
@@ -365,7 +399,7 @@ For each opportunity in this phase:
 
 For each opportunity:
 
-**{Opportunity Title}** (Foundation Builder / Big Bet)
+### {Opportunity Title} (Foundation Builder / Big Bet)
 *Why next, not now:* {1–2 sentences explaining what needs to happen first — **tag every maturity gap and dependency claim inline**, e.g. "Requires data quality foundations not yet in place [Inferred — no data governance policy was provided [Document-Backed absence]]"}
 *What unlocks this:* {1 sentence — which "Now" phase progress makes this feasible, tagged}
 
@@ -373,7 +407,7 @@ For each opportunity:
 
 For each opportunity:
 
-**{Opportunity Title}** (Big Bet)
+### {Opportunity Title} (Big Bet)
 *Why later:* {1–2 sentences explaining the maturity or investment requirements — **tag every constraint claim inline**}
 *What this builds on:* {1 sentence — which earlier phases lay the groundwork, tagged}
 

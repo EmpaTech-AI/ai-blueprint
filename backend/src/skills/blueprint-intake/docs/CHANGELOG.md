@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.1.0] — 2026-07-22 — Era-N remediation, Wave 2 (adjudicated plan, Steven 2026-07-22)
+
+### Added
+- **Pre-registration discipline**: `harness/expected/BP-TEST-001_v1_1_expected.json` (signed
+  expected-outputs manifest — selection, markers, Stage-3 scores, maturity, band, phase map,
+  names, CR register) + `harness/check_expectation.py` (mechanical run-vs-expectation diff;
+  detects KR2 drops, KR3 deadline overrides, and T-30 splits)
+- **Three-seed safety battery**: `harness/tests/test_seeded_battery.py` — seeds the H-RT-04
+  drop, the H-RT-07 deadline defer, and an H-CORE-00 two-row split into conforming artifacts
+  and asserts each is CAUGHT (5/5 passing incl. two PASS controls)
+- **Schema-derived permit manifest**: `harness/permit_manifest_intake_v1_1.json` — the app-layer
+  re-keying input (permit lists, detectors, renderer contract; token-based S5 strip incl.
+  flattened-heading forms — the Era-N T2 breach class)
+- OPERATIONS.md: four-layer Version-Event Checklist Amendment (skills / harness / app
+  instrumentation / pre-registered expectations — never split again)
+
+### Changed
+- **KR3 pin (REG-20)**: roadmap imminence rule — imminent or passed deadlines NEVER defer;
+  GATE-4 deadline audit line
+- **KR2 pin (REG-19)**: absorption whitelist at the selection step (`h0_consumer=yes` is the
+  only absorption mechanism; H-RT-04/H-RT-07 never absorbed; top-7 completeness assertion) +
+  Checkpoint-2 assertion line
+- **Heading contracts (T-32 support)**: explicit mandatory heading skeletons for Stage 2 and
+  Stage 4 (H2 sections, H3 dimensions/opportunities) so contract and allowlist agree
+- **Build stamp (T-07)**: assembly template stamp values are supplied-by-bundle, never a typed
+  constant; `unknown` beats a wrong label
+- Golden Section H: contradiction register rows now carry CR-1…CR-5 identifiers (A-16)
+
+Full-spine regression after all contract edits: gate PASS · validator 8/8 · stability PASS ·
+expectation-vs-golden PASS (0 warns) · seeded battery 5/5.
+
+---
+
 ## [2.0.0] — 2026-07-21 — `intake_v1.1` version event (CORE pattern / ARIA enhancement)
 
 Transcribes the Meridian Golden Benchmark v1.1 §A encoding register (18 items; Practice
