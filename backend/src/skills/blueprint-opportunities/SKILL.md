@@ -88,15 +88,21 @@ Scan the dossier and maturity snapshot for signals:
 
 Every signal must have at least one citation to the dossier or snapshot.
 
-### Step 3 — Generate and Refine
+### Step 3 — Fix the Portfolio Membership (REG-21 pin: COPY, never re-derive)
 
-1. Generate 12–15 raw ideas from the signals
-2. Consolidate to the **top 5–7** by:
-   - Merging duplicates and overlapping ideas
-   - Removing ideas that are already implemented (if evidence suggests)
-   - Removing generic ideas not linked to specific pain points
-   - Removing ideas requiring prerequisites that are clearly out of reach given maturity
-3. The final 5–7 should represent a mix of Quick Wins, Foundation Builders, and Big Bets
+**The portfolio membership IS Stage 1's Section D — decided exactly once, at Stage 1, and
+copied verbatim here.** Extract the `<!-- score: id=... -->` IDs from the dossier Section D;
+those IDs — all of them, in that presentation order — are the opportunity set for this stage
+and every stage after it.
+
+Do NOT generate new ideas, consolidate, merge, drop, add, or re-rank membership at this stage.
+In particular, the reasoning **"this opportunity falls below the top 7 by adjusted product
+score" is FORBIDDEN** — the D6 readiness adjustment (Step 4) changes scores and
+classifications, NEVER membership. A low post-adjustment score is information for the roadmap
+and the consultant, not grounds for exclusion. An output whose card set differs from Stage 1's
+Section D ID set is a selection-integrity violation (the Era-O JS-4 fork: Stage 3 re-derived
+the adjustment, declared H-RT-04 "below the top 7," and silently dropped it against its own
+Stage 1 selection — selection is never re-decided downstream).
 
 ### Step 3b — Lock to Intake Dossier Hypothesis Scores (mandatory)
 
@@ -375,6 +381,21 @@ Before finalising the Opportunity Map, scan for and remove:
 - Pipeline-stage acknowledgements in prose (`I have confirmed receipt`, `as Step 3 output`, `this skill produces`, etc.)
 - Internal methodology meta-references that break tone (`per the methodology`, `as defined in SKILL.md`, etc.)
 - Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
+
+**Membership-equality check (REG-21 — mandatory, run before emitting output):**
+
+The set of `id=` values in this output's score markers must equal the Stage 1 Section D
+marker ID set EXACTLY (no additions, no omissions), and the cards must appear in the Stage 1
+presentation order (tie-breaks were resolved at Stage 1 by the ordering algorithm — never
+re-sort, S-47). Any difference is a pre-flight FAIL: restore the missing/extra card.
+
+**Archetype-Anchored presence check (REG-22 — mandatory):**
+
+Every opportunity card's Scores line carries `[Archetype-Anchored ...]` exactly once — the
+score basis is a pinned lookup, never re-classed into `[Inferred]`/`[Assumption]` (doing so
+breaks the D-9 grounding pin and inflates LC counts; the Era-O batch emitted AA=0 across all
+four runs). Expected AA tag count = number of cards (8 incl. H-CORE-00 at v1.1 scope). Zero
+`[Archetype-Anchored]` tags in a Stage-3 output is a pre-flight FAIL.
 
 **Score marker completeness check (mandatory — run before emitting output):**
 

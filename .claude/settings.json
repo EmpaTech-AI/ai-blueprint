@@ -211,7 +211,11 @@
       "Bash(grep -rn 'H-RT-\\\\\\\\d' --include=\"*.ts\" utils/ pipeline/)",
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(grep -iE \"regex|test\\\\\\(|match|RegExp|/\\\\^?H-RT\")",
-      "Bash(bash backend/verify_all.sh)"
+      "Bash(bash backend/verify_all.sh)",
+      "Bash(python \"/c/Users/Bozhidar/AppData/Local/Temp/claude/d--Shiz-AI-Assist-BG-AI-Blueprint/73841ffe-3b7a-4cb4-9523-3d46fffbf5f7/scratchpad/era_o_fixes.py\")",
+      "Bash(bash verify_all.sh)",
+      "Bash(cd \"/d/Shiz/AI Assist BG/AI Blueprint/backend/src/skills/blueprint-intake\" && ls docs/EXPANSION_ARCHITECTURE.md 2>/dev/null || echo \"MISSING\" ; grep -c \"CONFIRMED as the benchmark of record\\\\|ATTESTATION\" ../../../../rework_docs/Meridian_Golden_Output_BENCHMARK_v1_1.md 2>/dev/null)",
+      "Read(//d/rework_docs/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Bozhidar\\.gstack\\projects\\empathysales-AI-Blueprint"

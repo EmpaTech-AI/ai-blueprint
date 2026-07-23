@@ -4,6 +4,7 @@ import {
   validateRoleNames,
   validateStrictDependencyPhases,
   validateFirmSurnameBleed,
+  validatePortfolioMembership,
 } from './opportunityValidator';
 
 const FULL_FIELDS =
@@ -272,5 +273,27 @@ describe('validateStrictDependencyPhases — strict ⇒ Later, unconditionally',
 
   it('T-30: a clean undivided strict-in-Later roadmap does NOT false-fire', () => {
     expect(validateStrictDependencyPhases(phaseTable('Later'), stage3).reviewerFlags).toEqual([]);
+  });
+});
+
+describe('validatePortfolioMembership (REG-21 — Era-O JS-4)', () => {
+  const mk = (ids: string[]) => ids.map(id =>
+    `<!-- score: id=${id} impact=4 feasibility=3 alignment=4 product=48 class=FoundationBuilder ml_heavy=no multi_source=no regulated=no large_integration=no adoption_dependent=no d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->`
+  ).join('\n');
+
+  it('BLOCKER when Stage 3 silently drops a Stage-1-selected opportunity', () => {
+    const { reviewerFlags } = validatePortfolioMembership(mk(['H-RT-02', 'H-RT-04', 'H-CORE-00']), mk(['H-RT-02', 'H-CORE-00']));
+    expect(reviewerFlags.some(f => /REG-21.*Missing: \[H-RT-04\]/.test(f))).toBe(true);
+    expect(reviewerFlags.every(f => f.startsWith('BLOCKER:'))).toBe(true);
+  });
+
+  it('BLOCKER when Stage 3 invents an opportunity Stage 1 never selected', () => {
+    const { reviewerFlags } = validatePortfolioMembership(mk(['H-RT-02']), mk(['H-RT-02', 'H-RT-09']));
+    expect(reviewerFlags.some(f => /REG-21.*unexpected: \[H-RT-09\]/.test(f))).toBe(true);
+  });
+
+  it('clean when the sets match exactly (incl. H-CORE-00)', () => {
+    const { reviewerFlags } = validatePortfolioMembership(mk(['H-RT-02', 'H-CORE-00']), mk(['H-CORE-00', 'H-RT-02']));
+    expect(reviewerFlags).toEqual([]);
   });
 });

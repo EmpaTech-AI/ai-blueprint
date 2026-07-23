@@ -330,10 +330,22 @@ citation per run. Re-deriving per-run prose citations is what made the Stage-4 g
 fork across runs (doc% 48–95%) even though the placement decisions themselves were reproducible.
 Pin the citation to the field, exactly as the decision is pinned to the field.
 
-- **Field-driven placements** → cite the field with the `[Form-Stated — <field>=<value> from Stage 1 score comment]` form. Examples:
-  - `Placed in Next [Form-Stated — d_gate4=yes from Stage 1 score comment]`
-  - `Placed in Now [Form-Stated — system_event_deadline=2026-07-31 from Stage 1 score comment, within Month 1–3]`
-  - `Placed in Later [Form-Stated — phase_dependency=strict from Stage 1 score comment]` (the antecedent's phase is NOT cited — `strict` always means Later)
+- **Field-driven placements (S-48 revision)** → the DECISION reads the machine fields; the
+  DOCUMENT never prints field syntax. Cite with the pinned PLAIN-LANGUAGE strings below —
+  these exact strings, chosen by which field fired (deterministic, so the S-24 pinned-citation
+  guarantee is preserved without leaking internal vocabulary):
+  - d_gate4 fired → `Placed in Next [pinned at intake — a named external gate must complete first]`
+  - system-event date in window → `Placed in Now [pinned at intake — a dated system cutover falls within the first three months]`
+  - compliance date in window → `Placed in Now [pinned at intake — a legally mandated deadline falls within the first three months]`
+  - strict dependency → `Placed in Later [pinned at intake — strict foundation dependency]`
+  - no dated trigger → `Placed in Next [pinned at intake — no dated trigger documented]`
+
+  The literal tokens `d_gate4=`, `system_event_deadline=`, `compliance_deadline=`,
+  `phase_dependency=`, `D6`, and the phrase "score comment" must NOT appear anywhere in the
+  Action Sequence body — facts may be cited (the cutover date itself, the gate's name), field
+  syntax never (S-48: the Era-O batch leaked 7–15 field tokens per run into client-visible
+  roadmap prose). Field syntax is permitted only inside the [JUSTIFICATION] block, and plain
+  language is preferred even there.
 - **Score references** → cite the locked score as `[Archetype-Anchored — Feasibility 4/5 locked at Stage 1]`, NOT a re-derived `[Document-Backed]` per run. The score basis is reproducible by construction (see S-23 in `methodology-and-contracts`).
 - **Genuine client-evidence and predictions** (maturity gaps, expected results, adoption estimates) → keep `[Document-Backed]`/`[Form-Stated]`/`[Inferred]`/`[Assumption]` as today. These are the only citations that may legitimately vary, and only when the underlying evidence does.
 
@@ -382,7 +394,7 @@ Next → Later, with the canonical H-RT-XX ID so the assignment is machine-check
 
 | Opportunity | H-RT ID | Class | Phase | Primary placement driver |
 |---|---|---|---|---|
-| {Title} | H-RT-NN | Quick Win / Foundation Builder / Big Bet | Now / Next / Later | {field or gate that fixed the phase, e.g. "d_gate4=yes", "system_event_deadline within M1–3", "phase_dependency=strict"} |
+| {Title} | H-RT-NN | Quick Win / Foundation Builder / Big Bet | Now / Next / Later | {pinned plain-language driver, e.g. "named external gate (pinned)", "dated cutover within months 1–3 (pinned)", "strict dependency (pinned)" — never raw field syntax (S-48)} |
 
 Every opportunity from Stage 3 appears in exactly one row. The per-phase detail below expands
 these rows; it must not contradict them.
@@ -520,6 +532,7 @@ Before finalising the Action Sequence, scan for and remove:
   State the recommendation and its plain-language reason; never the internal rule that produced it.
 - **GATE-4 / capacity self-checks** — the phase-capacity and GATE-4 validation steps are INTERNAL;
   never transcribe a capacity self-check, checklist, or "GATE-4" line into the Action Sequence.
+- **Field-syntax tokens in the body (S-48)** — `d_gate4=`, `system_event_deadline=`, `compliance_deadline=`, `phase_dependency=`, `D6`, "score comment" anywhere outside the [JUSTIFICATION] block is a pre-flight FAIL; use the pinned plain-language citation strings
 - Malformed confidence tags (see forbidden forms in "Mandatory Inline Tagging" above)
 - **Invented person names (S-26)** — any client/CEO/staff name in a rationale or the
   [JUSTIFICATION] block must be the exact name from the Stage 1 `<!-- INTAKE_FACTS -->` block

@@ -5,9 +5,10 @@
   "signoff": {
     "practice": "Claude (Fable 5), validation analyst — signing for Practice per the adjudicator directive relayed 2026-07-22; derives verbatim from the benchmark of record (Practice-confirmed 2026-07-20)",
     "engineering": "Viktor Serafimov — encoding verified faithful to the benchmark; checker (check_expectation.py) reads all fields",
-    "date": "2026-07-22",
-    "content_sha256": "5a8060b8660abdc788e4cff4de3831867989a3321b2c3c2c9a274caacb945a8f",
-    "seal_procedure": "This manifest is FROZEN as of the signing date. The git commit containing this signed file must precede the acceptance batch; the run bundle cites that commit SHA + this content hash. Any post-batch edit is a new commit and voids the pre-registration for that batch. Verify: recompute SHA-256 over the JSON minus this signoff block (sort_keys, compact separators) and compare."
+    "date": "2026-07-23",
+    "content_sha256": "50f0044c57a6ac298b910048b2d2552764293fbc6c4e6a740f141d7b3bcb9305",
+    "seal_procedure": "This manifest is FROZEN as of the signing date. The git commit containing this signed file must precede the acceptance batch; the run bundle cites that commit SHA + this content hash. Any post-batch edit is a new commit and voids the pre-registration for that batch. Verify: recompute SHA-256 over the JSON minus this signoff block (sort_keys, compact separators) and compare.",
+    "reseal_note": "Re-sealed 2026-07-23: aa_expected added post-Era-O skill-path batch (REG-22), before any Gate-4 acceptance run. Prior hash 5a8060b8...; amendment open per seal procedure."
   },
   "input_fixture": "ValueBlueprint docs/test/ per the SHA-256 manifest in the pinned benchmark §I — runs on non-matching inputs are not comparable",
   "pain_point_ids_ordered": [
@@ -199,8 +200,10 @@
   ],
   "notes": [
     "h-rt-04 carries system_event_deadline but its post-D6 class is BigBet with phase_dependency=strict, so the FB deadline rule does not apply — Later is correct.",
-    "Fixture staleness (logged 2026-07-22): the 2026-07-31 cutover date passes in days; the imminence pin (roadmap SKILL.md) makes passed dates still place in Now — a run placing h-rt-07 outside Now is a FAIL, not a fixture artifact."
+    "Fixture staleness (logged 2026-07-22): the 2026-07-31 cutover date passes in days; the imminence pin (roadmap SKILL.md) makes passed dates still place in Now — a run placing h-rt-07 outside Now is a FAIL, not a fixture artifact.",
+    "aa_expected added 2026-07-23 (REG-22, Era-O): every Stage-3 card carries [Archetype-Anchored] once; 8 cards at v1.1 scope. Openly re-sealed BEFORE the Gate-4 batch per the seal procedure."
   ],
   "system_event_cutover": "2026-07-31",
-  "ceo_full_name": "Dimitar Popov"
+  "ceo_full_name": "Dimitar Popov",
+  "aa_expected": 8
 }

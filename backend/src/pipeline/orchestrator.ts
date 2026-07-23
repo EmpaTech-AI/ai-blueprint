@@ -24,7 +24,7 @@ import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -250,6 +250,13 @@ export async function runPipeline(jobId: string): Promise<void> {
     if (relayFlags.length > 0) {
       reviewerFlags.push(...relayFlags);
       log('warn', 'GATE 3: relay-field drift detected', { jobId, count: relayFlags.length });
+    }
+
+    // REG-21 (Era-O): Stage-3 membership must equal Stage-1 Section D exactly — BLOCKER on drift.
+    const { reviewerFlags: membershipFlags } = validatePortfolioMembership(dossier, opportunities);
+    if (membershipFlags.length > 0) {
+      reviewerFlags.push(...membershipFlags);
+      log('warn', 'GATE 3: portfolio membership re-derivation detected (REG-21)', { jobId });
     }
 
     await saveStepOutput(jobId, 'D', opportunities);

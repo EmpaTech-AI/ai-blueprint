@@ -414,6 +414,29 @@ function parsePhaseSummaryRows(roadmapOutput: string): Array<{ id: string | null
 // carries no H-RT id). Tight, to avoid false-positives on ordinary placement prose.
 const DECOMPOSITION_PHRASING = /\b(?:pilot scoping|full deployment|scoping (?:phase|pilot|component)|deployment (?:phase|component)|prerequisite (?:phase|component))\b/i;
 
+
+// REG-21 (Era-O JS-4): portfolio membership is decided ONCE, at Stage 1. Stage 3 re-derived the
+// D6 adjustment and silently dropped a selected opportunity ("below the top 7 by adjusted product
+// score") against its own Stage 1 selection. This guard compares marker-ID SETS Stage 1 vs
+// Stage 3 and raises a BLOCKER on any difference — membership is copied, never recomputed.
+export function validatePortfolioMembership(stage1Dossier: string, stage3Opportunities: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const s1 = [...parseScoreCommentsById(stage1Dossier).keys()];
+  const s3 = [...parseScoreCommentsById(stage3Opportunities).keys()];
+  if (s1.length === 0 || s3.length === 0) return { reviewerFlags }; // legacy docs: relay/count checks cover
+  const missing = s1.filter(id => !s3.includes(id));
+  const extra = s3.filter(id => !s1.includes(id));
+  if (missing.length > 0 || extra.length > 0) {
+    reviewerFlags.push(
+      `${BLOCKER_PREFIX} GATE 3 FAIL REG-21 (membership re-derivation): Stage-3 portfolio does not equal ` +
+      `Stage-1 Section D. Missing: [${missing.join(', ') || 'none'}]; unexpected: [${extra.join(', ') || 'none'}]. ` +
+      `Selection is decided once, at Stage 1 — the D6 adjustment changes scores/classes, never membership. ` +
+      `Restore the dropped card(s); do not re-rank membership by adjusted product.`,
+    );
+  }
+  return { reviewerFlags };
+}
+
 export function validateStrictDependencyPhases(roadmapOutput: string, stage3Opportunities: string): { reviewerFlags: string[] } {
   const reviewerFlags: string[] = [];
   const s3 = parseScoreCommentsById(stage3Opportunities);

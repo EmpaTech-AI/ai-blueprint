@@ -37,12 +37,12 @@ CONFORMING_STAGE4 = """# Recommended Action Sequence — Meridian Talent Partner
 |---|---|---|---|---|
 | AI-Powered CV Formatting + Summary Generation | H-RT-02 | Quick Win | Now | no named prerequisite |
 | Interview Scheduling Standardisation | H-RT-05 | Quick Win | Now | no named prerequisite |
-| Data Protection Compliance Foundation | H-RT-07 | Foundation Builder | Now | system_event_deadline=2026-07-31 within M1-3 |
-| ATS-Driven Automated Client Status Updates | H-RT-03 | Quick Win | Next | d_gate4=yes |
+| Data Protection Compliance Foundation | H-RT-07 | Foundation Builder | Now | dated cutover within months 1-3 (pinned) |
+| ATS-Driven Automated Client Status Updates | H-RT-03 | Quick Win | Next | named external gate (pinned) |
 | BD Proposal Automation + RPO Productisation Support | H-RT-10 | Foundation Builder | Next | no dated trigger |
-| AI-Assisted Specialist Sourcing | H-RT-01 | Big Bet | Later | phase_dependency=strict |
-| Candidate Database Revival | H-RT-04 | Big Bet | Later | phase_dependency=strict |
-| AI Company Brain | H-CORE-00 | Big Bet | Later | phase_dependency=strict |
+| AI-Assisted Specialist Sourcing | H-RT-01 | Big Bet | Later | strict dependency (pinned) |
+| Candidate Database Revival | H-RT-04 | Big Bet | Later | strict dependency (pinned) |
+| AI Company Brain | H-CORE-00 | Big Bet | Later | strict dependency (pinned) |
 """
 
 
@@ -90,9 +90,9 @@ def main():
 
     # Seed C — T-30 split: H-CORE-00 decomposed into two rows (the Era-M S-40 class)
     seed_c = CONFORMING_STAGE4.replace(
-        "| AI Company Brain | H-CORE-00 | Big Bet | Later | phase_dependency=strict |",
+        "| AI Company Brain | H-CORE-00 | Big Bet | Later | strict dependency (pinned) |",
         "| AI Company Brain — Pilot Scoping | H-CORE-00 | Big Bet | Next | pilot scoping |\n"
-        "| AI Company Brain — Full Deployment | H-CORE-00 | Big Bet | Later | phase_dependency=strict |")
+        "| AI Company Brain — Full Deployment | H-CORE-00 | Big Bet | Later | strict dependency (pinned) |")
     fails, _ = run_checks(exp, stage4_text=seed_c)
     caught = any("T-30 SPLIT" in f for f in fails)
     report("Seed C: H-CORE-00 two-row decomposition is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")

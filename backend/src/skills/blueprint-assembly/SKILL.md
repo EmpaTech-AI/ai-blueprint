@@ -53,6 +53,14 @@ Before assembling, confirm you have:
 
 If any input is missing or incomplete, flag it and request the missing step be run first.
 
+## Title Block (S-46 pin — mandatory, before Section 1)
+
+The document title/cover carries the **client organisation name verbatim from the Stage 1
+`<!-- INTAKE_FACTS -->` `CLIENT_NAME` field** — never an operator label, run label, test tag,
+or engagement shorthand (the Era-O batch shipped four different operator-label variants in the
+client-name slot: a real client would receive a report addressed to the wrong name). If
+INTAKE_FACTS is absent, use the dossier header's Client Legal Name; never anything else.
+
 ## The Blueprint Deliverable Structure
 
 Produce **exactly** these sections, in this order:
@@ -60,7 +68,9 @@ Produce **exactly** these sections, in this order:
 ### 1. Executive Summary (1 page)
 
 Synthesize the key findings from all 4 steps into a single, compelling page:
-- Who the client is and what they do (from Dossier Section A)
+- Who the client is and what they do (from Dossier Section A) — **always naming the CEO by
+  full name from INTAKE_FACTS** (the Era-O batch named the CEO in 2 of 4 runs and omitted them
+  entirely in one; presence is pinned: the executive summary names the chief executive, every run)
 - Their overall AI readiness posture (from Readiness Snapshot overall pattern)
 - The top 3 findings — what matters most (drawn from pain points, maturity gaps, and opportunities)
 - What the Blueprint recommends as the immediate focus
@@ -105,7 +115,12 @@ and evidenced.
 
 Take the Scored Opportunity Map from Step 3 and present it client-facing:
 - Brief intro (100–150 words from the Executive Opportunity Summary)
-- The opportunity cards (5–7), formatted cleanly with consistent layout
+- The opportunity cards, formatted cleanly with consistent layout — **one canonical labelling
+  scheme (S-49), no alternatives:** each card is headed `Opportunity N: {Title}` where N is the
+  position in the Stage 1 Section D presentation order (H-0's card is Opportunity 1 when
+  present). Never "Quick Win #1:", "Quick Win 1 —", or any classification-based numbering —
+  the classification appears inside the card, not in its label. **Order is copied from Stage 1
+  (S-47), never re-sorted** — tie-breaks were resolved once, at Stage 1
 - The Portfolio View (Quick Wins / Foundation Builders / Big Bets)
 - The 2×2 matrix description (Impact vs. Feasibility) — describe where each opportunity
   sits conceptually, or include as a formatted table

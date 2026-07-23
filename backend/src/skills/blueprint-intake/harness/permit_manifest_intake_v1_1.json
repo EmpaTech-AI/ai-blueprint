@@ -120,7 +120,8 @@
       "strip_always": [
         "GATE-4 self-check text",
         "capacity self-check text",
-        "engineering task codes (T-\\d+, S-\\d+, WL-\\d+, REG-\\d+)"
+        "engineering task codes (T-\\d+, S-\\d+, WL-\\d+, REG-\\d+)",
+        "field-syntax tokens at any position (d_gate4=, system_event_deadline=, compliance_deadline=, phase_dependency=, \"score comment\", standalone D6) — S-48; token-based, any form"
       ],
       "detector_notes": "GATE-4 verification must key on the Phase Summary table + the H2 phase headings above. Each undivided ID appears in exactly ONE Phase Summary row (T-30)."
     },

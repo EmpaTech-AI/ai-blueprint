@@ -110,6 +110,13 @@ def check_stage3(exp: dict, text: str, fails: list, warns: list) -> None:
     got_set = set(markers.keys())
     if got_set != exp_set:
         fails.append(f"KR2 selection fork (Stage 3 map): missing {sorted(exp_set - got_set)}, unexpected {sorted(got_set - exp_set)}")
+    aa_expected = exp.get("aa_expected")
+    if aa_expected is not None:
+        aa_count = text.count("[Archetype-Anchored")
+        if aa_count == 0:
+            fails.append(f"REG-22 AA-pin BROKEN: zero [Archetype-Anchored] tags in Stage 3 (expected {aa_expected}) - score-basis tags re-classed into Inferred/Assumption (the Era-O uniform defect)")
+        elif aa_count != aa_expected:
+            warns.append(f"AA count {aa_count} differs from expected {aa_expected} (one per card)")
     for hid, want in exp.get("stage3_post_adjustment", {}).items():
         got = markers.get(hid)
         if not got:
