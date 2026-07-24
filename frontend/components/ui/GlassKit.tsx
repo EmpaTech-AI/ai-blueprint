@@ -87,39 +87,6 @@ export function GlassKit() {
     themeBtn?.addEventListener('click', onThemeClick);
     cleanups.push(() => themeBtn?.removeEventListener('click', onThemeClick));
 
-    /* ── Ripple (click feedback on interactive surfaces) ─────────────── */
-    const RIPPLE_SEL = '.glass-btn, .glass-card, .glass, .btn-primary, .btn-secondary, .btn-ghost, .notif';
-
-    function spawnRipple(el: HTMLElement, evt: MouseEvent) {
-      if (el.querySelectorAll('[data-ripple]').length > 3) return;
-      const ripple = document.createElement('span');
-      ripple.setAttribute('data-ripple', '');
-      const rect = el.getBoundingClientRect();
-      const size = Math.max(rect.width, rect.height) * 1.2;
-      Object.assign(ripple.style, {
-        position:     'absolute',
-        left:         `${evt.clientX - rect.left - size / 2}px`,
-        top:          `${evt.clientY - rect.top  - size / 2}px`,
-        width:        `${size}px`,
-        height:       `${size}px`,
-        borderRadius: '50%',
-        background:   'rgba(255,255,255,0.18)',
-        transform:    'scale(0)',
-        pointerEvents:'none',
-        animation:    'ripple 600ms ease-out forwards',
-        zIndex:       '999',
-      });
-      el.appendChild(ripple);
-      ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
-    }
-
-    const onDocRipple = (evt: MouseEvent) => {
-      const el = (evt.target as Element).closest(RIPPLE_SEL) as HTMLElement | null;
-      if (el) spawnRipple(el, evt);
-    };
-    document.addEventListener('click', onDocRipple);
-    cleanups.push(() => document.removeEventListener('click', onDocRipple));
-
     /* ── Accordion (.glass-accordion) ───────────────────────────────── */
     document.querySelectorAll('.glass-accordion').forEach((container) => {
       container.querySelectorAll<HTMLElement>('.glass-accordion-trigger').forEach((trigger) => {
