@@ -5,6 +5,7 @@ import { UseFormRegister, FieldErrors, UseFormGetValues, UseFormSetValue } from 
 import { Question } from '@/lib/formSchema';
 import { cn } from '@/lib/utils';
 import { CheckIcon } from '@/components/ui/icons';
+import { ExampleAnswer } from './ExampleAnswer';
 
 interface QuestionFieldProps {
   question: Question;
@@ -45,6 +46,13 @@ export function QuestionField({ question, register, errors, getValues, setValue 
     <p style={errorStyle}>{String(error.message || 'This field is required')}</p>
   );
 
+  const example = (
+    <ExampleAnswer
+      questionId={question.id}
+      isSelection={question.type === 'select' || question.type === 'multiselect' || question.type === 'number'}
+    />
+  );
+
   if (question.type === 'multiselect') {
     return (
       <MultiSelectField
@@ -52,6 +60,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
         initialValues={(getValues(question.id) as string[]) || []}
         onChange={(next) => setValue(question.id, next, { shouldDirty: true, shouldValidate: true })}
         error={!!error}
+        example={example}
       />
     );
   }
@@ -69,6 +78,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
           {...register(question.id, { required: question.required ? 'This field is required' : false })}
         />
         {errorMsg}
+        {example}
       </div>
     );
   }
@@ -88,6 +98,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
           ))}
         </select>
         {errorMsg}
+        {example}
       </div>
     );
   }
@@ -108,6 +119,7 @@ export function QuestionField({ question, register, errors, getValues, setValue 
           })}
         />
         {errorMsg}
+        {example}
       </div>
     );
   }
@@ -133,11 +145,13 @@ function MultiSelectField({
   initialValues,
   onChange,
   error,
+  example,
 }: {
   question: Question;
   initialValues: string[];
   onChange: (values: string[]) => void;
   error: boolean;
+  example?: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<string[]>(initialValues);
 
@@ -214,6 +228,7 @@ function MultiSelectField({
           {selected.length} selected
         </p>
       )}
+      {example}
     </div>
   );
 }

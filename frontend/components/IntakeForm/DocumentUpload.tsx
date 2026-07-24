@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { UPLOAD_CATEGORIES, ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_MB } from '@/lib/formSchema';
+import { EXAMPLE_DOCUMENTS } from '@/lib/exampleAnswers';
 import { formatFileSize, cn } from '@/lib/utils';
 import {
   FileTextIcon,
@@ -9,6 +10,7 @@ import {
   UploadIcon,
   CheckCircleIcon,
   XCircleIcon,
+  EyeIcon,
 } from '@/components/ui/icons';
 
 export interface UploadedFiles {
@@ -251,6 +253,34 @@ function UploadZone({ category, file, error, onFile, onRemove }: UploadZoneProps
 
           {error && (
             <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>{error}</p>
+          )}
+
+          {EXAMPLE_DOCUMENTS[category.id] && (
+            <a
+              href={EXAMPLE_DOCUMENTS[category.id].file}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={EXAMPLE_DOCUMENTS[category.id].title}
+              // The whole zone opens the file picker on click — keep the preview link out of that.
+              onClick={(e) => e.stopPropagation()}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-colors duration-150 px-2.5 py-1 rounded-lg"
+              style={{
+                color: 'rgba(165,180,252,0.85)',
+                background: 'rgba(99,102,241,0.1)',
+                border: '1px solid rgba(99,102,241,0.3)',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = '#a5b4fc';
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(99,102,241,0.55)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(165,180,252,0.85)';
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(99,102,241,0.3)';
+              }}
+            >
+              <EyeIcon className="w-3.5 h-3.5" />
+              Preview example document
+            </a>
           )}
         </div>
       </div>
