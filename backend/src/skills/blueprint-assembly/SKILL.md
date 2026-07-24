@@ -121,7 +121,11 @@ Take the Scored Opportunity Map from Step 3 and present it client-facing:
   present). Never "Quick Win #1:", "Quick Win 1 —", or any classification-based numbering —
   the classification appears inside the card, not in its label. **Order is copied from Stage 1
   (S-47), never re-sorted** — tie-breaks were resolved once, at Stage 1
-- The Portfolio View (Quick Wins / Foundation Builders / Big Bets)
+- The Portfolio View (Quick Wins / Foundation Builders / Big Bets) — the Portfolio View GROUPS
+  by class; the card SEQUENCE follows Stage-1 order (S-47/S-49). S-51/A-11 boundary: when
+  H-CORE-00 is present, Opportunity 1 IS the AI Company Brain — a Big Bet leading the map is
+  CORRECT by ratified design (A-11: the foundational rung leads). Never "fix" this to
+  Quick-Win-first; graders use the signed expectation manifest, which places h-core-00 first
 - The 2×2 matrix description (Impact vs. Feasibility) — describe where each opportunity
   sits conceptually, or include as a formatted table
 

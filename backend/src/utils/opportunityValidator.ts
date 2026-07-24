@@ -154,6 +154,23 @@ export function validateOpportunityScores(output: string): OpportunityValidation
     );
   }
 
+  // ── REG-22 (Era-O/O'): Archetype-Anchored enforcement ─────────────────────
+  // The score basis is a pinned archetype lookup and MUST carry [Archetype-Anchored]
+  // once per card (S-23/D-9). Both Era-O batches emitted AA=0 across all runs despite
+  // the SKILL instruction -- a prompt pin without an enforcer. This is the enforcer.
+  // Threshold >=3 cards so single-card unit fixtures are not forced to carry the tag.
+  if (scores.length >= 3) {
+    const aaCount = (output.match(/\[Archetype-Anchored/g) ?? []).length;
+    if (aaCount === 0) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 3 FAIL REG-22 (AA pin): zero [Archetype-Anchored] tags in the ` +
+        `Stage-3 output (expected one per card, ${scores.length} cards). Score-basis tags were ` +
+        're-classed into Inferred/Assumption, breaking the D-9 grounding pin and inflating LC ' +
+        'counts. Restore the [Archetype-Anchored] tag on every Scores line before delivery.',
+      );
+    }
+  }
+
   // ── Portfolio shape check (GATE 3) ────────────────────────────────────────
   if (scores.length > 0) {
     const classes = new Set(scores.map(s => s.class));

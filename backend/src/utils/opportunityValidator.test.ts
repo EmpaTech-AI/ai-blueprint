@@ -28,6 +28,29 @@ describe('T-26 validateOpportunityScores — stub + duplicate flags', () => {
   });
 });
 
+describe('REG-22 validateOpportunityScores — Archetype-Anchored enforcement (Era-O/O′)', () => {
+  const marker = (id: string) => `<!-- score: id=${id} impact=5 feasibility=4 alignment=5 product=100 class=QuickWin ${FULL_FIELDS} -->`;
+
+  it('fires a BLOCKER when a full portfolio carries zero [Archetype-Anchored] tags', () => {
+    const out = ['H-RT-02', 'H-RT-03', 'H-RT-05'].map(marker).join('\n');
+    const { reviewerFlags } = validateOpportunityScores(out);
+    expect(reviewerFlags.some(f => /BLOCKER.*REG-22.*zero \[Archetype-Anchored\]/.test(f))).toBe(true);
+  });
+
+  it('does not fire when the AA tag is present', () => {
+    const out = ['H-RT-02', 'H-RT-03', 'H-RT-05']
+      .map(id => `${marker(id)}\nScores: Impact 5 × Feasibility 4 × Alignment 5 = 100 [Archetype-Anchored: recruitment §B]`)
+      .join('\n');
+    const { reviewerFlags } = validateOpportunityScores(out);
+    expect(reviewerFlags.some(f => /REG-22/.test(f))).toBe(false);
+  });
+
+  it('does not fire on small unit fixtures (< 3 cards)', () => {
+    const { reviewerFlags } = validateOpportunityScores(marker('H-RT-02'));
+    expect(reviewerFlags.some(f => /REG-22/.test(f))).toBe(false);
+  });
+});
+
 // ── T-26 cross-stage relay-field validator ──────────────────────────────────────
 
 describe('validateRelayFields — cross-stage drift (H-RT-04 case)', () => {

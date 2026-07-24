@@ -110,6 +110,9 @@ def check_stage3(exp: dict, text: str, fails: list, warns: list) -> None:
     got_set = set(markers.keys())
     if got_set != exp_set:
         fails.append(f"KR2 selection fork (Stage 3 map): missing {sorted(exp_set - got_set)}, unexpected {sorted(got_set - exp_set)}")
+    elif list(markers.keys()) != exp["hypothesis_ids_ordered"]:
+        fails.append(f"S-47/S-51 ordering fork (Stage 3): expected {exp['hypothesis_ids_ordered']}, got {list(markers.keys())} "
+                     "(card order is copied from Stage 1; h-core-00 leads when present -- A-11, never re-sorted)")
     aa_expected = exp.get("aa_expected")
     if aa_expected is not None:
         aa_count = text.count("[Archetype-Anchored")

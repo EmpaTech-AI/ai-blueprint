@@ -389,6 +389,15 @@ marker ID set EXACTLY (no additions, no omissions), and the cards must appear in
 presentation order (tie-breaks were resolved at Stage 1 by the ordering algorithm — never
 re-sort, S-47). Any difference is a pre-flight FAIL: restore the missing/extra card.
 
+**Composite arithmetic pin (REG-23 — mandatory):**
+
+The composite is ONE thing: `product = Impact × Feasibility × Alignment`, using POST-adjustment
+Feasibility. Never state a product you have not computed (Era-O′ R1 wrote "5" where 5×1×5 = 25);
+never present an Impact×Feasibility ranking value in the composite column — the composite column
+means I×F×A in every run, or runs stop being comparable. The app auto-patches arithmetic errors
+and logs the patch; the patch is a safety net, not permission. Verify before emitting: every
+stated product equals the exact product of its three components.
+
 **Archetype-Anchored presence check (REG-22 — mandatory):**
 
 Every opportunity card's Scores line carries `[Archetype-Anchored ...]` exactly once — the

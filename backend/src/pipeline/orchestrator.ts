@@ -1,5 +1,6 @@
 import { PipelineJob, ConfidenceResult, BLOCKER_PREFIX } from '../types/pipeline';
 import { BUILD } from '../utils/buildInfo';
+import { resolveClientTitleName } from '../utils/clientName';
 import {
   loadJob,
   updateJobStatus,
@@ -397,17 +398,19 @@ export async function runPipeline(jobId: string): Promise<void> {
     const docxFilename = `AI Value Blueprint - ${sanitizeName(job.clientName)}.docx`;
     const docxPath = path.join(JOBS_DIR, jobId, docxFilename);
     fs.mkdirSync(path.dirname(docxPath), { recursive: true });
-    const docxBuffer = await generateBlueprintDocx(deliveryClientName, assembledForDelivery, docxPath);
+    // S-46: the client-facing title comes from INTAKE_FACTS CLIENT_NAME, never the operator job label.
+    const titleClientName = resolveClientTitleName(dossier, deliveryClientName);
+    const docxBuffer = await generateBlueprintDocx(titleClientName, assembledForDelivery, docxPath);
 
     await saveDocxData(jobId, docxBuffer.toString('base64'));
 
-    const pdfBuffer = await generateBlueprintPdf(deliveryClientName, assembledForDelivery);
+    const pdfBuffer = await generateBlueprintPdf(titleClientName, assembledForDelivery);
     await savePdfData(jobId, pdfBuffer.toString('base64'));
 
-    const txtContent = generateBlueprintTxt(deliveryClientName, assembledForDelivery);
+    const txtContent = generateBlueprintTxt(titleClientName, assembledForDelivery);
     await saveTxtData(jobId, txtContent);
 
-    const htmlContent = generateBlueprintHtml(deliveryClientName, assembledForDelivery);
+    const htmlContent = generateBlueprintHtml(titleClientName, assembledForDelivery);
     await saveHtmlData(jobId, htmlContent);
 
     // WS4 §C6b: post-render residual-component-marker net. A well-formed Class-C marker that the

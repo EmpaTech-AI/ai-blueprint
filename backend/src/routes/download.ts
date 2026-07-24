@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { loadJob } from '../storage/jobStore';
 import { generateBlueprintPdf, generateBlueprintDocx } from '../docx/assembler';
+import { resolveClientTitleName } from '../utils/clientName';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { TOKENS_VERSION } from '../docx/designTokens';
 import { BACKEND_COMPOSITION_THRESHOLDS, GROUNDING_GREEN, stripForDelivery, stripForDeliveryStage5, stripToAllowlistedSections } from '../utils/confidenceScorer';
@@ -385,7 +386,7 @@ router.get('/:jobId/lc-tags/docx', requireAdmin, async (req: Request, res: Respo
     }
     const { markdown } = buildLcTagsMarkdown(job);
     const tmpPath = path.join(os.tmpdir(), `lc-tags-${req.params.jobId}.docx`);
-    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    const docxBuffer = await generateBlueprintDocx(resolveClientTitleName(getStepRaw(job, 'stepB'), job.clientName), markdown, tmpPath);
     try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
     const filename = `LC Tags - ${sanitizeFilename(job.clientName)}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -417,7 +418,7 @@ router.get('/:jobId/lc-tags/:stepKey/docx', requireAdmin, async (req: Request, r
     const job = loadJob(req.params.jobId);
     const { title, markdown } = buildLcTagsMarkdown(job, req.params.stepKey);
     const tmpPath = path.join(os.tmpdir(), `lc-tags-${req.params.jobId}-${req.params.stepKey}.docx`);
-    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    const docxBuffer = await generateBlueprintDocx(resolveClientTitleName(getStepRaw(job, 'stepB'), job.clientName), markdown, tmpPath);
     try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
     const filename = `${sanitizeFilename(job.clientName)} - ${sanitizeFilename(title)}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -521,7 +522,7 @@ router.get('/:jobId/step/:step/docx', requireAdmin, async (req: Request, res: Re
     if (!raw) { res.status(404).json({ error: 'Step output not available' }); return; }
     const { title, markdown } = buildStepContent(req.params.step, raw);
     const tmpPath = path.join(os.tmpdir(), `step-${req.params.jobId}-${req.params.step}.docx`);
-    const docxBuffer = await generateBlueprintDocx(job.clientName, markdown, tmpPath);
+    const docxBuffer = await generateBlueprintDocx(resolveClientTitleName(getStepRaw(job, 'stepB'), job.clientName), markdown, tmpPath);
     try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup failure */ }
     const filename = `${sanitizeFilename(job.clientName)} - ${title}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
