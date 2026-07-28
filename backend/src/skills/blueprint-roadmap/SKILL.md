@@ -95,11 +95,47 @@ The gate condition does NOT change the D6b classification — the opportunity re
 It only controls which phase it is assigned to. Once the gate condition is documented as
 complete, the opportunity returns to "Now" eligibility on the next planning cycle.
 
+**Scope guard (REG-24 — mandatory).** D-GATE4 is **Quick-Win-scoped and only Quick-Win-scoped.**
+It NEVER applies to a Foundation Builder, and it NEVER applies to any hypothesis whose score
+comment carries a dated `system_event_deadline` or `compliance_deadline` — those entities are
+already placed by the Precedence preamble (rule 2, → Now) and must not be reconsidered here. In
+particular, the text-pattern trigger above (which scans for "Vincere migration", "cutover",
+etc.) must **not** fire when that same migration/cutover is the entity's own
+`system_event_deadline`: a Foundation Builder that must be established *before* a cutover is
+pulled *toward* Now by that date, never deferred *past* it. Applying the gate-reading to a
+deadline-carrying Foundation Builder is the REG-24 fork and an acceptance FAIL.
+
 ## Deterministic Phase Assignment Decision Tree (mandatory — apply before emitting output)
 
 The rules below supersede per-run judgment for phase placement. Apply them top-to-bottom,
 stop at the first match. For identical inputs, these rules must produce the same phase map
 every run — phase assignments are not a judgment surface.
+
+### Precedence preamble (REG-24 — evaluate FIRST, before any class table)
+
+Some hypotheses match more than one rule at once — most dangerously, an entity tied to a named
+migration/cutover carries **both** a dated deadline (which pulls it to Now) **and** gate-language
+(which reads as "must complete first → Next"). The class tables below are each internally
+deterministic, but they do not, on their own, say which cross-cutting rule wins when two apply.
+That gap is REG-24: H-RT-07 forked Now×3 / Next×1 across identical input because one run reached
+for the Quick-Win gate-reading while the others applied its Foundation-Builder deadline. This
+preamble closes it. Evaluate the two rules below **in order, first match wins, then STOP** — the
+matched phase is final and the entity is **not** reconsidered by any later block, gate reading,
+dependency reading, or prose:
+
+1. **`phase_dependency=strict` → Later.** Unconditional, for **any** class. A strict entity is
+   never pulled forward by a deadline and never pushed by a gate. (This is why H-RT-04 — a
+   strict-dependency Big Bet that *also* carries a `system_event_deadline` within the window —
+   is **Later**, not Now: strict outranks the deadline rule. Placing a strict entity in Now/Next
+   on account of its deadline is a REG-24 regression.)
+
+2. **Foundation Builder with `system_event_deadline` OR `compliance_deadline` set to a date within
+   the Now window (Months 1–3, *including imminent or already-passed dates* per the imminence pin)
+   → Now.** **Terminal:** once this matches, the Foundation Builder is placed in Now and is NOT
+   re-examined by the Quick-Win D-GATE4 gate rule, by any dependency reading, or by prose about the
+   cutover "needing to complete first." The dated field is the sole input (T-20). (This is H-RT-07.)
+
+If neither rule matches, proceed to the class-specific table for the entity's D6b class below.
 
 ### Quick Win opportunities
 

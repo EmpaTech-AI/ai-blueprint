@@ -5,6 +5,8 @@ import {
   validateStrictDependencyPhases,
   validateFirmSurnameBleed,
   validatePortfolioMembership,
+  validateRoadmapArchetypeAnchoring,
+  OpportunityScore,
 } from './opportunityValidator';
 
 const FULL_FIELDS =
@@ -48,6 +50,40 @@ describe('REG-22 validateOpportunityScores — Archetype-Anchored enforcement (E
   it('does not fire on small unit fixtures (< 3 cards)', () => {
     const { reviewerFlags } = validateOpportunityScores(marker('H-RT-02'));
     expect(reviewerFlags.some(f => /REG-22/.test(f))).toBe(false);
+  });
+});
+
+describe('REG-22 S4 sibling — validateRoadmapArchetypeAnchoring (REG-24 correlate)', () => {
+  const scores: OpportunityScore[] = [
+    { id: 'H-RT-02', impact: 5, feasibility: 4, alignment: 5, product: 100, class: 'QuickWin' },
+    { id: 'H-RT-07', impact: 3, feasibility: 4, alignment: 5, product: 60, class: 'FoundationBuilder' },
+    { id: 'H-RT-01', impact: 5, feasibility: 3, alignment: 5, product: 75, class: 'BigBet' },
+  ];
+  const phaseTable =
+    '### Phase Summary\n| Opportunity | H-RT ID | Class | Phase | Primary placement driver |\n' +
+    '|---|---|---|---|---|\n| CV Automation | H-RT-02 | Quick Win | Now | quick win (pinned) |\n';
+
+  it('fires a BLOCKER when a populated roadmap carries zero [Archetype-Anchored] anchors', () => {
+    const roadmap = phaseTable + '\n### Phase 1: Now\n*Why now:* Feasibility 4/5 [Document-Backed] existing CRM.';
+    const { reviewerFlags } = validateRoadmapArchetypeAnchoring(roadmap, scores);
+    expect(reviewerFlags.some(f => /BLOCKER.*GATE 4.*REG-22 \(S4 AA sibling\).*zero \[Archetype-Anchored\]/.test(f))).toBe(true);
+  });
+
+  it('does not fire when at least one anchor is present (5-of-8 stable pattern is fine)', () => {
+    const roadmap = phaseTable +
+      '\n### Phase 1: Now\n*Why now:* Feasibility 4/5 [Archetype-Anchored — locked at Stage 1] supported by CRM data [Document-Backed].';
+    const { reviewerFlags } = validateRoadmapArchetypeAnchoring(roadmap, scores);
+    expect(reviewerFlags.some(f => /S4 AA sibling/.test(f))).toBe(false);
+  });
+
+  it('does not fire when there is no Phase Summary table (nothing to anchor yet)', () => {
+    const { reviewerFlags } = validateRoadmapArchetypeAnchoring('draft prose with no table', scores);
+    expect(reviewerFlags.some(f => /S4 AA sibling/.test(f))).toBe(false);
+  });
+
+  it('does not fire below the 3-opportunity threshold', () => {
+    const { reviewerFlags } = validateRoadmapArchetypeAnchoring(phaseTable, scores.slice(0, 2));
+    expect(reviewerFlags.some(f => /S4 AA sibling/.test(f))).toBe(false);
   });
 });
 

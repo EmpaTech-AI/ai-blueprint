@@ -10,9 +10,19 @@ conforming artifact and asserts the expectation checker CATCHES it:
   Seed A — KR2 selection drop:   H-RT-04 marker removed from the golden dossier
   Seed B — KR3 deadline defer:   H-RT-07 moved to Next in a conforming Phase Summary
   Seed C — T-30 split:           H-CORE-00 decomposed into two Phase-Summary rows
+  Seed D — REG-24 AA drop:       H-RT-07 kept in Now but its [Archetype-Anchored]
+                                 driver anchor dropped (S4 AA 5 -> 4)
+  Seed E — REG-24 ladder swap:   gate-reading applied over the deadline (H-RT-07 -> Next),
+                                 the negative test for the precedence preamble
 
-Plus two PASS controls: the golden dossier and a conforming Phase Summary must
-pass, or the detectors are firing on noise.
+Plus PASS controls: the golden dossier, a conforming Phase Summary, and a
+conforming REG-24 fixture (H-RT-07 Now + 5 anchors) must all pass, or the
+detectors are firing on noise.
+
+REG-24 note: assertion 1 (placement = Now) is the existing deadline_now_ids check;
+assertion 2 (anchor retained) is gated on `stage4_aa_min`, injected into a LOCAL copy
+of the expectation here — the signed manifest is not re-sealed by this test. The field
+folds into the manifest's S4 slice at the v1.1 re-seal.
 
 Run:  python tests/test_seeded_battery.py
 """
@@ -43,6 +53,30 @@ CONFORMING_STAGE4 = """# Recommended Action Sequence — Meridian Talent Partner
 | AI-Assisted Specialist Sourcing | H-RT-01 | Big Bet | Later | strict dependency (pinned) |
 | Candidate Database Revival | H-RT-04 | Big Bet | Later | strict dependency (pinned) |
 | AI Company Brain | H-CORE-00 | Big Bet | Later | strict dependency (pinned) |
+"""
+
+# REG-24 fixture: the Phase Summary plus the per-opportunity "Why now" detail that carries the
+# [Archetype-Anchored — locked at Stage 1] score anchors. Five anchors — one per detailed
+# Now/Next opportunity (H-RT-02, H-RT-05, H-RT-07, H-RT-03, H-RT-10) — the v37 stable count.
+REG24_CONFORMING_STAGE4 = CONFORMING_STAGE4 + """
+### Phase 1: Now (Months 1-3)
+
+### AI-Powered CV Formatting + Summary Generation (Quick Win)
+*Why now:* Feasibility 4/5 [Archetype-Anchored — locked at Stage 1] supported by existing CRM data [Document-Backed].
+
+### Interview Scheduling Standardisation (Quick Win)
+*Why now:* Feasibility 5/5 [Archetype-Anchored — locked at Stage 1] with available calendar APIs [Form-Stated].
+
+### Data Protection Compliance Foundation (Foundation Builder)
+*Why now:* Feasibility 4/5 [Archetype-Anchored — locked at Stage 1]; must precede the 2026-07-31 Vincere cutover [Form-Stated].
+
+### Phase 2: Next (Months 3-6)
+
+### ATS-Driven Automated Client Status Updates (Quick Win)
+*Why now:* Feasibility 4/5 [Archetype-Anchored — locked at Stage 1] once the Vincere migration completes [Form-Stated].
+
+### BD Proposal Automation + RPO Productisation Support (Foundation Builder)
+*Why now:* Feasibility 3/5 [Archetype-Anchored — locked at Stage 1]; foundational to the RPO line [Form-Stated].
 """
 
 
@@ -96,6 +130,31 @@ def main():
     fails, _ = run_checks(exp, stage4_text=seed_c)
     caught = any("T-30 SPLIT" in f for f in fails)
     report("Seed C: H-CORE-00 two-row decomposition is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
+
+    # REG-24 two-assertion catch. Inject the S4 anchor floor into a LOCAL expectation copy —
+    # the signed manifest on disk is not touched.
+    exp_reg24 = {**exp, "stage4_aa_min": 5}
+
+    # Control 3: conforming REG-24 fixture (H-RT-07 Now + 5 anchors) must PASS both assertions
+    fails, _ = run_checks(exp_reg24, stage4_text=REG24_CONFORMING_STAGE4)
+    report("Control: conforming REG-24 fixture (Now + 5 anchors) must PASS", not fails, "; ".join(fails[:2]))
+
+    # Seed D — REG-24 AA drop: H-RT-07 stays in Now but loses its [Archetype-Anchored] anchor (5 -> 4)
+    seed_d = REG24_CONFORMING_STAGE4.replace(
+        "*Why now:* Feasibility 4/5 [Archetype-Anchored — locked at Stage 1]; must precede the 2026-07-31 Vincere cutover [Form-Stated].",
+        "*Why now:* Feasibility 4/5 [Document-Backed]; must precede the 2026-07-31 Vincere cutover [Form-Stated].")
+    fails, _ = run_checks(exp_reg24, stage4_text=seed_d)
+    caught = any("AA-DRIVER DROP" in f for f in fails)
+    report("Seed D: H-RT-07 AA-anchor drop (Now kept) is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
+
+    # Seed E — REG-24 ladder swap (negative test): gate-reading beats the deadline, H-RT-07 -> Next.
+    # Proves the detector fires when the precedence preamble is violated (P2 applied before P1).
+    seed_e = REG24_CONFORMING_STAGE4.replace(
+        "| Data Protection Compliance Foundation | H-RT-07 | Foundation Builder | Now | dated cutover within months 1-3 (pinned) |",
+        "| Data Protection Compliance Foundation | H-RT-07 | Foundation Builder | Next | named external gate (pinned) |")
+    fails, _ = run_checks(exp_reg24, stage4_text=seed_e)
+    caught = any("DEADLINE OVERRIDE" in f or ("KR3" in f and "h-rt-07" in f.lower()) for f in fails)
+    report("Seed E: REG-24 ladder swap (H-RT-07 -> Next) is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
 
     print("=" * 70)
     print(f"Seeded Battery Results: {passed} passed, {failed} failed")

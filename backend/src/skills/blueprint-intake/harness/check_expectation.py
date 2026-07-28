@@ -160,6 +160,20 @@ def check_stage4(exp: dict, text: str, fails: list, warns: list) -> None:
             fails.append(f"KR3 DEADLINE OVERRIDE: {hid} carries a Month-1–3 (or passed) deadline and must be Now; got {have} "
                          "(imminence pin — proximity never defers; the Era-N T2 class)")
 
+    # REG-24 assertion 2 — S4 Archetype-Anchored floor. The v37 run that mis-placed H-RT-07
+    # (Next×1) ALSO dropped its [Archetype-Anchored] score anchor: S4 AA = 4 where the three
+    # stable runs carried 5. Assertion 1 (placement=Now) is the deadline_now_ids check above;
+    # this is assertion 2. Gated on the optional `stage4_aa_min` field so runs/manifests without
+    # it are unaffected (the field folds into the signed manifest's S4 slice at the v1.1 re-seal,
+    # per the S4-only amendment discipline). A count at or below (min - 1) is the fork signature.
+    aa_min = exp.get("stage4_aa_min")
+    if aa_min is not None:
+        aa_count = text.count("[Archetype-Anchored")
+        if aa_count < aa_min:
+            fails.append(f"REG-24 AA-DRIVER DROP: Stage-4 carries {aa_count} [Archetype-Anchored] score "
+                         f"anchor(s), expected >= {aa_min}. The locked-feasibility citations were re-classed "
+                         "away from [Archetype-Anchored] - the tag drop correlated with the H-RT-07 phase fork.")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()

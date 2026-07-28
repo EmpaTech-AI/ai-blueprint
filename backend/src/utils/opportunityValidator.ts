@@ -244,6 +244,44 @@ export function validateRoadmapPhases(
     }
   }
 
+  reviewerFlags.push(...validateRoadmapArchetypeAnchoring(roadmapOutput, opportunityScores).reviewerFlags);
+
+  return { reviewerFlags };
+}
+
+// ─── REG-22 sibling (Era-O′ / REG-24 correlate): Stage-4 Archetype-Anchored floor ──────
+//
+// The v37 run that mis-placed H-RT-07 (Next instead of Now) ALSO dropped its
+// `[Archetype-Anchored]` score anchor in the "Why now" detail — S4 AA = 4 where the three
+// stable runs carried 5. The S3 REG-22 enforcer (`validateOpportunityScores`) is scoped to
+// Stage 3 only; this is its Stage-4 sibling.
+//
+// Deliberately a ZERO-FLOOR check, NOT "one tag per placement row". A conforming Meridian run
+// carries ~5 anchors across 8 rows (only the detailed Now/Next blocks cite the locked
+// feasibility; Later Big-Bet blocks use different framing), so a per-row count would
+// false-fire on a correct run and could block a GREEN acceptance batch. The precise,
+// per-hypothesis assertion for deadline-carrying Foundation Builders (H-RT-07 must retain its
+// anchor AND land in Now) lives in the harness seeded catch (`check_expectation.py` stage 4),
+// which grades against the pinned expectation. Here we only assert the anchor class did not
+// collapse to zero — the unambiguous, no-false-positive floor.
+export function validateRoadmapArchetypeAnchoring(
+  roadmapOutput: string,
+  opportunityScores: OpportunityScore[],
+): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+  const hasPhaseTable = /Primary placement driver/i.test(roadmapOutput) || /###\s+Phase Summary/i.test(roadmapOutput);
+  if (hasPhaseTable && opportunityScores.length >= 3) {
+    const aaCount = (roadmapOutput.match(/\[Archetype-Anchored/g) ?? []).length;
+    if (aaCount === 0) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 4 FAIL REG-22 (S4 AA sibling): zero [Archetype-Anchored] score ` +
+        `anchors in the Stage-4 roadmap despite a populated Phase Summary (${opportunityScores.length} ` +
+        `opportunities). The locked-feasibility citations were re-classed away from [Archetype-Anchored] ` +
+        `(the REG-24-correlated tag drop). Restore the "[Archetype-Anchored — locked at Stage 1]" anchor ` +
+        `on every "Why now" score citation before delivery.`,
+      );
+    }
+  }
   return { reviewerFlags };
 }
 

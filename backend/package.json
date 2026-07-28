@@ -53,5 +53,5 @@
       "^(\\.{1,2}/.*)\\.js$": "$1"
     }
   },
-  "pipelineLabel": "v36.4"
+  "pipelineLabel": "v37.1"
 }
