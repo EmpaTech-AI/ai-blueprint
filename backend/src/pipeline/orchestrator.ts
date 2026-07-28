@@ -25,7 +25,7 @@ import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels } from '../utils/opportunityValidator';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -243,6 +243,14 @@ export async function runPipeline(jobId: string): Promise<void> {
     if (gate3Flags.length > 0) {
       reviewerFlags.push(...gate3Flags);
       log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
+    }
+
+    // REG-25 (v37.1): D6b classification-label fork — the class label (marker or prose) must
+    // match the pinned tree applied to the emitted scores. Recompute-from-I/F, zero-false-fire.
+    const { reviewerFlags: classFlags } = validateClassificationLabels(opportunities);
+    if (classFlags.length > 0) {
+      reviewerFlags.push(...classFlags);
+      log('warn', 'GATE 3: D6b classification-label fork detected (REG-25)', { jobId, count: classFlags.length });
     }
 
     // T-26 (S-29): cross-stage relay-field drift — the nine T-19 fields must be byte-identical

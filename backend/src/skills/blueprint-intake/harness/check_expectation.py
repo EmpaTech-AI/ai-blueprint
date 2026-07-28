@@ -104,7 +104,53 @@ def check_stage2(exp: dict, text: str, fails: list, warns: list) -> None:
             warns.append(f"[BAND_ASSIGNMENT] {label} not found")
 
 
+def _d6b_class(impact: int, feasibility: int) -> str:
+    """Pinned D6b tree (scoring_rubric.md STEP 1-3), post-adjustment Feasibility."""
+    if feasibility >= 4:
+        return "QuickWin"                       # STEP 1
+    if impact >= 4 and feasibility <= 3:
+        return "BigBet"                          # STEP 2
+    return "FoundationBuilder"                   # STEP 3
+
+
+# Prose "**Classification:** <label>" immediately followed by its score marker.
+CLASS_PAIR_RE = re.compile(r"\*\*Classification:\*\*\s*([^\n]+?)\s*\n\s*<!--\s*score:\s*(.*?)-->", re.DOTALL)
+
+
+def _norm_class(label: str) -> str:
+    return re.sub(r"[^a-z]", "", label.lower())
+
+
+def check_classification_labels(text: str, fails: list, warns: list) -> None:
+    """REG-25 (v37.1): D6b classification-label fork. Recompute class from each marker's own
+    I/F and require BOTH the marker class field AND the adjacent prose 'Classification:' label
+    to match. Manifest-independent (self-consistency) — no expectation fields, cannot false-fire
+    on a conforming card. Standalone so the seeded battery can exercise it on a partial fixture."""
+    for hid, f in parse_markers(text).items():
+        try:
+            impact, feas = int(float(f.get("impact"))), int(float(f.get("feasibility")))
+        except (TypeError, ValueError):
+            continue
+        cls = f.get("class")
+        if cls and _norm_class(cls) != _norm_class(_d6b_class(impact, feas)):
+            fails.append(f"REG-25 D6b LABEL FORK: {hid} marker class={cls} but Impact {impact}/Feasibility {feas} "
+                         f"-> {_d6b_class(impact, feas)} (pinned tree). Class must be recomputed from the scores.")
+    for prose, raw in CLASS_PAIR_RE.findall(text):
+        fields = dict(FIELD_RE.findall(raw))
+        try:
+            impact, feas = int(float(fields.get("impact"))), int(float(fields.get("feasibility")))
+        except (TypeError, ValueError):
+            continue
+        expected = _d6b_class(impact, feas)
+        if _norm_class(expected) not in _norm_class(prose):
+            fails.append(f"REG-25 D6b LABEL FORK: card {fields.get('id', '(unknown)')} prose "
+                         f"'Classification: {prose.strip()}' contradicts Impact {impact}/Feasibility {feas} "
+                         f"-> {expected} (pinned tree).")
+
+
 def check_stage3(exp: dict, text: str, fails: list, warns: list) -> None:
+    check_classification_labels(text, fails, warns)
+
     markers = parse_markers(text)
     exp_set = set(exp["hypothesis_ids_ordered"])
     got_set = set(markers.keys())

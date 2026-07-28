@@ -14,6 +14,8 @@ conforming artifact and asserts the expectation checker CATCHES it:
                                  driver anchor dropped (S4 AA 5 -> 4)
   Seed E — REG-24 ladder swap:   gate-reading applied over the deadline (H-RT-07 -> Next),
                                  the negative test for the precedence preamble
+  Seed F — REG-25 label fork:    a 5/1/5 Big-Bet card mislabelled "Foundation Builder"
+                                 (the v37.1 D6b classification-label fork)
 
 Plus PASS controls: the golden dossier, a conforming Phase Summary, and a
 conforming REG-24 fixture (H-RT-07 Now + 5 anchors) must all pass, or the
@@ -80,10 +82,31 @@ REG24_CONFORMING_STAGE4 = CONFORMING_STAGE4 + """
 """
 
 
-def run_checks(exp, stage1_text=None, stage4_text=None):
+# REG-25 fixture: three conforming Stage-3 cards (prose Classification + score marker) — a
+# Quick Win, a 5/1/5 Big Bet, and a Foundation Builder — each label matching the pinned tree.
+REG25_CONFORMING_STAGE3 = """### Opportunity #1: AI-Powered CV Formatting
+**Scores:** Impact 5/5 | Feasibility 4/5 | Alignment 5/5 [Archetype-Anchored]
+**Classification:** Quick Win
+<!-- score: id=H-RT-02 impact=5 feasibility=4 alignment=5 product=100 class=QuickWin d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->
+
+### Opportunity #2: AI-Assisted Specialist Sourcing
+**Scores:** Impact 5/5 | Feasibility 1/5 | Alignment 5/5 [Archetype-Anchored]
+**Classification:** Big Bet
+<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=25 class=BigBet d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=strict -->
+
+### Opportunity #3: BD Proposal Automation
+**Scores:** Impact 3/5 | Feasibility 3/5 | Alignment 5/5 [Archetype-Anchored]
+**Classification:** Foundation Builder
+<!-- score: id=H-RT-10 impact=3 feasibility=3 alignment=5 product=45 class=FoundationBuilder d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=n/a -->
+"""
+
+
+def run_checks(exp, stage1_text=None, stage3_text=None, stage4_text=None):
     fails, warns = [], []
     if stage1_text is not None:
         ce.check_stage1(exp, stage1_text, fails, warns)
+    if stage3_text is not None:
+        ce.check_stage3(exp, stage3_text, fails, warns)
     if stage4_text is not None:
         ce.check_stage4(exp, stage4_text, fails, warns)
     return fails, warns
@@ -155,6 +178,25 @@ def main():
     fails, _ = run_checks(exp_reg24, stage4_text=seed_e)
     caught = any("DEADLINE OVERRIDE" in f or ("KR3" in f and "h-rt-07" in f.lower()) for f in fails)
     report("Seed E: REG-24 ladder swap (H-RT-07 -> Next) is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
+
+    # REG-25 label-fork checks use the standalone label checker on a partial fixture (no manifest
+    # set-comparison needed — the check is self-consistency between scores and label).
+    def label_checks(text):
+        fl = []
+        ce.check_classification_labels(text, fl, [])
+        return fl
+
+    # Control 4: conforming REG-25 fixture (labels match the tree) must PASS
+    fails = label_checks(REG25_CONFORMING_STAGE3)
+    report("Control: conforming REG-25 labels must PASS", not fails, "; ".join(fails[:2]))
+
+    # Seed F — REG-25 label fork: the 5/1/5 Big Bet mislabelled "Foundation Builder" (prose + marker)
+    seed_f = REG25_CONFORMING_STAGE3.replace(
+        "**Classification:** Big Bet\n<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=25 class=BigBet",
+        "**Classification:** Foundation Builder\n<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=25 class=FoundationBuilder")
+    fails = label_checks(seed_f)
+    caught = any("REG-25" in f and "H-RT-01" in f for f in fails)
+    report("Seed F: 5/1/5 Big Bet mislabelled Foundation Builder is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
 
     print("=" * 70)
     print(f"Seeded Battery Results: {passed} passed, {failed} failed")

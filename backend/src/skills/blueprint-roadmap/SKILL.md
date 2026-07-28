@@ -435,6 +435,17 @@ Next → Later, with the canonical H-RT-XX ID so the assignment is machine-check
 Every opportunity from Stage 3 appears in exactly one row. The per-phase detail below expands
 these rows; it must not contradict them.
 
+**Anchor-emission self-check (REG-26 — mandatory, run before emitting output).** Every
+opportunity detailed under **Phase 1: Now** and **Phase 2: Next** MUST cite its locked
+Feasibility exactly once in its *Why now* line as `[Archetype-Anchored — locked at Stage 1]`
+(the score basis is a reproducible Stage-1 lookup, never a per-run re-derivation). **Later**
+Big-Bet blocks do not carry this anchor. Before finalising, count the
+`[Archetype-Anchored` anchors in the document: the count MUST equal the number of Now + Next
+opportunities — no more, no fewer. A missing or duplicated anchor is a pre-flight FAIL; fix it
+before emitting. (The v37.1 batch emitted 3/6/7/0 anchors across four runs where the stable
+count is exactly the Now+Next total — this self-check pins that count so the anchor class does
+not drift run to run.)
+
 ### Phase 1: Now (Months 1–3)
 
 For each opportunity in this phase:

@@ -6,6 +6,9 @@ import {
   validateFirmSurnameBleed,
   validatePortfolioMembership,
   validateRoadmapArchetypeAnchoring,
+  validateClassificationLabels,
+  validateRoadmapPhases,
+  d6bClass,
   OpportunityScore,
 } from './opportunityValidator';
 
@@ -84,6 +87,84 @@ describe('REG-22 S4 sibling — validateRoadmapArchetypeAnchoring (REG-24 correl
   it('does not fire below the 3-opportunity threshold', () => {
     const { reviewerFlags } = validateRoadmapArchetypeAnchoring(phaseTable, scores.slice(0, 2));
     expect(reviewerFlags.some(f => /S4 AA sibling/.test(f))).toBe(false);
+  });
+});
+
+describe('REG-25 validateClassificationLabels — D6b label fork (v37.1 batch)', () => {
+  // Card template: **Classification:** <prose> \n <!-- score: ... class=<marker> ... -->
+  const card = (id: string, impact: number, feas: number, prose: string, markerClass: string) =>
+    `**Classification:** ${prose}\n<!-- score: id=${id} impact=${impact} feasibility=${feas} alignment=5 product=${impact * feas * 5} class=${markerClass} ${FULL_FIELDS} -->`;
+
+  it('d6bClass matches the pinned tree on the boundary cases', () => {
+    expect(d6bClass(5, 4)).toBe('QuickWin');       // F>=4 wins first
+    expect(d6bClass(5, 1)).toBe('BigBet');         // the REG-25 5/1/5 card
+    expect(d6bClass(4, 1)).toBe('BigBet');         // the REG-25 4/1/4 card
+    expect(d6bClass(3, 3)).toBe('FoundationBuilder');
+    expect(d6bClass(3, 4)).toBe('QuickWin');
+  });
+
+  it('flags a prose label that contradicts the scores (the exact REG-25 fork: 5/1/5 labelled Foundation Builder)', () => {
+    const out = card('H-RT-01', 5, 1, 'Foundation Builder', 'BigBet'); // marker correct, prose forked
+    const { reviewerFlags } = validateClassificationLabels(out);
+    expect(reviewerFlags.some(f => /REG-25.*H-RT-01.*Classification: Foundation Builder.*BigBet/.test(f))).toBe(true);
+  });
+
+  it('flags a marker class that contradicts the scores (4/1/4 marker=FoundationBuilder)', () => {
+    const out = card('H-RT-04', 4, 1, 'Big Bet', 'FoundationBuilder'); // prose correct, marker forked
+    const { reviewerFlags } = validateClassificationLabels(out);
+    expect(reviewerFlags.some(f => /REG-25.*H-RT-04 score marker says class=FoundationBuilder.*BigBet/.test(f))).toBe(true);
+  });
+
+  it('does NOT fire when label and marker both match the tree (zero-false-fire)', () => {
+    const out = [
+      card('H-RT-02', 5, 4, 'Quick Win', 'QuickWin'),
+      card('H-RT-01', 5, 1, 'Big Bet', 'BigBet'),
+      card('H-RT-10', 3, 3, 'Foundation Builder', 'FoundationBuilder'),
+    ].join('\n\n');
+    const { reviewerFlags } = validateClassificationLabels(out);
+    expect(reviewerFlags.some(f => /REG-25/.test(f))).toBe(false);
+  });
+
+  it('tolerates trailing prose after the class name (containment, not exact match)', () => {
+    const out = card('H-RT-01', 5, 1, 'Big Bet — high impact, requires investment', 'BigBet');
+    const { reviewerFlags } = validateClassificationLabels(out);
+    expect(reviewerFlags.some(f => /REG-25/.test(f))).toBe(false);
+  });
+});
+
+// ── Fires-on-the-batch-path probes (Ivan's standing proof obligation, v37.1 §4c) ─────
+// A passing unit test proves a guard's function works; it does NOT prove the guard runs on
+// the batch path. These probes feed a real violating artifact to the EXACT functions the
+// orchestrator calls (validateOpportunityScores + validateClassificationLabels at the Gate-3
+// site; validateRoadmapPhases at the Gate-4 site) and assert the BLOCKER flag is produced.
+// (They prove the flag FIRES; whether the flag also withholds delivery is REG-26a, deferred.)
+describe('fires-on-path probe — REG-26 (S4 AA floor) on the Gate-4 function', () => {
+  it('validateRoadmapPhases surfaces the S4 AA BLOCKER on a T4-like AA=0 roadmap', () => {
+    const roadmap =
+      '### Phase Summary\n| Opportunity | H-RT ID | Class | Phase | Primary placement driver |\n' +
+      '|---|---|---|---|---|\n| CV Automation | H-RT-02 | Quick Win | Now | quick win |\n\n' +
+      '### Phase 1: Now\n*Why now:* Feasibility 4/5 [Document-Backed] — no archetype anchor anywhere.';
+    const scores: OpportunityScore[] = [
+      { id: 'H-RT-02', impact: 5, feasibility: 4, alignment: 5, product: 100, class: 'QuickWin' },
+      { id: 'H-RT-07', impact: 3, feasibility: 4, alignment: 5, product: 60, class: 'FoundationBuilder' },
+      { id: 'H-RT-01', impact: 5, feasibility: 1, alignment: 5, product: 25, class: 'BigBet' },
+    ];
+    const { reviewerFlags } = validateRoadmapPhases(roadmap, scores);
+    expect(reviewerFlags.some(f => /BLOCKER.*REG-22 \(S4 AA sibling\).*zero \[Archetype-Anchored\]/.test(f))).toBe(true);
+  });
+});
+
+describe('fires-on-path probe — REG-25 on the Gate-3 functions', () => {
+  it('the Gate-3 validators surface the REG-25 label fork on a forked Stage-3 output', () => {
+    const forked =
+      '**Classification:** Foundation Builder\n' +
+      `<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=25 class=BigBet ${FULL_FIELDS} -->`;
+    // The orchestrator runs validateOpportunityScores then validateClassificationLabels on this text.
+    const flags = [
+      ...validateOpportunityScores(forked).reviewerFlags,
+      ...validateClassificationLabels(forked).reviewerFlags,
+    ];
+    expect(flags.some(f => /REG-25.*BigBet/.test(f))).toBe(true);
   });
 });
 

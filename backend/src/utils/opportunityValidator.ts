@@ -285,6 +285,75 @@ export function validateRoadmapArchetypeAnchoring(
   return { reviewerFlags };
 }
 
+// ─── REG-25 (v37.1 batch): D6b classification-label fork guard ─────────────────────────
+//
+// The v37.1 confirmation batch surfaced a PRE-EXISTING latent fork in Stage 3: one run in
+// four labelled a 5/1/5 and a 4/1/4 card "Foundation Builder" where the pinned D6b tree
+// mandates Big Bet. The scores and the score MARKER were correct ×4 — only the human-readable
+// "Classification:" label forked (which is why Stage 4 still placed both in Later via the
+// strict-dependency rule; the machine spine was intact). This guard recomputes the class from
+// the emitted Impact/Feasibility per the pinned D6b tree (scoring_rubric.md STEP 1–3) and flags
+// any card whose score-marker class OR prose "Classification:" label contradicts it. Zero-
+// false-fire by construction: it fires only when an emitted label disagrees with the emitted
+// numbers under a deterministic tree.
+//
+// ENFORCEMENT NOTE (REG-26a, deferred): like every validator in this file, this currently
+// appends an ADVISORY reviewer flag surfaced in the run bundle — it does NOT hard-stop delivery
+// (the pipeline's only hard gate is the confidence-score gate in runStepWithGate). Wiring
+// BLOCKER flags to withhold/regenerate is the deferred architectural decision. Until then this
+// reliably SURFACES the fork in the bundle for the grader.
+export function d6bClass(impact: number, feasibility: number): 'QuickWin' | 'BigBet' | 'FoundationBuilder' {
+  if (feasibility >= 4) return 'QuickWin';                       // STEP 1
+  if (impact >= 4 && feasibility <= 3) return 'BigBet';          // STEP 2
+  return 'FoundationBuilder';                                    // STEP 3 (all remaining)
+}
+
+function normalizeClassLabel(label: string): string {
+  return label.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+export function validateClassificationLabels(output: string): { reviewerFlags: string[] } {
+  const reviewerFlags: string[] = [];
+
+  // Pass 1 — score-marker self-consistency: marker class must match its own I/F.
+  for (const [id, f] of parseScoreCommentsById(output)) {
+    const impact = Number(f.impact);
+    const feas = Number(f.feasibility);
+    if (!Number.isFinite(impact) || !Number.isFinite(feas) || !f.class) continue;
+    const expected = d6bClass(impact, feas);
+    if (normalizeClassLabel(f.class) !== normalizeClassLabel(expected)) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 3 FAIL REG-25 (D6b label): ${id} score marker says class=${f.class}, but ` +
+        `Impact ${impact} / Feasibility ${feas} classify as ${expected} under the pinned D6b tree ` +
+        `(F>=4 -> QuickWin; I>=4 & F<=3 -> BigBet; else FoundationBuilder). Recompute the class from the scores.`,
+      );
+    }
+  }
+
+  // Pass 2 — prose "**Classification:**" label vs the adjacent marker's I/F. The card template
+  // places the Classification line immediately above the score marker; pair them and check the
+  // prose label contains the tree-recomputed class (containment tolerates trailing prose).
+  const pairRe = /\*\*Classification:\*\*\s*([^\n]+?)\s*\n\s*<!--\s*score:\s*([^>]*?)-->/g;
+  let m: RegExpExecArray | null;
+  while ((m = pairRe.exec(output)) !== null) {
+    const proseLabel = m[1].trim();
+    const fields = parseScoreFields(m[2]);
+    const impact = Number(fields.impact);
+    const feas = Number(fields.feasibility);
+    if (!Number.isFinite(impact) || !Number.isFinite(feas)) continue;
+    const expected = d6bClass(impact, feas);
+    if (!normalizeClassLabel(proseLabel).includes(normalizeClassLabel(expected))) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 3 FAIL REG-25 (D6b label): card ${fields.id ?? '(unknown)'} prose ` +
+        `"Classification: ${proseLabel}" contradicts its scores (Impact ${impact} / Feasibility ${feas} ` +
+        `-> ${expected} under the pinned D6b tree). Prose label and score marker must both match the tree.`,
+      );
+    }
+  }
+
+  return { reviewerFlags };
+}
+
 // ─── T-26 (S-29): cross-stage relay-field validator ────────────────────────────
 //
 // The nine non-score phase fields (T-19 relay set) are pinned at Stage 1 and must be re-emitted
