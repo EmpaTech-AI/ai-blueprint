@@ -148,6 +148,34 @@ def check_classification_labels(text: str, fails: list, warns: list) -> None:
                          f"-> {expected} (pinned tree).")
 
 
+FLAG_DIM = {'ml_heavy': 'Data', 'multi_source': 'Data', 'regulated': 'Governance',
+            'large_integration': 'Technology', 'adoption_dependent': 'People'}
+
+
+def recompute_adjusted_f(base_f, flags, early_dims):
+    """A4 (contract v1.3 §4.1): adjusted_F = max(1, base_F - Σ[flag=yes AND dim(flag) Early]).
+    Each firing flag is a separate term (two on one Early dim = -2); each gated by its dim Early."""
+    firing = [f for f, d in FLAG_DIM.items() if str(flags.get(f, 'no')).lower() == 'yes' and d in early_dims]
+    return max(1, base_f - len(firing)), firing
+
+
+def check_feasibility_from_root(text: str, base_map: dict, early_dims: set, fails: list) -> None:
+    """REG-27 (A4): recompute post-adjustment feasibility from root and flag disagreements.
+    Manifest-independent (archetype base_F + marker flags + Early dims). Standalone so the seeded
+    battery can exercise it directly on a partial fixture."""
+    for hid, f in parse_markers(text).items():
+        if hid not in base_map:
+            continue
+        try:
+            emitted = int(float(f.get("feasibility")))
+        except (TypeError, ValueError):
+            continue
+        exp_f, firing = recompute_adjusted_f(base_map[hid], f, early_dims)
+        if emitted != exp_f:
+            fails.append(f"REG-27 A4 STACKING: {hid} feasibility={emitted}, root recompute={exp_f} "
+                         f"(base {base_map[hid]} - {len(firing)} firing {firing} on Early {sorted(early_dims)})")
+
+
 def check_stage3(exp: dict, text: str, fails: list, warns: list) -> None:
     check_classification_labels(text, fails, warns)
 

@@ -25,7 +25,8 @@ import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels } from '../utils/opportunityValidator';
+import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
+import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseEarlyDimensions, HypothesisRoot } from '../utils/classGGuards';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -131,6 +132,25 @@ const SERVER_START_TIME_MS = Date.now() - Math.round(process.uptime() * 1000);
 // The job record itself retains the original name for internal tracking.
 function stripTestLabel(name: string): string {
   return name.replace(/\s+v?\d+(\.\d+)*[\s_-]*[Tt]est[\s_-]*\d+\s*$/i, '').trim();
+}
+
+// Resolve the archetype hypothesis roots (base scores + flags) for the emitted hypothesis IDs by
+// scanning the archetype library and picking the file whose table best covers those IDs. READ-ONLY
+// — the archetype files are a frozen GREEN stage; we read, never edit. Returns an empty map if none
+// resolves, in which case the A4 guard simply skips (it never fails a run on a resolution miss).
+function resolveArchetypeRoots(emittedIds: Set<string>): Map<string, HypothesisRoot> {
+  const dir = path.join(__dirname, '../skills/blueprint-intake/archetypes');
+  let best = new Map<string, HypothesisRoot>();
+  let bestCover = 0;
+  try {
+    for (const file of fs.readdirSync(dir)) {
+      if (!file.endsWith('.md') || file.startsWith('_')) continue;
+      const roots = parseArchetypeHypothesisTable(fs.readFileSync(path.join(dir, file), 'utf-8'));
+      const cover = Array.from(emittedIds).filter(id => roots.has(id)).length;
+      if (cover > bestCover) { best = roots; bestCover = cover; }
+    }
+  } catch { /* archetype dir unavailable — the caller skips the guard */ }
+  return best;
 }
 
 // ─── Main pipeline ─────────────────────────────────────────────────────────────
@@ -251,6 +271,61 @@ export async function runPipeline(jobId: string): Promise<void> {
     if (classFlags.length > 0) {
       reviewerFlags.push(...classFlags);
       log('warn', 'GATE 3: D6b classification-label fork detected (REG-25)', { jobId, count: classFlags.length });
+    }
+
+    // REG-27 (A4, Class-G): recompute each card's post-adjustment feasibility FROM ROOT — archetype
+    // base_F + Stage-1 flags + Early maturity dimensions (two flags on one Early dimension stack to
+    // −2). Emits the C1 correction log (authored vs root_computed) for every card, unconditionally.
+    // Acceptance-mode behaviour: flag + log, emit authored (raw model rate stays observable in the
+    // document); production-mode overwrite is gated separately by ENFORCEMENT_MODE (not yet wired).
+    try {
+      const emittedIds = new Set<string>();
+      const idRe = /<!--\s*score:\s*id=([\w-]+)/gi;
+      let idm: RegExpExecArray | null;
+      while ((idm = idRe.exec(opportunities)) !== null) emittedIds.add(idm[1].toLowerCase());
+      const roots = resolveArchetypeRoots(emittedIds);
+      const earlyDims = parseEarlyDimensions(maturity);
+      const logDir = path.join(JOBS_DIR, jobId);
+
+      // A5 (class) correction records — no archetype needed (recompute from emitted I/F).
+      const correctionRecords = [...classificationCorrectionRecords(opportunities)];
+
+      // A4 (feasibility) recompute FROM ROOT — needs archetype base_F + Early maturity dims.
+      if (roots.size > 0 && earlyDims.size > 0) {
+        const { records: feasRecords, reviewerFlags: feasFlags } = validateFeasibilityFromRoot(opportunities, roots, earlyDims);
+        correctionRecords.push(...feasRecords);
+        if (feasFlags.length > 0) {
+          reviewerFlags.push(...feasFlags);
+          log('warn', 'GATE 3: A4 feasibility fork detected (REG-27)', { jobId, count: feasFlags.length });
+        }
+      } else {
+        reviewerFlags.push('A4 feasibility recompute SKIPPED — archetype roots or Early maturity dimensions not resolvable this run.');
+      }
+
+      // A9 (root integrity) — impact/alignment/pinned-flags vs archetype row; Override Register.
+      if (roots.size > 0) {
+        const { reviewerFlags: a9Flags, overrideRegister } = validateRootIntegrity(opportunities, roots);
+        if (a9Flags.length > 0) {
+          reviewerFlags.push(...a9Flags);
+          log('warn', 'GATE 3: A9 root-integrity deviation without citation', { jobId, count: a9Flags.length });
+        }
+        reviewerFlags.push(`A9 Override Register: ${overrideRegister.length} cited/uncited deviation(s) from the archetype row; records at override_register.json`);
+        try {
+          fs.mkdirSync(logDir, { recursive: true });
+          fs.writeFileSync(path.join(logDir, 'override_register.json'), JSON.stringify(overrideRegister, null, 2));
+        } catch { /* non-fatal */ }
+      }
+
+      // C1 correction log — written unconditionally (every Class-A value, every mode). Residual
+      // rate (R1) is read from this file, never from the emitted documents.
+      const forks = correctionRecords.filter(r => !r.agreed).length;
+      reviewerFlags.push(`C1 correction log: ${correctionRecords.length} Class-A value(s) checked, ${forks} fork(s); records at correction_log.json`);
+      try {
+        fs.mkdirSync(logDir, { recursive: true });
+        fs.writeFileSync(path.join(logDir, 'correction_log.json'), JSON.stringify(correctionRecords, null, 2));
+      } catch { /* non-fatal: log persistence best-effort */ }
+    } catch (e) {
+      log('warn', 'Class-G guards errored (non-fatal)', { jobId, error: String(e) });
     }
 
     // T-26 (S-29): cross-stage relay-field drift — the nine T-19 fields must be byte-identical

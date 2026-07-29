@@ -16,6 +16,7 @@ import {
   stripStatusAndMetaAsides,
   stripToDeliveryEnvelope,
   stripForDeliveryStage5,
+  stripFieldTokens,
   detectResidualScaffold,
   BACKEND_COMPOSITION_THRESHOLDS,
   GROUNDING_GREEN,
@@ -994,10 +995,60 @@ describe('T-29 — permit-only section allowlist', () => {
     expect(out).toContain('## Sequencing Rationale');
   });
 
+  it('Stage-2 keeps the [BAND_ASSIGNMENT] block (v37.3 Class C — was stripped as non-permitted 12/12)', () => {
+    const stage2 = [
+      '## Readiness Scorecard', '| Data | Early |',
+      '## [BAND_ASSIGNMENT]', 'Layer-1 grade: FRAGMENTED', '[END BAND_ASSIGNMENT]',
+      '## GATE-4 capacity self-check', 'internal only',
+    ].join('\n');
+    const out = stripToAllowlistedSections(stage2, 'stepC');
+    expect(out).toContain('[BAND_ASSIGNMENT]');        // now permitted — survives delivery
+    expect(out).not.toMatch(/capacity self-check/i);   // real non-permitted section still stripped
+  });
+
   it('Stage-4 legacy level-3 documents NO-OP fail-safe (stage unverified, nothing silently stripped)', () => {
     const legacy = ['### Sequencing Rationale', 'Why.', '### Phase 1: Now', 'Items.'].join('\n');
     const out = stripToAllowlistedSections(legacy, 'stepD2');
     expect(out).toContain('### Phase 1: Now'); // fail-safe: no L2 headings -> allowlist does not run
+  });
+
+  // Class-E instrument fix (v37.3): known scaffold must be removed even when heading paraphrase
+  // makes the permit list match nothing — the old fail-safe suppressed the whole strip, letting
+  // scaffold survive (the "strip never ran" hole that hid S3 leaks for three batches).
+  it('removes known scaffold under the permit fail-safe, keeps unrecognised content, flags UNVERIFIED', () => {
+    const paraphrased = [
+      '### Step 4 — Score Each Opportunity', 'internal ml_heavy=yes log line', // S-37 internal step title
+      '### Detailed Recommendations', 'client-facing content that paraphrased the permitted heading',
+    ].join('\n');
+    const out = stripToAllowlistedSections(paraphrased, 'stepD');
+    expect(out).not.toMatch(/Step 4 — Score Each Opportunity/);     // known scaffold removed
+    expect(out).toContain('### Detailed Recommendations');          // unrecognised content NOT nuked
+    const status = allowlistStatus(paraphrased, 'stepD');
+    expect(status.ran).toBe(true);                                  // it ran (removed scaffold)
+    expect(status.detail).toMatch(/UNVERIFIED/);                    // but never reads as clean
+    expect(allowlistNoopReason(paraphrased, 'stepD')).toMatch(/UNVERIFIED/);
+  });
+
+  it('flags an internal score-field token leaking into client prose (S-41/S-48)', () => {
+    const flags = detectResidualScaffold('# Blueprint\nFeasibility is constrained because ml_heavy=yes fires against Data.');
+    expect(flags.some(f => /internal score-field token/.test(f))).toBe(true);
+  });
+
+  // B2 (v1.3 §3.1): S-37 detector is a closed vocabulary of the skills' own step titles.
+  it('flags "Step N — <internal step title>" process narration (S-37, closed vocabulary)', () => {
+    const flags = detectResidualScaffold('# Blueprint\n## Step 4 — Score Each Opportunity\nWorking notes.');
+    expect(flags.some(f => /closed vocabulary/.test(f))).toBe(true);
+  });
+
+  it('does NOT flag a legitimate client roadmap "Step N:" line (zero-false-fire by set membership)', () => {
+    const flags = detectResidualScaffold('# Blueprint\n## Step 1: Migrate the CRM to Vincere\nClient action.');
+    expect(flags.some(f => /S-37/.test(f))).toBe(false);
+  });
+
+  it('stripFieldTokens removes internal field tokens from client prose, spares legit "X = Y" (v37.3 Class C)', () => {
+    expect(stripFieldTokens('Feasibility drops because `ml_heavy=yes` and multi_source=yes fire.')).not.toMatch(/ml_heavy|multi_source/);
+    expect(stripFieldTokens('The cutover (system_event_deadline=2026-07-31) is urgent.')).not.toMatch(/system_event_deadline/);
+    expect(stripFieldTokens('Target revenue = €6M by FY2026.')).toContain('revenue = €6M'); // field NAMES only — legit text spared
   });
 
   it('does not over-strip the canonical Stage-5 sample (no permitted section lost)', () => {
@@ -1069,7 +1120,8 @@ describe('§3.3 — [CONFIDENCE_PROPAGATION] stripped from delivery only', () =>
   });
 
   it('detector flags a Step-N heading and a Working Log heading (S-37/S-38 backstop)', () => {
-    expect(detectResidualScaffold('### Step 1 — Baseline Confirmation', 'Stage 3').some(f => /S-37/.test(f))).toBe(true);
+    // S-37 is now a closed vocabulary (v1.3 §3.1): the exact internal step title, not a paraphrase.
+    expect(detectResidualScaffold('### Step 1 — Confirm the Baseline', 'Stage 3').some(f => /S-37/.test(f))).toBe(true);
     expect(detectResidualScaffold('## Hypothesis Selection — Working Log', 'Stage 1').some(f => /S-38/.test(f))).toBe(true);
   });
 });

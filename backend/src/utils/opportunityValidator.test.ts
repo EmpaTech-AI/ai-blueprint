@@ -7,6 +7,7 @@ import {
   validatePortfolioMembership,
   validateRoadmapArchetypeAnchoring,
   validateClassificationLabels,
+  classificationCorrectionRecords,
   validateRoadmapPhases,
   d6bClass,
   OpportunityScore,
@@ -165,6 +166,57 @@ describe('fires-on-path probe — REG-25 on the Gate-3 functions', () => {
       ...validateClassificationLabels(forked).reviewerFlags,
     ];
     expect(flags.some(f => /REG-25.*BigBet/.test(f))).toBe(true);
+  });
+});
+
+describe('GATE-4 phase detector — level-agnostic (v37.3 Class-E fix)', () => {
+  const scores: OpportunityScore[] = [
+    { id: 'H-RT-02', impact: 5, feasibility: 4, alignment: 5, product: 100, class: 'QuickWin' },
+  ];
+
+  it('does NOT false-fire "missing phase" on an H2 roadmap (the 12-false-fire bug)', () => {
+    const h2 = [
+      '## Phase Summary', '| CV | H-RT-02 | Quick Win | Now | x |',
+      '## Phase 1: Now (Months 1–3)', '**CV Automation** — do it first',
+      '## Phase 2: Next (Months 3–6)', '**Something**',
+      '## Phase 3: Later (Months 6–12)', '**A big bet**',
+    ].join('\n');
+    const { reviewerFlags } = validateRoadmapPhases(h2, scores);
+    expect(reviewerFlags.some(f => /missing "Phase/.test(f))).toBe(false);
+  });
+
+  it('still fires when a phase heading is genuinely absent', () => {
+    const missing = ['## Phase 1: Now', '**x**', '## Phase 2: Next', '**y**'].join('\n'); // no Phase 3
+    const { reviewerFlags } = validateRoadmapPhases(missing, scores);
+    expect(reviewerFlags.some(f => /missing "Phase 3/.test(f))).toBe(true);
+  });
+});
+
+describe('A5 classificationCorrectionRecords — C1 log for the class field', () => {
+  it('emits an agreed record for a correct label and a disagreement for a forked one', () => {
+    const out = [
+      `<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=25 class=BigBet ${FULL_FIELDS} -->`,           // 5/1 → BigBet ✓
+      `<!-- score: id=H-RT-04 impact=4 feasibility=1 alignment=4 product=16 class=FoundationBuilder ${FULL_FIELDS} -->`, // 4/1 → BigBet, forked
+    ].join('\n');
+    const records = classificationCorrectionRecords(out);
+    expect(records).toHaveLength(2);
+    expect(records.find(r => r.elementId === 'h-rt-01')!.agreed).toBe(true);
+    const r04 = records.find(r => r.elementId === 'h-rt-04')!;
+    expect(r04.agreed).toBe(false);
+    expect(r04.authoredValue).toBe('FoundationBuilder');
+    expect(r04.rootComputedValue).toBe('BigBet');
+    expect(r04.ruleId).toBe('A5');
+  });
+});
+
+describe('composite auto-patch demoted to flag-only (REG-27a, v37.3)', () => {
+  it('flags an arithmetic contradiction but does NOT rewrite the product (no laundering)', () => {
+    // 5×1×5 = 25, but product=16 is stated: the old patcher rewrote 16→25, laundering the contradiction.
+    const input = `<!-- score: id=H-RT-01 impact=5 feasibility=1 alignment=5 product=16 class=BigBet ${FULL_FIELDS} -->`;
+    const { corrected, reviewerFlags } = validateOpportunityScores(input);
+    expect(reviewerFlags.some(f => /REG-27a.*NOT auto-patched/.test(f))).toBe(true);
+    expect(corrected).toContain('product=16');   // preserved — the contradiction survives for the grader
+    expect(corrected).not.toContain('product=25');
   });
 });
 

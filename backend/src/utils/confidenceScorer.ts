@@ -201,11 +201,29 @@ export function stripConfidencePropagation(text: string): string {
 // inline confidence tags, and the [CONFIDENCE_PROPAGATION] handoff block — use before generating ANY
 // staged deliverable. Central, so every emission path and stage is covered (T-15/23/25/26/28; §3.3).
 // Pipe form (not nested calls) so adding/reordering a stripper can't drift a paren.
+// S-48 / S-41 (v37.3 Class C): remove internal score-field tokens (ml_heavy=yes, d_gate4=no, …)
+// that leak into client-facing prose when the model restates the D6 flag syntax verbatim instead of
+// in plain language. Scoped to the finite set of internal field NAMES, so no legitimate client
+// "X = Y" text is affected (a field name never appears in real client prose). Runs after
+// stripHtmlComments, so it only touches VISIBLE prose, never the machine markers. Empty
+// parentheses/brackets left behind are tidied. This is a delivery strip — the raw graded output
+// keeps the tokens, so the model's emission rate stays observable to the grader.
+const DELIVERY_FIELD_TOKEN_RE = /`?\b(?:ml_heavy|multi_source|regulated|large_integration|adoption_dependent|d_gate4|phase_dependency|compliance_deadline|system_event_deadline)\s*=\s*[^\s`)\]]+`?/gi;
+export function stripFieldTokens(text: string): string {
+  return text
+    .replace(DELIVERY_FIELD_TOKEN_RE, '')
+    .replace(/\(\s*[;,]?\s*\)/g, '')     // empty parens left by removed tokens
+    .replace(/\[\s*\]/g, '')             // empty brackets
+    .replace(/[ \t]{2,}/g, ' ')          // collapse doubled spaces
+    .replace(/[ \t]+([.,;)])/g, '$1');   // tidy space before punctuation
+}
+
 export function stripForDelivery(text: string): string {
   const steps = [
     stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
     stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
     stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly, stripConfidencePropagation,
+    stripFieldTokens,
   ];
   return steps.reduce((t, fn) => fn(t), text);
 }
@@ -242,11 +260,12 @@ export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): st
   const forms: Array<[RegExp, string]> = [
     [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
     [/Operator Assembly Instructions/i,                                                'operator-assembly scaffold block (T-28)'],
-    [/^\s*#{0,4}\s*(?:[-*•]\s*)?\*{0,2}(?:Step|Stage)\s+\d+[a-z]?\s*[—:(-]/im,            'process-narration "Step N (…)" line/heading (S-37)'],
+    [STEP_N_INTERNAL_LINE,                                                              'process-narration "Step N — <internal step title>" (S-37, closed vocabulary)'],
     [/^\s*#{0,4}\s*\*{0,2}[^\n]*working log/im,                                         'selection working-log heading (S-38)'],
     [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
     [/GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check/i,                            'GATE-4 / capacity self-check (S-35)'],
     [/\b(?:T|S|WL|REG)-\d{1,3}\b/,                                                      'internal engineering identifier (S-36 / WL-14)'],
+    [/\b(?:ml_heavy|multi_source|large_integration|adoption_dependent|d_gate4|phase_dependency|compliance_deadline|system_event_deadline|regulated)\s*=/i, 'internal score-field token (S-41/S-48) — e.g. ml_heavy=yes'],
     [/<!--/,                                                                            'HTML comment / machine marker'],
     [/\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i, 'inline confidence tag'],
     [/\[JUSTIFICATION\]/i,                                                              'JUSTIFICATION block'],
@@ -284,7 +303,9 @@ export const SECTION_ALLOWLISTS: Record<string, SectionAllowlist> = {
   // v1.1 re-key (Era-N S-44): the Mandatory Heading Contracts pin S2/S4 sections at LEVEL 2
   // (see blueprint-maturity/blueprint-roadmap SKILL.md and harness/permit_manifest_intake_v1_1.json —
   // regenerate these lists from that manifest at every version event; hand-tuned lists drift, WL-18).
-  stepC:  { level: 2, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint'] },
+  // v37.3 Class C: '[band_assignment]'/'band assignment' added so the mandatory band block (## [BAND_ASSIGNMENT])
+  // survives delivery — it was generated then stripped as non-permitted in 12/12 runs (the aria-spec input contract).
+  stepC:  { level: 2, permit: ['readiness scorecard', 'dimension rationale', 'overall pattern', 'key constraint', '[band_assignment]', 'band assignment'] },
   stepD:  { level: 3, permit: ['executive opportunity', 'opportunity cards', 'opportunity #', 'portfolio view', 'additional opportunit'] },
   stepD2: { level: 2, permit: ['sequencing rationale', 'phase summary', 'phase 1', 'phase 2', 'phase 3', 'bridge'] },
   // §2: 8 stable Stage-5 sections (anchored prefixes; "ai readiness"/"ai opportunity" carry the "AI " prefix).
@@ -304,8 +325,25 @@ function normalizeHeading(h: string): string {
 // a lenient permit substring would otherwise falsely keep them ("Step 2 — Opportunity…" contains
 // "opportunity"; "Pain Point Selection — Working Log" contains "pain point"). S-37 (Stage-3 step
 // narration), S-38 (Stage-1 selection working-logs), and the existing scaffold families.
+// B2 (contract v1.3 §3.1): closed vocabulary of the pipeline's OWN step titles. The S-37 detector
+// matches "Step N" ONLY when followed by one of these (set membership, not intent-guessing), so a
+// legitimate client roadmap line ("Step 1: Migrate the CRM") is never caught. Maintained alongside
+// the skills' operating procedures and versioned with this detector.
+const INTERNAL_STEP_TITLES = [
+  'confirm the baseline', 'load the schema', 'review the dossier', 'load the selection',
+  'route to the industry archetype', 'extract opportunity signals', 'score each dimension',
+  'score each opportunity', 'fix the portfolio', 'classify (d6b', 'apply the readiness adjustment',
+  'identify the key takeaways', 'weave in readiness', 'anchor on the golden', 'lock to intake',
+  'validate the sequence', 'assign each opportunity to a phase',
+];
+const STEP_TITLE_ALT = INTERNAL_STEP_TITLES.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+// "Step N [sep] <internal title>" — one closed vocabulary shared by the section strip and the
+// residual detector, so both stay in sync.
+const STEP_N_INTERNAL_SECTION = new RegExp(`^(?:step|stage)\\s+\\d+[a-z]?\\s*[—:.)\\-]?\\s*(?:${STEP_TITLE_ALT})`, 'i');
+const STEP_N_INTERNAL_LINE = new RegExp(`^\\s*#{0,4}\\s*(?:[-*•]\\s*)?\\*{0,2}(?:step|stage)\\s+\\d+[a-z]?\\s*[—:.)\\-]?\\s*(?:${STEP_TITLE_ALT})`, 'im');
+
 const SCAFFOLD_SECTION_STRIP: RegExp[] = [
-  /^(?:step|stage)\s+\d+[a-z]?\s*[—:(-]/i,                          // S-37 "Step 2 — …", "Step 3b — …"
+  STEP_N_INTERNAL_SECTION,                                         // S-37 (closed vocabulary — internal step titles only)
   /working log/i,                                                  // S-38 "… Selection — Working Log"
   /applying the selection|candidate scoring|selection algorithm/i, // S-38
   /producing chunk|proceeding to chunk|intake received/i,          // S-38 operator log
@@ -321,7 +359,7 @@ function isScaffoldSection(h: string): boolean {
 // status distinguishes the WL-10 fail-safe no-ops (which would otherwise be a SILENT fail-open, V2)
 // from a genuinely-clean result: 'no-sections' / 'all-would-strip' are no-ops the orchestrator must
 // flag; 'clean' means sections were found and all permitted; 'stripped' means it ran and removed some.
-type AllowlistStatus = 'no-sections' | 'all-would-strip' | 'clean' | 'stripped';
+type AllowlistStatus = 'no-sections' | 'all-would-strip' | 'clean' | 'stripped' | 'scaffold-fallback';
 
 function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; removed: string[]; status: AllowlistStatus } {
   const headingRe = new RegExp(`^#{${cfg.level}}(?!#)[ \\t]+(.+?)\\s*$`);
@@ -333,15 +371,42 @@ function applyAllowlist(text: string, cfg: SectionAllowlist): { kept: string; re
   }
   const sections = blocks.filter(b => b.heading !== null);
   if (sections.length === 0) return { kept: text, removed: [], status: 'no-sections' }; // fail safe (V2: flagged)
-  // Keep a section iff its normalised heading starts with a permitted prefix (V1 anchored) AND it is
-  // not a known-scaffold heading (scaffold precedence over permit — the §3 backstop).
-  const keep = (h: string) => cfg.permit.some(p => normalizeHeading(h).startsWith(p)) && !isScaffoldSection(h);
+
+  const permitMatch = (h: string) => cfg.permit.some(p => normalizeHeading(h).startsWith(p));
+  const permitted = sections.filter(b => permitMatch(b.heading as string) && !isScaffoldSection(b.heading as string));
+
+  // Class-E instrument fix (v37.3): decouple known-scaffold removal from the permit fail-safe.
+  //
+  // The old fail-safe (removed === all sections → strip nothing) meant that when heading paraphrase
+  // made the permit list match NO sections, the whole strip self-disarmed — leaving KNOWN scaffold
+  // (Step-N narration, working logs, self-checks) in the delivered artifact. That is why the S3
+  // strip "never ran" for three batches: a permit-recognition miss suppressed even the denylist.
+  //
+  // New behaviour: known scaffold (isScaffoldSection — an explicit, conservative denylist) is ALWAYS
+  // removed. The fail-safe now protects only the permit-KEEP decision for UNRECOGNISED (non-scaffold,
+  // non-permitted) sections — those are kept rather than nuked when we cannot confirm the structure.
+  let keep: (h: string) => boolean;
+  let baseStatus: AllowlistStatus;
+  if (permitted.length > 0) {
+    // Normal operation: keep only permitted sections (removes scaffold + unrecognised).
+    keep = (h: string) => permitMatch(h) && !isScaffoldSection(h);
+    baseStatus = 'stripped';
+  } else if (sections.some(b => isScaffoldSection(b.heading as string))) {
+    // Permit matched nothing, but there is known scaffold: keep everything EXCEPT the scaffold, so a
+    // permit-recognition miss can never let known scaffold survive. Permit remains UNVERIFIED (flag).
+    keep = (h: string) => !isScaffoldSection(h);
+    baseStatus = 'scaffold-fallback';
+  } else {
+    // Permit matched nothing and there is no known scaffold: genuinely unrecognised structure —
+    // fail safe, strip nothing, flag as UNVERIFIED.
+    return { kept: text, removed: [], status: 'all-would-strip' };
+  }
+
   const removed = sections.filter(b => !keep(b.heading as string)).map(b => b.heading as string);
-  if (removed.length === 0) return { kept: text, removed: [], status: 'clean' };               // nothing to strip
-  if (removed.length === sections.length) return { kept: text, removed: [], status: 'all-would-strip' }; // fail safe (V2)
+  if (removed.length === 0) return { kept: text, removed: [], status: baseStatus === 'stripped' ? 'clean' : baseStatus };
   const kept = [blocks[0].lines.join('\n'), ...sections.filter(b => keep(b.heading as string)).map(b => b.lines.join('\n'))]
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  return { kept, removed, status: 'stripped' };
+  return { kept, removed, status: baseStatus };
 }
 
 export function stripToAllowlistedSections(text: string, stepKey: string): string {
@@ -362,7 +427,8 @@ export function allowlistNoopReason(text: string, stepKey: string): string | nul
   if (!cfg) return null;
   const { status } = applyAllowlist(text, cfg);
   if (status === 'no-sections') return `no headings at level ${cfg.level} — section allowlist did NOT run`;
-  if (status === 'all-would-strip') return 'every section was non-permitted — stripping suppressed (fail-safe)';
+  if (status === 'all-would-strip') return 'every section was non-permitted and none matched known scaffold — permit UNVERIFIED (fail-safe)';
+  if (status === 'scaffold-fallback') return 'no section matched the permit list — known scaffold was removed under fail-safe, but the remaining sections are permit-UNVERIFIED (likely heading paraphrase)';
   return null;
 }
 
@@ -376,8 +442,9 @@ export function allowlistStatus(text: string, stepKey: string): { ran: boolean; 
   switch (status) {
     case 'stripped':        return { ran: true,  detail: `ran — stripped ${removed.length} non-permitted section(s): ${removed.join('; ')}` };
     case 'clean':           return { ran: true,  detail: 'ran — clean (all sections permitted)' };
+    case 'scaffold-fallback': return { ran: true, detail: `ran (fail-safe) — removed ${removed.length} known-scaffold section(s) but NO section matched the permit list; permit UNVERIFIED (review — likely heading paraphrase): ${removed.join('; ')}` };
     case 'no-sections':     return { ran: false, detail: `NO-OP — no headings at level ${cfg.level}; allowlist did NOT run` };
-    case 'all-would-strip': return { ran: false, detail: 'NO-OP — every section non-permitted; stripping suppressed (fail-safe)' };
+    case 'all-would-strip': return { ran: false, detail: 'NO-OP — every section non-permitted and no known scaffold; permit UNVERIFIED (fail-safe)' };
   }
 }
 

@@ -1,4 +1,5 @@
 import { BLOCKER_PREFIX } from '../types/pipeline';
+import { CorrectionRecord, makeRecord } from './correctionLog';
 
 // Validates Stage 3 (blueprint-opportunities) score comment arithmetic and classification.
 //
@@ -99,13 +100,20 @@ export function validateOpportunityScores(output: string): OpportunityValidation
 
     let patched = full;
 
-    // ── Arithmetic check ───────────────────────────────────────────────────────
+    // ── Arithmetic check (REG-27a — flag-only, no auto-patch) ────────────────────
+    // A product ≠ I×F×A is a genuine contradiction that means ONE of the four values is wrong —
+    // and it is not knowable from the marker alone which. The old auto-patch rewrote the product
+    // to match the components, which in REG-27 laundered a correct product (16) to match a
+    // *defective* component (F=2 → 32), destroying the only cross-check a grader had. We now FLAG
+    // and never overwrite: correction, if any, must come from the ROOT (Stage-1 flags recompute
+    // the post-adjustment feasibility), never from a sibling component. Trust flows root → derived.
     if (!isNaN(product) && product !== expectedProduct) {
       reviewerFlags.push(
-        `Stage 3 score arithmetic error for ${id}: ` +
-        `product=${product} stated but ${impact}×${feasibility}×${alignment}=${expectedProduct} — auto-patched.`,
+        `${BLOCKER_PREFIX} GATE 3 REG-27a (arithmetic contradiction) for ${id}: ` +
+        `product=${product} stated but ${impact}×${feasibility}×${alignment}=${expectedProduct}. ` +
+        `NOT auto-patched — one of these is wrong; recompute the post-adjustment feasibility from the ` +
+        `Stage-1 marker flags (root) and do not overwrite the composite from a possibly-defective component.`,
       );
-      patched = patched.replace(`product=${product}`, `product=${expectedProduct}`);
     }
 
     // ── Classification check (GATE 3) ─────────────────────────────────────────
@@ -215,9 +223,14 @@ export function validateRoadmapPhases(
 ): RoadmapValidationResult {
   const reviewerFlags: string[] = [];
 
-  const hasNow   = /###\s+Phase 1[:\s]/i.test(roadmapOutput);
-  const hasNext  = /###\s+Phase 2[:\s]/i.test(roadmapOutput);
-  const hasLater = /###\s+Phase 3[:\s]/i.test(roadmapOutput);
+  // Class-E instrument fix (v37.3): level-agnostic phase detection. The roadmap skill's output
+  // structure spec emits H2 ("## Phase 1: Now") while its detail template uses H3 — matching only
+  // `###` missed every phase heading and produced 12 false "missing phase" fires per batch (the
+  // noise that buried the real S4 AA flag). `#{2,3}` accepts either level; `\b` still stops
+  // "Phase 1" from matching "Phase 10".
+  const hasNow   = /#{2,3}\s+Phase 1\b/i.test(roadmapOutput);
+  const hasNext  = /#{2,3}\s+Phase 2\b/i.test(roadmapOutput);
+  const hasLater = /#{2,3}\s+Phase 3\b/i.test(roadmapOutput);
 
   if (!hasNow)   reviewerFlags.push('GATE 4: Roadmap missing "Phase 1: Now" section — Stage 4 output is incomplete.');
   if (!hasNext)  reviewerFlags.push('GATE 4: Roadmap missing "Phase 2: Next" section — Stage 4 output is incomplete.');
@@ -225,7 +238,7 @@ export function validateRoadmapPhases(
 
   // "Now" must have at least one opportunity title (bold heading)
   if (hasNow) {
-    const nowSection = roadmapOutput.match(/###\s+Phase 1[^\n]*\n([\s\S]*?)(?=###\s+Phase 2|###\s+Bridge|$)/i)?.[1] ?? '';
+    const nowSection = roadmapOutput.match(/#{2,3}\s+Phase 1\b[^\n]*\n([\s\S]*?)(?=#{2,3}\s+Phase 2|#{2,3}\s+Bridge|$)/i)?.[1] ?? '';
     if (!/\*\*[^*]+\*\*/.test(nowSection)) {
       reviewerFlags.push('GATE 4: "Phase 1: Now" appears empty — every roadmap must include at least one item in Now.');
     }
@@ -233,7 +246,7 @@ export function validateRoadmapPhases(
 
   // Quick Wins must not appear in "Phase 3: Later"
   if (hasLater && opportunityScores.length > 0) {
-    const laterSection = roadmapOutput.match(/###\s+Phase 3[^\n]*\n([\s\S]*?)(?=###\s+Bridge|$)/i)?.[1] ?? '';
+    const laterSection = roadmapOutput.match(/#{2,3}\s+Phase 3\b[^\n]*\n([\s\S]*?)(?=#{2,3}\s+Bridge|$)/i)?.[1] ?? '';
     for (const opp of opportunityScores.filter(s => s.class === 'QuickWin')) {
       if (laterSection.includes(opp.id)) {
         reviewerFlags.push(
@@ -352,6 +365,24 @@ export function validateClassificationLabels(output: string): { reviewerFlags: s
   }
 
   return { reviewerFlags };
+}
+
+// A5 (Class-G): emit a C1 correction record for each card's classification — authored (marker
+// class) vs root-computed (D6b on the emitted I/F). Recompute uses the emitted feasibility (class
+// consistency with its own scores is REG-25's concern; the feasibility's own correctness is A4's).
+// Detection/flagging stays in validateClassificationLabels; this only produces the log records.
+export function classificationCorrectionRecords(output: string): CorrectionRecord[] {
+  const records: CorrectionRecord[] = [];
+  for (const [id, f] of parseScoreCommentsById(output)) {
+    const impact = Number(f.impact);
+    const feas = Number(f.feasibility);
+    if (!Number.isFinite(impact) || !Number.isFinite(feas) || !f.class) continue;
+    records.push(makeRecord(
+      'stage3', id.toLowerCase(), 'class', f.class, d6bClass(impact, feas),
+      { impact, feasibility: feas, rule: 'D6b' }, 'A5',
+    ));
+  }
+  return records;
 }
 
 // ─── T-26 (S-29): cross-stage relay-field validator ────────────────────────────

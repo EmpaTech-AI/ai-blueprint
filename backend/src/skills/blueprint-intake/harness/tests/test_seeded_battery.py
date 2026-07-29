@@ -16,6 +16,8 @@ conforming artifact and asserts the expectation checker CATCHES it:
                                  the negative test for the precedence preamble
   Seed F — REG-25 label fork:    a 5/1/5 Big-Bet card mislabelled "Foundation Builder"
                                  (the v37.1 D6b classification-label fork)
+  Seed G — REG-27 stacking fork: a dual-flag card on an Early dimension applies -1 instead
+                                 of -2 (the v37.2 adjustment-stacking score fork)
 
 Plus PASS controls: the golden dossier, a conforming Phase Summary, and a
 conforming REG-24 fixture (H-RT-07 Now + 5 anchors) must all pass, or the
@@ -197,6 +199,27 @@ def main():
     fails = label_checks(seed_f)
     caught = any("REG-25" in f and "H-RT-01" in f for f in fails)
     report("Seed F: 5/1/5 Big Bet mislabelled Foundation Builder is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
+
+    # REG-27 stacking: dual-flag cards on Data=Early. base_F=3, ml_heavy+multi_source fire -> -2 -> F=1.
+    REG27_BASE = {"h-rt-01": 3, "h-rt-04": 3}
+    REG27_EARLY = {"Data"}
+    dual = lambda hid, f: (f"<!-- score: id={hid} impact=5 feasibility={f} alignment=5 product=1 class=BigBet "
+                           "ml_heavy=yes multi_source=yes regulated=no large_integration=yes adoption_dependent=yes "
+                           "d_gate4=no compliance_deadline=none system_event_deadline=none phase_dependency=strict -->")
+
+    def feas_checks(text):
+        fl = []
+        ce.check_feasibility_from_root(text, REG27_BASE, REG27_EARLY, fl)
+        return fl
+
+    # Control 5: both dual-flag cards correctly at F=1 must PASS
+    fails = feas_checks("\n".join([dual("H-RT-01", 1), dual("H-RT-04", 1)]))
+    report("Control: conforming stacking (-2 -> F=1) must PASS", not fails, "; ".join(fails[:2]))
+
+    # Seed G — REG-27 stacking: H-RT-04 applies -1 (F=2) where two flags on Data=Early require -2 (F=1)
+    fails = feas_checks("\n".join([dual("H-RT-01", 1), dual("H-RT-04", 2)]))
+    caught = any("REG-27" in f and "h-rt-04" in f for f in fails)
+    report("Seed G: dual-flag -1-instead-of-2 stacking fork is CAUGHT", caught, "; ".join(fails[:2]) or "not detected")
 
     print("=" * 70)
     print(f"Seeded Battery Results: {passed} passed, {failed} failed")
