@@ -661,6 +661,96 @@ ORG_FRICTION_SIGNAL: {the verbatim strongest documented adoption-resistance or r
 
 **Chunk 1 production note:** Section I is produced at the end of Chunk 1 (after Section B, before Checkpoint 1). Do NOT re-emit it in Chunk 3.
 
+### [DATA_INVENTORY] Block (v37.4, ratified 31 Jul 2026 — F13a/F13b)
+
+Mandatory. **This block is the computed root for the PP-CORE-00 severity gate (`archetypes/_core.md`
+§2.1) and for the Stage-2 Data dimension (D4 Step 1–4).** Both gates read it; neither re-derives from
+prose. It exists because those two gates were prose judgements over the same paragraph and forked
+independently on LunaCart — PP-0 severity High×1/Critical×3 and Data Developing×1/Early×3, with every
+reading soundly argued. Emitting the counted inventory turns a disagreement about a *grade* into a
+disagreement about a *row*, which is checkable.
+
+Emit as three tables plus one computed marker. Every row carries its own confidence tag; `[Inferred]`
+and `[Assumption]` rows can never satisfy a gate condition.
+
+```
+## [DATA_INVENTORY]
+
+### Core Systems
+| System | Record classes held | Core? | Core because (stated priority) | Confidence |
+|---|---|---|---|---|
+| {id} | {comma-separated record classes} | yes/no | {the priority that depends on it, or n/a when Core?=no} | [Document-Backed] |
+
+### Integrations
+| System A | System B | Mechanism | Status | Active? | Confidence |
+|---|---|---|---|---|---|
+| {id} | {id} | scheduled/event/manual/none | functioning/broken/planned/unbuilt | yes/no | [Document-Backed] |
+
+### Record Classes
+| Record class | System of record | Load-bearing? | Load-bearing because | Rating | Rating because | Confidence |
+|---|---|---|---|---|---|---|
+| {id} | {system id} | yes/no | {stated priority, or n/a} | Reliable/Degraded/Absent | {evidence} | [Document-Backed] |
+
+<!-- inventory: n_core={N} active_integrations={N} integration_coverage={0.00}
+designated_ssot={system id or none} ssot_reconciles_all_load_bearing={yes/no}
+load_bearing_degraded_or_absent={N} data_grade={Early/Developing/Established}
+pp0_severity={Critical/High/none} governance_owner={name or role, or none}
+governance_owner_named={yes/no} governance_standard_documented={yes/no}
+governance_standard_operative={yes/no} -->
+```
+
+**Derivation rules (all mechanical — do not exercise judgement here):**
+
+- **Core?** — `yes` iff the system is the system of record for ≥1 record class on which a *stated*
+  strategic priority depends. Systems holding no record class (chat, scheduling, e-signature) are
+  `no`. `n_core` = count of `Core?=yes` rows.
+- **Integrations are PAIRS, deduplicated.** A bidirectional A↔B sync is ONE row. Never emit both
+  A→B and B→A.
+- **Active?** — `yes` iff `Mechanism ∈ {scheduled, event}` AND `Status = functioning` AND the row is
+  `[Document-Backed]` or `[Form-Stated]`. Manual export/import, copy-paste, one-off historical
+  migrations, and planned/in-progress/unbuilt/broken integrations are all `no`.
+  `active_integrations` = count of `Active?=yes` rows **between two `Core?=yes` systems**.
+- **integration_coverage** = `active_integrations ÷ (n_core − 1)`, to two decimals. When
+  `n_core ≤ 1` write `0.00` and note the reason in Section H.
+- **ssot_reconciles_all_load_bearing** — `yes` only if a designated SSOT exists AND every
+  `Load-bearing?=yes` record class has an `Active?=yes` path to it. Otherwise `no`.
+- **Rating** — `Reliable` = system-generated AND feeds the analytical layer AND no documented quality
+  failure AND <30% stale/incomplete · `Degraded` = system-generated but siloed OR a documented quality
+  failure OR ≥30% stale/incomplete · `Absent` = not systematically captured.
+- **load_bearing_degraded_or_absent** = count of rows with `Load-bearing?=yes` AND
+  `Rating ∈ {Degraded, Absent}`.
+- **governance_\*** — the G1–G3 artifacts (blueprint-maturity D4 Step 4). `governance_owner_named` needs
+  a person or role in `governance_owner` (a bare `yes` is an A15 BLOCKER);
+  `governance_standard_documented` needs an explicit threshold on record, not an aspiration;
+  `governance_standard_operative` needs a recorded review/audit/remediation **or** a documented
+  automated quality control. These are INPUT facts, not derived — A13 aggregates over them.
+- **data_grade** — `Early` if `load_bearing_degraded_or_absent ≥ 1`; `Developing` if that count is 0
+  but ≥1 non-load-bearing class is Degraded/Absent; `Established` if all classes are Reliable **AND**
+  G1 + G2 + G3 all hold. Established is the only grade that reads the governance fields.
+- **pp0_severity** — read straight off the `_core.md` §2.1 threshold table: coverage ≤0.25 →
+  `Critical`; >0.25 and ≤0.60 → `High`; >0.60 with `ssot_reconciles_all_load_bearing=no` → `High`;
+  >0.60 with `yes` → `none` (no PP-0; Band 3 path). C2 must also hold for `Critical` — when C2 fails,
+  PP-0 is not instantiated regardless of coverage.
+
+**These are machine-checked (A11–A15, never-ship BLOCKERs).** A11 recomputes coverage from the tables
+and compares it to the marker; A12 recomputes severity from coverage; A13 recomputes `data_grade` from
+the Record Classes table; A14 asserts every `Active?=yes` row is genuinely scheduled/event +
+functioning; A15 asserts every `Core?=yes` system names ≥1 record class and every
+`Load-bearing?=yes` class names its priority. **They are archetype-independent by construction** — the
+inventory comes from the client's documents, not an archetype file — so they run on every case,
+including the industries with no ACTIVE archetype.
+
+**Calibration — Meridian (pinned, must not change):** n_core 5, active 0, coverage `0.00`,
+`ssot_reconciles_all_load_bearing=no`, `data_grade=Early` (candidate records load-bearing for
+Priority 2, ~35% stale), `pp0_severity=Critical`.
+
+**Calibration — LunaCart (pinned 31 Jul 2026):** n_core 7, active 2 (Shopify→Postgres,
+NetSuite→Postgres), coverage `0.33`, `designated_ssot=postgres`,
+`ssot_reconciles_all_load_bearing=no` (returns/CS/inventory do not feed it),
+`load_bearing_degraded_or_absent=2` (returns, cs_interactions), `data_grade=Early`,
+`pp0_severity=High`. **No LunaCart run produced this combination** — T1 got severity right and the
+Data letter wrong; T2–T4 got the Data letter right and severity wrong.
+
 ### [JUSTIFICATION] Block
 
 Mandatory. Format defined in `../methodology-and-contracts/SKILL.md`. The block opens with a

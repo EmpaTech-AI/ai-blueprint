@@ -128,7 +128,7 @@ each dimension, use this test:
 | Dimension | Presence signals that hold at Developing (do not downgrade from these alone) | Evidenced absence (warranted downgrade) |
 |---|---|---|
 | Strategy | Named AI goal, board conversation, or strategic plan mention | No AI mention in any document AND form explicitly denies strategic interest |
-| Data | Named data source, structured reporting, or data lake referenced | Client confirms zero structured data; no named sources across all inputs — **or** primary data source carries a documented systematic quality failure (confirmed cleaning failure, ≥30% stale/corrupt records on record, or active data integrity breakdown confirmed in documents or form — see Developing Floor Gate D4) |
+| Data | Named data source, structured reporting, or data lake referenced | Client confirms zero structured data; no named sources across all inputs — **or** ≥1 **load-bearing record class** is Degraded or Absent (see Developing Floor Gate D4; "primary data source" was removed 31 Jul 2026 — it does not survive a multi-source architecture) |
 | Technology | Named tools in use, licences, or technology investment documented | Zero technology spend confirmed; no tools named across all inputs |
 | People | Named AI champion, organic tool adoption, or awareness training | Documented resistance with zero capability; explicit refusal on record |
 | Processes | Documented SOP (even partial or unadopted), standardization effort, or measurement culture present | Client confirms no SOPs exist; active rejection of process discipline on record |
@@ -170,25 +170,110 @@ signal and cannot lift the score. A run that scores Meridian's Strategy as Estab
 
 ### Data — Developing Floor Gate (D4, ratified 17 Jun 2026)
 
-`Data = Developing` **iff** both of the following conditions are satisfied at **Document-Backed or Form-Stated** confidence. `[Inferred]` and `[Assumption]` claims can **never** satisfy a required condition — you cannot infer your way to Developing.
+Every condition must be satisfied at **Document-Backed or Form-Stated** confidence. `[Inferred]` and `[Assumption]` claims can **never** satisfy a required condition — you cannot infer your way to Developing.
+
+**D2 revision (31 Jul 2026, F13a).** D2 used to read *"no documented systematic data quality failure
+on the **primary data source**."* **The word "primary" has been REMOVED, not defined.** It does not
+survive a multi-source architecture, and any definition of it invites the same fork on the next stack
+with two plausible candidates. On LunaCart — a functioning Shopify→Postgres warehouse plus three
+disconnected operational systems — the gate forked Developing×1 / Early×3 with both readings soundly
+argued from the same evidence. It is replaced by a per-record-class assessment with a stated
+aggregation rule, computed over the Stage-1 `[DATA_INVENTORY]` block.
 
 | ID | Required condition | Counts as satisfied | Does NOT count as satisfied |
 |---|---|---|---|
 | **D1** | At least one structured data source actively used in core operations | Named CRM, database, data warehouse, or structured reporting system confirmed in documents or form as actively used | Mention of a data tool without confirmation of active use; spreadsheet-only exchange where no named operational system is described |
-| **D2** | No documented systematic data quality failure on the primary data source | Primary data source has no confirmed cleaning failure, no ≥30% stale/corrupt records on record, and no active data integrity breakdown documented in client materials | A confirmed cleaning failure event; ≥30% stale or invalid records explicitly stated in client documents or form; ongoing data integrity breakdown confirmed on record |
+| **D2** | No **load-bearing record class** is Degraded or Absent (Step 1–4 below) | Every record class a stated priority depends on is **Reliable** | ≥1 load-bearing record class rated Degraded or Absent |
 
-**Capping rule:** If D2 fails — a documented systematic quality failure exists for the primary data source — the dimension is **capped at Early** regardless of D1. The existence of a named-but-broken data source is evidenced absence of reliable data capability, not a presence signal that holds the dimension at Developing.
+**Step 1 — enumerate record classes.** The operational data categories the business's stated
+priorities depend on. *(LunaCart: orders, products/inventory, customers, returns, CS interactions,
+marketing performance, finance.)*
 
-**Relationship to the Evidenced-Absence rule:** The Evidenced-Absence rule prevents downgrading *Developing → Early* when the only negative signal is absence of record. This gate works in the same direction: a documented systematic quality failure (D2) is **evidenced absence** of reliable data capability — not merely absence of record. D1 alone (named source present) does not override documented evidence of failure.
+**Step 2 — rate each class's system of record:**
 
-**Calibration example — Meridian Talent Partners (t3 fork):**
+| Rating | Criteria |
+|---|---|
+| **Reliable** | system-generated **and** feeds the analytical layer **and** no documented quality failure **and** <30% stale/incomplete |
+| **Degraded** | system-generated but **siloed** (no active feed to the analytical layer) **OR** a documented quality failure **OR** ≥30% stale/incomplete |
+| **Absent** | not systematically captured — estimates, recall, or paper only |
+
+**Step 3 — mark load-bearing classes.** A record class is **load-bearing** if a stated strategic
+priority, or the magnitude of a Section C pain point, depends on it. Every `load_bearing: true` class
+must name the priority it supports (enforced by A15).
+
+**Step 4 — aggregate, explicitly:**
+
+> **Data = Early** if **≥1 load-bearing record class** is **Degraded** or **Absent**.
+> **Data = Developing** if all load-bearing classes are Reliable but **≥1 non-load-bearing** class is Degraded or Absent.
+> **Data = Established** if all enumerated classes are Reliable **AND** G1 + G2 + G3 below all hold.
+
+**Established governance gate (G1–G3, ratified 31 Jul 2026).** "A governance owner is named" was the
+first draft of this condition and it was too cheap: naming someone costs nothing and proves nothing,
+which is the same defect class as an unquantified magnitude term — a predicate any honest client
+satisfies carries no information. Three artifacts, each at Document-Backed or Form-Stated confidence,
+mirroring the shape of the Strategy Established gate (D3):
+
+| ID | Required artifact | Counts as satisfied | Does NOT count |
+|---|---|---|---|
+| **G1** | A named owner accountable for data quality | A person or role named as accountable for data quality or data governance | "IT owns the data"; an org-chart function with no data-quality accountability stated |
+| **G2** | A documented data-quality standard | An explicit threshold or rule on record (a DQ SLA, a completeness/freshness target, a validation rule set) | An aspiration ("we aim for clean data"); a policy that states no threshold |
+| **G3** | Evidence the standard is **operative** | A recorded review, audit, or remediation action against the standard — **or** an automated quality control documented in the pipeline/tech inventory | A standard that exists with no evidence it has ever been applied or enforced |
+
+**Why G3 and not "measured at least once".** A measurement is already implied by `Reliable`, which
+requires `<30% stale/incomplete` — you cannot assert that figure without measuring it. So a
+"measured at least once" condition would be redundancy dressed as strictness. The non-redundant thing
+is whether the governance **loop closes**: `Reliable` describes the current state of the data, G3
+describes the client's capacity to keep it that way. That distinction is precisely the model's own
+definition of Established — *"structured capability with consistent execution; practices are
+repeatable and supported by leadership"* — a standard that has never once been applied is not
+consistent execution. G3 accepts an automated control as evidence because a governed stack commonly
+documents one in the tech inventory, which keeps the gate reachable from a normal intake pack.
+
+**Reachability check (the point of a Band-3 fixture).** A level that never fires is either correctly
+stringent or dead code, and the two are indistinguishable without a case at the top of the scale.
+`fixtures/band3_calibration.md` (Nordwind Logistics) is that case and it must satisfy G1–G3 — if a
+realistically-governed synthetic client cannot, the gate is too strict and must be relaxed rather than
+left unreachable.
+
+**Why priority-weighted and not worst-class or majority.** Worst-class dominance makes every real
+client Early (all of them have one bad class). Majority hides exactly the gaps that matter.
+Priority-weighting ties the grade to **whether the client's own stated goals are measurable** — which
+is this gate's original rationale (*"a named-but-broken data source is evidenced absence of reliable
+data capability"*) made operational. Note that Step 4 is the **first Data-specific Established gate**;
+before this revision only Strategy had one (D3), and Data's Established level rested on the generic
+scoring levels alone.
+
+**Relationship to the Evidenced-Absence rule:** The Evidenced-Absence rule prevents downgrading *Developing → Early* when the only negative signal is absence of record. This gate works in the same direction: a Degraded or Absent load-bearing record class is **evidenced absence** of reliable data capability — not merely absence of record. D1 alone (named source present) does not override documented evidence of failure.
+
+**Calibration example — Meridian Talent Partners (pinned, must not change):**
 
 | Condition | Evidence | Satisfied? |
 |---|---|---|
 | D1 (structured source active) | Vincere CRM and manual CSV exchange named and in use [Document-Backed] | ✓ |
-| D2 (no systematic quality failure) | 35% stale candidate records [Document-Backed]; 2023 data cleaning failure confirmed [Document-Backed] | ✗ |
+| D2 (no load-bearing class Degraded/Absent) | candidate records (load-bearing for Priority 2: TTF/sourcing) rated POOR, ~35% stale [Document-Backed]; 2023 cleaning failure confirmed [Document-Backed] → **Degraded** | ✗ |
 
-→ **Data = Early on every run.** D1 is satisfied but D2 fails — the 35% stale figure and confirmed 2023 cleaning failure are documented systematic quality failures that cap the dimension at Early regardless of the Vincere CRM presence. A run that scores Meridian's Data as Developing is wrong.
+→ **Data = Early on every run.** D1 is satisfied but D2 fails — candidate records are load-bearing for
+Priority 2 and rated Degraded, which sets Early regardless of the Vincere CRM presence. A run that
+scores Meridian's Data as Developing is wrong.
+
+**Calibration example — LunaCart (pinned 31 Jul 2026):**
+
+| Record class | System of record | Load-bearing? | Rating | Why |
+|---|---|---|---|---|
+| orders | Shopify | yes (Priority 1) | Reliable | system-generated, daily feed to Postgres |
+| returns | Returnly | **yes** (Priority 2 — return rate 34.2% → <28%) | **Degraded** | siloed, no active feed to Postgres; quality 2/5 |
+| CS interactions | Zendesk | **yes** (Priority 4 — CS automation) | **Degraded** | siloed, no active feed to Postgres; quality 2/5 |
+
+→ **Data = Early.** Two load-bearing classes are Degraded. The functioning core warehouse does not
+lift the grade, because the classes the client's own stated priorities depend on are the siloed ones.
+A run scoring LunaCart's Data as Developing is wrong — that reading weighed the working warehouse over
+the load-bearing gaps.
+
+**Note on the Layer-1 grade.** `Data = Early` sets Layer 1 to **FRAGMENTED** under `_core.md` §4
+(`FRAGMENTED | Data = Early, OR the gate returned Critical`) regardless of Integration Coverage, and
+FRAGMENTED is **Band 1 in both the FRICTION and ALIGNED columns**. So LunaCart is Band 1
+deterministically. Whether the USABLE row should additionally carry a coverage floor is an open
+refinement (Practice, owed) — it does not change any band assignment reachable today.
 
 ---
 

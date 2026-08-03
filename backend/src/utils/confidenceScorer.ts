@@ -37,9 +37,62 @@ const TAG_PATTERNS = {
 
 // ─── Public strip helpers ─────────────────────────────────────────────────────
 
+// v37.4 (LunaCart TC1, item 4): the JUSTIFICATION strip was the last all-or-nothing strip in the
+// file. The old pattern was `/\n*## \[JUSTIFICATION\][\s\S]*?\[END JUSTIFICATION\]\n*/gi` — it
+// required the heading at EXACTLY level 2, with brackets, AND the `[END JUSTIFICATION]` terminator.
+// Any one of those drifting meant the ENTIRE block passed through untouched, which is exactly the
+// intermittent 2-of-4 · ~25-occurrence leak observed on LunaCart Stage 5.
+//
+// This is the same failure mode, and now the same fix, as stripCheckpointScaffold (T-15, v32):
+// "any drift in the assembled output slipped through, which is why the leak was intermittent rather
+// than constant." That one was hardened three eras ago; this one never was.
+//
+// Tolerance: heading level 1–4, optional leading horizontal rule, optional bold, optional brackets,
+// optional trailing colon. The heading is ANCHORED to end-of-line so a heading that merely CONTAINS
+// the word — the skills' own "## Confidence Justification Report" — can never match.
+//
+// Termination, in priority order:
+//   1. `[END JUSTIFICATION]` (inclusive) — the contract form; byte-equivalent to the old behaviour.
+//   2. the first heading at the JUSTIFICATION heading's own level OR HIGHER (exclusive). The block
+//      legitimately contains `### Confidence Overview` and `#### N. [Tag] Label` sub-headings, so
+//      terminating at "any heading" would under-strip and leave every numbered entry behind. The
+//      sibling-or-higher rule is what bounds over-consumption: it also stops at a following
+//      `## [CONFIDENCE_PROPAGATION]`, which the Stage-2→Stage-4 handoff copy needs intact (§3.3 R3).
+//   3. a line carrying the Final marker (exclusive) — kept so the Stage-5 position envelope and the
+//      orchestrator's marker assertion still see it.
+//   4. EOF.
+const JUSTIFICATION_HEADING_SRC =
+  String.raw`^[ \t]*(#{1,4})[ \t]*\*{0,2}[ \t]*\[?[ \t]*JUSTIFICATION[ \t]*\]?[ \t]*\*{0,2}[ \t]*:?[ \t]*$`;
+
 export function stripJustification(text: string): string {
-  // Case-insensitive: catches [JUSTIFICATION], [justification], [Justification] variants
-  return text.replace(/\n*## \[JUSTIFICATION\][\s\S]*?\[END JUSTIFICATION\]\n*/gi, '').trim();
+  let out = text;
+  // Bounded loop: each pass removes one block, so it always terminates; the cap is a backstop only.
+  for (let guard = 0; guard < 20; guard++) {
+    const heading = new RegExp(JUSTIFICATION_HEADING_SRC, 'im').exec(out);
+    if (!heading) break;
+    const level = heading[1].length;
+    const bodyStart = heading.index + heading[0].length;
+    const rest = out.slice(bodyStart);
+
+    const terminator = /\[END[ \t]+JUSTIFICATION\][ \t]*/i.exec(rest);
+    let endOffset: number;
+    if (terminator) {
+      endOffset = terminator.index + terminator[0].length;
+    } else {
+      const stop = new RegExp(
+        String.raw`^[ \t]*(?:#{1,${level}}(?!#)[ \t]|[^\n]*End of AI Value Blueprint)`, 'im',
+      ).exec(rest);
+      endOffset = stop ? stop.index : rest.length;
+    }
+
+    // Also swallow a horizontal rule sitting immediately above the heading (it belonged to the block).
+    let cut = heading.index;
+    const rule = /(?:\n[ \t]*-{3,}[ \t]*)+\n*[ \t]*$/.exec(out.slice(0, cut));
+    if (rule) cut = rule.index;
+
+    out = `${out.slice(0, cut)}\n${out.slice(bodyStart + endOffset)}`;
+  }
+  return out.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export function stripConfidenceTags(text: string): string {
@@ -80,12 +133,16 @@ export function stripCheckpointScaffold(text: string): string {
 // the document title. The assembly skill's Pre-Flight Sanitization rule handles this on the model
 // side; this is a backend safety net. Catches "I have...", "I've...", and the bullet-style
 // pre-flight checklist ("• Step 1 — ...") that sometimes leaks before the first `# ` heading.
+// v37.4: every alternative used to require a trailing `\n`, so a preamble line that ended up LAST in
+// the text (no trailing newline — which is what any earlier strip's `.trim()` leaves behind) was not
+// removed. `(?:\n|$)` closes that. The bullet forms deliberately still require the newline: they match
+// any `•`/`*` line, and letting them run to EOF would widen an already-broad pattern.
 export function stripOperatorPreamble(text: string): string {
   // Strip leading "I have/I've" acknowledgement lines
-  let result = text.replace(/^(?:I (?:have|'ve)[^\n]*\n)+\n*/m, '').trimStart();
+  let result = text.replace(/^(?:I (?:have|'ve)[^\n]*(?:\n|$))+\n*/m, '').trimStart();
   // Strip pre-flight status block if it appears before any `# ` heading
   // Pattern: bullet-list status lines ending with "Proceeding to Chunk N."
-  result = result.replace(/^(?:•[^\n]*\n|\*[^\n]*\n|[Nn]o missing[^\n]*\n|[Pp]roceeding to[^\n]*\n)+\n*/m, '').trimStart();
+  result = result.replace(/^(?:•[^\n]*\n|\*[^\n]*\n|[Nn]o missing[^\n]*(?:\n|$)|[Pp]roceeding to[^\n]*(?:\n|$))+\n*/m, '').trimStart();
   return result;
 }
 
@@ -218,12 +275,26 @@ export function stripFieldTokens(text: string): string {
     .replace(/[ \t]+([.,;)])/g, '$1');   // tidy space before punctuation
 }
 
+// v37.4 (F13a/F13b): the Stage-1 [DATA_INVENTORY] block is a machine channel — the counted root that
+// the PP-CORE-00 severity gate and the Data dimension gate both read (A11–A15). It is internal
+// working-out, never client content. The stepB section allowlist already removes it (it is not a
+// permitted section), but per the codebase's chokepoint+enumeration doctrine it also gets an explicit
+// strip: the allowlist can no-op on a malformed document, and this must not survive that fail-safe.
+// Same heading-tolerant shape as the [CONFIDENCE_PROPAGATION] strip it sits beside.
+export function stripDataInventory(text: string): string {
+  return text
+    .replace(/\n*(?:-{3,}[ \t]*\n+)?#{1,4}[ \t]*\*{0,2}\[?DATA_INVENTORY\]?[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,2}[ \t]+(?!\[?DATA_INVENTORY)|\[END JUSTIFICATION\]|$)/gi, '\n')
+    .replace(/<!--\s*inventory:[\s\S]*?-->[ \t]*\n?/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function stripForDelivery(text: string): string {
   const steps = [
     stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
     stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
     stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly, stripConfidencePropagation,
-    stripFieldTokens,
+    stripDataInventory, stripFieldTokens,
   ];
   return steps.reduce((t, fn) => fn(t), text);
 }
@@ -256,30 +327,15 @@ export function stripForDeliveryStage5(text: string): string {
 // observability net that proves it — enumerating every known form (Practice's complete list).
 // T-28: takes a stageLabel so it can run on EVERY staged deliverable (S1–S5), not only Stage 5 —
 // the Era-K leak relocated to Stage 1 because this scan had only ever run on the assembled output.
+// v37.4: the form list is no longer maintained here. It is SCAFFOLD_FORMS — the single registry that
+// also declares which chokepoint removes each form, so this scan can never again be narrower than
+// the strips it is auditing (see the registry comment for the two forms that audit surfaced).
 export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): string[] {
-  const forms: Array<[RegExp, string]> = [
-    [/CHECKPOINT\s+\d+/i,                                                              'CHECKPOINT block'],
-    [/Operator Assembly Instructions/i,                                                'operator-assembly scaffold block (T-28)'],
-    [STEP_N_INTERNAL_LINE,                                                              'process-narration "Step N — <internal step title>" (S-37, closed vocabulary)'],
-    [/^\s*#{0,4}\s*\*{0,2}[^\n]*working log/im,                                         'selection working-log heading (S-38)'],
-    [/^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,                          'pipeline-position "Step N of M" breadcrumb (S-31)'],
-    [/GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check/i,                            'GATE-4 / capacity self-check (S-35)'],
-    [/\b(?:T|S|WL|REG)-\d{1,3}\b/,                                                      'internal engineering identifier (S-36 / WL-14)'],
-    [/\b(?:ml_heavy|multi_source|large_integration|adoption_dependent|d_gate4|phase_dependency|compliance_deadline|system_event_deadline|regulated)\s*=/i, 'internal score-field token (S-41/S-48) — e.g. ml_heavy=yes'],
-    [/<!--/,                                                                            'HTML comment / machine marker'],
-    [/\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i, 'inline confidence tag'],
-    [/\[JUSTIFICATION\]/i,                                                              'JUSTIFICATION block'],
-    [/^\s*(?:Coverage|Confidence|Sections?|Status)\s*[:—-]/im,                          'Coverage/Confidence status line'],
-    [/\((?:Internal|Confidence|Coverage)\s*[:：]/i,                                     'mid-body meta-aside'],
-    [/\[(?:Consultant|TODO|NOTE|DRAFT|INSERT|TBD|PLACEHOLDER)\b/i,                      'editorial self-note bracket'],
-    [/^\s*\*{0,2}Quality check/im,                                                      'Quality-check self-grading line'],
-    [/H-RT-X{2,}/i,                                                                     'literal H-RT-XX placeholder'],
-  ];
   const flags: string[] = [];
-  for (const [re, label] of forms) {
-    if (re.test(text)) {
+  for (const form of SCAFFOLD_FORMS) {
+    if (form.detect.test(text)) {
       // Never-ship: a residual scaffold form in any staged deliverable blocks release until resolved.
-      flags.push(`${BLOCKER_PREFIX} ${stageLabel} residual scaffold (${label}) survived delivery strip — do not release.`);
+      flags.push(`${BLOCKER_PREFIX} ${stageLabel} residual scaffold (${form.label}) survived delivery strip — do not release.`);
     }
   }
   return flags;
@@ -341,6 +397,115 @@ const STEP_TITLE_ALT = INTERNAL_STEP_TITLES.map(t => t.replace(/[.*+?^${}()|[\]\
 // residual detector, so both stay in sync.
 const STEP_N_INTERNAL_SECTION = new RegExp(`^(?:step|stage)\\s+\\d+[a-z]?\\s*[—:.)\\-]?\\s*(?:${STEP_TITLE_ALT})`, 'i');
 const STEP_N_INTERNAL_LINE = new RegExp(`^\\s*#{0,4}\\s*(?:[-*•]\\s*)?\\*{0,2}(?:step|stage)\\s+\\d+[a-z]?\\s*[—:.)\\-]?\\s*(?:${STEP_TITLE_ALT})`, 'im');
+
+// ─── v37.4 (LunaCart TC1, item 5): one scaffold-form registry ────────────────────────────────────
+//
+// The residual detector's form list and the delivery strips were two independently hand-maintained
+// lists. That is the same failure the Practice hit from the other side: their grading token list did
+// not contain `JUSTIFICATION`, so they reported "0 leaks ×4" against a pipeline that was leaking —
+// "I keep testing for what has failed before rather than for what the contract specifies."
+//
+// Auditing the two lists against each other found the identical asymmetry inside the pipeline:
+// `stripConfidencePropagation` and `stripOperatorPreamble` both run on every delivery path and
+// NEITHER had a detector entry, so those two forms could leak and the scan would report clean.
+//
+// The registry makes the relationship explicit and testable. Each form declares the regex that
+// detects it, which chokepoint is responsible for removing it, and a canonical sample. The paired
+// test (confidenceScorer.scaffold.test.ts) then asserts, mechanically:
+//   • every form's `detect` matches its own `sample`                    — the detector is honest
+//   • every 'delivery-strip' sample is gone after stripForDelivery      — detector ⊇ pipeline
+//   • every strip in the stripForDelivery pipe alters ≥1 sample         — pipeline ⊆ detector
+// so a strip can never again be added without a detector, nor a detector drift narrower than the
+// strip it is supposed to be watching.
+//
+// `removedBy` is the honest part: 'author-discipline' forms (internal engineering IDs, literal
+// H-RT-XX placeholders, quality-check self-grading) have NO strip by design — enumerating them here
+// records that the detector is the only thing standing between them and a client, which is a
+// different risk posture from a form that is mechanically removed.
+export type ScaffoldRemovedBy = 'delivery-strip' | 'section-allowlist' | 'author-discipline';
+
+export interface ScaffoldForm {
+  id: string;
+  label: string;              // reproduced verbatim in the reviewer flag
+  detect: RegExp;             // must be stateless — never carry the `g` flag
+  removedBy: ScaffoldRemovedBy;
+  sample: string;
+}
+
+export const SCAFFOLD_FORMS: ScaffoldForm[] = [
+  { id: 'checkpoint', label: 'CHECKPOINT block', removedBy: 'delivery-strip',
+    detect: /CHECKPOINT\s+\d+/i,
+    sample: '## CHECKPOINT 1 — Foundation Complete\nSections A–D emitted.\n' },
+  { id: 'operator-assembly', label: 'operator-assembly scaffold block (T-28)', removedBy: 'delivery-strip',
+    detect: /Operator Assembly Instructions/i,
+    sample: '**Operator Assembly Instructions**\nConcatenate the three chunks before conversion.\n' },
+  { id: 'step-n-internal', label: 'process-narration "Step N — <internal step title>" (S-37, closed vocabulary)',
+    removedBy: 'delivery-strip', detect: STEP_N_INTERNAL_LINE,
+    sample: 'Step 3 — Score each opportunity against the rubric.\n' },
+  { id: 'working-log', label: 'selection working-log heading (S-38)', removedBy: 'section-allowlist',
+    detect: /^\s*#{0,4}\s*\*{0,2}[^\n]*working log/im,
+    sample: '## Pain Point Selection — Working Log\nCandidate scoring below.\n' },
+  { id: 'step-n-of-m', label: 'pipeline-position "Step N of M" breadcrumb (S-31)', removedBy: 'delivery-strip',
+    detect: /^\s*#{0,4}\s*\*{0,2}(?:Step|Stage)\s+\d+\s+of\s+\d+\b/im,
+    sample: 'Step 4 of 5\n' },
+  { id: 'gate4-self-check', label: 'GATE-4 / capacity self-check (S-35)', removedBy: 'delivery-strip',
+    detect: /GATE-?\s*4[^\n]{0,30}self-check|Capacity self-check/i,
+    sample: '## GATE-4 self-check\n- Phase 1 populated: yes\n' },
+  { id: 'engineering-id', label: 'internal engineering identifier (S-36 / WL-14)', removedBy: 'author-discipline',
+    detect: /\b(?:T|S|WL|REG)-\d{1,3}\b/,
+    sample: 'Placement follows T-27 and REG-25.' },
+  { id: 'field-token', label: 'internal score-field token (S-41/S-48) — e.g. ml_heavy=yes', removedBy: 'delivery-strip',
+    detect: /\b(?:ml_heavy|multi_source|large_integration|adoption_dependent|d_gate4|phase_dependency|compliance_deadline|system_event_deadline|regulated)\s*=/i,
+    sample: 'Scored with ml_heavy=yes and d_gate4=no.' },
+  { id: 'html-comment', label: 'HTML comment / machine marker', removedBy: 'delivery-strip',
+    detect: /<!--/,
+    sample: '<!-- score: id=H-RT-01 impact=5 feasibility=3 -->\n' },
+  // Declared separately from the generic comment form so stripBuildStamp has its own coverage anchor.
+  { id: 'build-stamp', label: 'build stamp (T-07)', removedBy: 'delivery-strip',
+    detect: /<!--\s*(?:pipeline-build|build):/i,
+    sample: '<!-- build: date=2026-07-31 pipeline=v37.3 sha=f6ede60 -->\n' },
+  { id: 'confidence-tag', label: 'inline confidence tag', removedBy: 'delivery-strip',
+    detect: /\[(?:Document[- ]?Backed|Form[- ]?Stated|Archetype[- ]?Anchored|Inferred|Assumption|Assumed)\b/i,
+    sample: 'The team has 12 recruiters [Document-Backed — org chart p.2].' },
+  // Widened in v37.4 to the same tolerance as stripJustification. The old detector was
+  // /\[JUSTIFICATION\]/i — brackets REQUIRED — so it shared the strip's exact blind spot: an
+  // unbracketed `## JUSTIFICATION` heading was neither stripped nor detected. The sample is the
+  // observed LunaCart leak form (unbracketed, no terminator), so it is a live regression test.
+  { id: 'justification', label: 'JUSTIFICATION block', removedBy: 'delivery-strip',
+    detect: new RegExp(`${JUSTIFICATION_HEADING_SRC}|\\[(?:END )?JUSTIFICATION\\]`, 'im'),
+    sample: '## JUSTIFICATION\n\n### Confidence Overview\nGrounded: 1 of 2 tagged claims.\n' },
+  // NEW in v37.4 — stripConfidencePropagation ran on every delivery path with no detector entry.
+  { id: 'confidence-propagation', label: '[CONFIDENCE_PROPAGATION] handoff channel (§3.3 R3)',
+    removedBy: 'delivery-strip',
+    detect: /\[(?:END )?CONFIDENCE_PROPAGATION\]|^[ \t]*#{1,4}[ \t]*\[?CONFIDENCE_PROPAGATION\b/im,
+    sample: '[CONFIDENCE_PROPAGATION]\nData: Inferred\n[END CONFIDENCE_PROPAGATION]\n' },
+  // NEW in v37.4 — stripOperatorPreamble likewise had no detector entry. Closed verb vocabulary
+  // (the S-37 principle: set membership, not intent-guessing) so a client sentence beginning "I have
+  // …" cannot false-fire a never-ship BLOCKER.
+  { id: 'operator-preamble', label: 'operator receipt / pre-flight preamble', removedBy: 'delivery-strip',
+    detect: /^[ \t]*(?:I(?:'ve| have) (?:received|completed|reviewed|generated|produced)\b|No missing\b|Proceeding to\b)/im,
+    sample: 'I have received the three input documents.\n' },
+  // NEW in v37.4 — the [DATA_INVENTORY] machine channel (F13a/F13b). Registered at the same time as
+  // its strip, which is the whole point of the registry: a new strip cannot ship without a detector.
+  { id: 'data-inventory', label: '[DATA_INVENTORY] machine channel (F13a/F13b)', removedBy: 'delivery-strip',
+    detect: /^[ \t]*#{1,4}[ \t]*\*{0,2}\[?DATA_INVENTORY\b|<!--\s*inventory:/im,
+    sample: '## [DATA_INVENTORY]\n\n### Core Systems\n| System | Record classes held | Core? | Core because (stated priority) | Confidence |\n|---|---|---|---|---|\n| shopify | orders, products | yes | Priority 1 | [Document-Backed] |\n\n<!-- inventory: n_core=1 active_integrations=0 integration_coverage=0.00 data_grade=Early -->\n' },
+  { id: 'coverage-status-line', label: 'Coverage/Confidence status line', removedBy: 'delivery-strip',
+    detect: /^\s*(?:Coverage|Confidence|Sections?|Status)\s*[:—-]/im,
+    sample: 'Coverage: Sections A–H\n' },
+  { id: 'meta-aside', label: 'mid-body meta-aside', removedBy: 'delivery-strip',
+    detect: /\((?:Internal|Confidence|Coverage)\s*[:：]/i,
+    sample: 'The register is complete (Internal: 8 pain points mapped).' },
+  { id: 'editorial-bracket', label: 'editorial self-note bracket', removedBy: 'delivery-strip',
+    detect: /\[(?:Consultant|TODO|NOTE|DRAFT|INSERT|TBD|PLACEHOLDER)\b/i,
+    sample: 'Revenue grew 14% [TODO: confirm figure].' },
+  { id: 'quality-check', label: 'Quality-check self-grading line', removedBy: 'author-discipline',
+    detect: /^\s*\*{0,2}Quality check/im,
+    sample: '**Quality check** — all sections present.\n' },
+  { id: 'h-rt-placeholder', label: 'literal H-RT-XX placeholder', removedBy: 'author-discipline',
+    detect: /H-RT-X{2,}/i,
+    sample: 'See hypothesis H-RT-XX for detail.' },
+];
 
 const SCAFFOLD_SECTION_STRIP: RegExp[] = [
   STEP_N_INTERNAL_SECTION,                                         // S-37 (closed vocabulary — internal step titles only)

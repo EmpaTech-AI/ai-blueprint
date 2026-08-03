@@ -33,6 +33,24 @@ Deduplicate by hypothesis identity (not by phrasing). If two candidates target t
 **Pool filters (v1.1 — deterministic column lookups, applied after the pool is built):**
 
 1. **`band1_pool=no` exclusion:** when PP-CORE-00 was instantiated at `Critical (systemic)` in Section C, remove every candidate whose archetype row carries `band1_pool=no` (standalone product-build bets a fragile Layer 1 cannot carry — e.g. H-RT-08, H-RT-09 in the recruitment archetype). Record each exclusion in Section H with its score, so the reviewer sees the trade-off.
+
+   **The rule fires at Critical (systemic) ONLY.** At `High (structural)` or when PP-0 is not
+   instantiated, no candidate may be excluded on this ground — machine-checked by **A16**, which is a
+   never-ship BLOCKER. This is not a theoretical guard: on LunaCart PP-0 forked Critical×3 / High×1,
+   so three runs excluded candidates the correct severity would have kept. Section C stayed at 8 and
+   Section D at 7+H-0 in all four, so the count was stable while **membership** diverged — a
+   count-based review cannot detect this.
+
+   **Empty-set declaration (A16, mandatory).** When PP-0 *is* Critical (systemic) and no candidate
+   carries `band1_pool=no`, excluding nothing is correct — but silence is indistinguishable from the
+   rule never having been applied. Record the explicit line in Section H:
+
+   > `- Excluded (band1_pool=no, PP-0 Critical (systemic)): none — no candidate carried band1_pool=no.`
+
+   A16 asserts the exclusion count against severity in one direction (non-Critical ⇒ must be empty)
+   and requires this declaration in the other (Critical + empty ⇒ must be stated). The biconditional
+   is deliberately NOT asserted: non-empty output additionally requires that a qualifying candidate
+   exists in the pool, so asserting non-empty at Critical would BLOCKER a legitimately empty run.
 2. **`h0_consumer=yes` absorption:** when the H-CORE-00 promotion gate will pass (evaluate the gate on the provisional top-7 — see Stage 4b), remove every candidate whose row carries `h0_consumer=yes` (e.g. H-RT-06 Pipeline Visibility Dashboard) — it is an output of the brain; keeping both double-counts the same value. Tombstone in Section H. When H-0 is not promoted, these candidates compete normally.
 
 **ABSORPTION WHITELIST (KR2 / REG-19 pin — non-negotiable):** the `h0_consumer` column is the

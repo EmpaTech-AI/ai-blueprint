@@ -32,3 +32,26 @@ describe('resolveClientTitleName', () => {
     expect(resolveClientTitleName('<!-- INTAKE_FACTS\nCEO_NAME: X\n-->', 'Fallback Co')).toBe('Fallback Co');
   });
 });
+
+// v37.4 (admissibility): the run index is recovered from the operator's job label so a grader holding
+// four panels from one batch can attribute each flag to a run.
+describe('parseRunIndex', () => {
+  const { parseRunIndex } = require('./clientName');
+
+  it('reads the label forms operators actually type', () => {
+    expect(parseRunIndex('LunaCart v37.3 Test 2')).toBe('T2');
+    expect(parseRunIndex('Meridian Talent Partners test_4')).toBe('T4');
+    expect(parseRunIndex('GoldenBite Run 3')).toBe('T3');
+    expect(parseRunIndex('VelocityFreight T1')).toBe('T1');
+    expect(parseRunIndex('Nordwind #4')).toBe('T4');
+  });
+
+  it('returns null for a real client name with no run label', () => {
+    expect(parseRunIndex('Meridian Talent Partners')).toBeNull();
+    expect(parseRunIndex('LunaCart')).toBeNull();
+  });
+
+  it('does not mistake a version number for a run index', () => {
+    expect(parseRunIndex('LunaCart v37.3')).toBeNull();
+  });
+});

@@ -24,11 +24,90 @@ Two-layer doctrine (fixed): **Layer 1** is the client's existing systems — nev
 
 Evaluate in Stage 1 (intake), from the client's own systems/integration evidence (tech inventory or equivalent). `[Inferred]` and `[Assumption]` claims can **never** satisfy a condition — you cannot infer your way to PP-0.
 
+**C1 and C2 are computed over the Stage-1 `[DATA_INVENTORY]` block, never re-derived from prose.**
+Definitions ratified 31 Jul 2026 (F13b) — see §2.1 below. Before that ratification C1 read "zero or
+near-zero active integrations between core systems", in which *core system*, *active integration* and
+*near-zero* were all undefined; on LunaCart (one functioning integration in a four-system stack) the
+severity forked High×1 / Critical×3 across four runs with both readings soundly argued. Meridian has
+a single primary source, so 16 runs never exposed it.
+
 | Verdict | Conditions (all at Document-Backed or Form-Stated confidence) |
 |---|---|
-| **Critical (systemic)** — instantiate as PP-0, position 0 | (C1) zero or near-zero active integrations between core systems is documented, AND (C2) operational reporting is manually consolidated (exports/copy-paste into spreadsheets) or an explicit "no single source of truth" statement is documented |
-| **High (structural)** — instantiate as PP-0, position 0 | Integrations are partial but the stack is usable and API-capable; no SSOT exists; C2 holds but C1 fails (some active integrations documented) |
-| **Not instantiated** — no PP-0 in Section C | Layer 1 is sound: integrated, governed, reasonably clean. The gap is Layer 2 itself — record as an **opportunity framing** in Section D context, never as a fabricated pain. Forcing Critical PP-0 onto such a client is a calibration failure (the Band 3 anti-hallucination test) |
+| **Critical (systemic)** — instantiate as PP-0, position 0 | (C1) **Integration Coverage ≤ 25%** (§2.1), AND (C2) operational reporting is manually consolidated (exports/copy-paste into spreadsheets) or an explicit "no single source of truth" statement is documented |
+| **High (structural)** — instantiate as PP-0, position 0 | (C1) **Integration Coverage > 25%** but the stack still has no single source of truth that every load-bearing record class reconciles to; C2 holds |
+| **Not instantiated** — no PP-0 in Section C | Layer 1 is sound: **Integration Coverage > 60% AND** a designated SSOT is in use **AND** every load-bearing record class reconciles to it. The gap is Layer 2 itself — record as an **opportunity framing** in Section D context, never as a fabricated pain. Forcing Critical PP-0 onto such a client is a calibration failure (the Band 3 anti-hallucination test) |
+
+### 2.1 C1 — Integration Coverage (ratified 31 Jul 2026, F13b)
+
+> **Integration Coverage = active integrations among core systems ÷ (n_core − 1)**
+
+No raw counts: a threshold on integration *count* is architecture-dependent — one integration across
+three systems is not one across ten. The denominator is the **minimum number of integrations required
+for a single source of truth to exist** (hub-and-spoke needs every core system feeding one hub, i.e.
+n−1 links). It is the minimal spanning requirement, not an arbitrary target, so the ratio is
+comparable across stacks of any size. When `n_core ≤ 1` the ratio is undefined — treat coverage as
+0% and record the reason.
+
+**Core system.** A system is **core** if it is the system of record for at least one **operational
+record class** on which a **stated strategic priority** depends. Tied to the engagement's own scope
+rather than a per-industry vendor list, so it travels across industries. Excluded: systems holding no
+record class (chat, scheduling, e-signature), and record classes no stated priority depends on.
+
+**Active integration.** A connection between two core systems where data moves **without human
+action**, on a **schedule or event trigger**, and is **currently functioning**.
+
+- **Counted as pairs, not links** — a bidirectional sync between A and B is **one** integration.
+- **Excluded:** manual CSV export/import · copy-paste · one-off historical migrations · planned,
+  in-progress or unbuilt integrations · integrations documented as broken or disabled.
+- **Evidence rule:** counts only at `[Document-Backed]` or `[Form-Stated]` confidence. An integration
+  inferred from the mere existence of two systems does not count.
+
+**Severity thresholds.** The bands tile the whole range — every coverage value falls in exactly one:
+
+| Integration Coverage | Designated SSOT reconciles every load-bearing record class? | **C1 fires?** | **PP-CORE-00 severity** |
+|---|---|---|---|
+| **≤ 25%** ("near-zero") | any | ✓ | **Critical (systemic)** |
+| **> 25% and ≤ 60%** | any | ✓ | **High (structural)** |
+| **> 60%** | no | ✓ | **High (structural)** |
+| **> 60%** | **yes** | ✗ does not fire | **not instantiated** — Band 3 path |
+
+25% is set so that a stack with *at most one* functioning integration in a five-or-more-system
+architecture reads as near-zero — the condition the original wording was reaching for. 60% is set so
+that a majority-connected stack still missing a canonical source reads as structural rather than
+systemic: the foundations exist, the consolidation does not.
+
+**Nominal SSOT:** a designated warehouse with coverage ≤25% is *nominal* — it exists and nothing
+feeds it. The table sends that case to Critical deliberately.
+
+**INVARIANT — Integration Coverage feeds PP-0 severity ONLY. Do not wire it into the Layer-1 grade.**
+This looks like a gap and is not. The two grades do different jobs: PP-0 severity drives the pain
+register and the `band1_pool=no` exclusions; the Layer-1 grade drives the band, which drives roadmap
+shape and tier ceiling. §4's Layer-1 rows turn on the maturity dimensions (`Data = Early`, `Technology`),
+plus the PP-0 verdict where it is already an input. Adding coverage as a second, independent input to
+§4 would change the band on cases whose maturity dimensions have not moved — silently re-grading every
+pinned calibration. If a future revision wants coverage in the Layer-1 grade, it must re-derive
+Meridian, LunaCart and Nordwind and re-pin all three, not add a row.
+
+**Known naming artefact (accepted, not a defect).** Because §4's FRAGMENTED row fires on
+`Data = Early` OR a Critical PP-0, a client at 80% coverage with one broken load-bearing record class
+grades **FRAGMENTED** — a name drawn from integration language applied on data-quality grounds. The
+rule is honest; only the label is odd. The exposure is bounded but real: the grade never reaches the
+Stage-5 client document, but it DOES survive into the Stage-2 `[BAND_ASSIGNMENT]` block (a permitted
+section, kept for the aria-spec input contract), so a **consultant** reading the snapshot can be
+misled into an integration narrative for a data-quality problem. Mitigation until renamed: the
+Layer-1 grade line must state the rule row that fired, so "FRAGMENTED — Data=Early (returns,
+cs_interactions Degraded)" cannot be misread as an integration finding.
+
+**Calibration — Meridian (pinned, must not change):** n_core = 5 (Vincere, Zoho, Xero, LinkedIn
+Recruiter, M365); 0 active integrations ("zero active integrations… all exchange manual"
+[Document-Backed]) → coverage 0 ÷ 4 = **0% → C1 fires → Critical (systemic).**
+
+**Calibration — LunaCart (pinned 31 Jul 2026):** n_core = 7 (Shopify, NetSuite, Postgres, SkuVault,
+Zendesk, Returnly, Klaviyo — returns and CS qualify because Priority 2 and Priority 4 depend on
+them); active = 2 (Shopify→Postgres, NetSuite→Postgres, both daily and functioning) → coverage
+2 ÷ 6 = **33% → C1 fires at High (structural).** Postgres exists but returns/CS/inventory do not feed
+it, so it is not a reconciling SSOT. A run emitting Critical (systemic) for LunaCart is wrong — that
+was Meridian's answer being inherited by a client whose infrastructure is materially better.
 
 **Severity logic (include verbatim in the PP-0 card):** breadth × dependency, not per-instance pain — it degrades every function at once and gates the value of every other pain point. This is a different kind of Critical from an acute, localised one; two Criticals in one register are reconcilable (systemic vs acute).
 

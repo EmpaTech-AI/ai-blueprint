@@ -489,3 +489,51 @@ describe('validatePortfolioMembership (REG-21 — Era-O JS-4)', () => {
     expect(reviewerFlags).toEqual([]);
   });
 });
+
+// v37.4: the GATE-4 emptiness check tested for a BOLD run — a presentation form the roadmap contract
+// never specifies. It fired 4 false flags per batch, unchanged since v38.
+describe('phaseSectionHasItems — presentation-form agnostic (GATE-4 false-fire fix)', () => {
+  const { phaseSectionHasItems, validateRoadmapPhases } = require('./opportunityValidator');
+
+  it('accepts the contract form: H3 opportunity headings under the H2 phase heading', () => {
+    expect(phaseSectionHasItems('\n### Returns Triage Automation\n\nRationale here.\n')).toBe(true);
+  });
+
+  it('accepts a canonical element ID — the contract guarantees one per Now/Next item', () => {
+    expect(phaseSectionHasItems('\nSee H-LC-02 for detail.\n')).toBe(true);
+  });
+
+  it('accepts the mandatory Phase Summary table rows', () => {
+    expect(phaseSectionHasItems('\n| H-LC-02 | Now | Quick Win |\n|---|---|---|\n')).toBe(true);
+  });
+
+  it('still accepts the historic bold form', () => {
+    expect(phaseSectionHasItems('\n**Returns Triage Automation**\n')).toBe(true);
+  });
+
+  it('rejects a genuinely empty section, including one holding only a separator row', () => {
+    expect(phaseSectionHasItems('\n\n')).toBe(false);
+    expect(phaseSectionHasItems('\n|---|---|\n')).toBe(false);
+    expect(phaseSectionHasItems('\nTo be determined.\n')).toBe(false);
+  });
+
+  it('no longer false-fires on a roadmap whose Now items are H3 headings', () => {
+    const roadmap = [
+      '## Phase 1: Now (Months 1-3)', '', '### Returns Triage Automation', '',
+      'Cites H-LC-02. Rationale text.', '',
+      '## Phase 2: Next (Months 3-6)', '', '### Demand Forecasting', '',
+      '## Phase 3: Later (Months 6-12)', '', '### AI Company Brain', '',
+      '## Bridge to Deeper Engagement', '',
+    ].join('\n');
+    const { reviewerFlags } = validateRoadmapPhases(roadmap, []);
+    expect(reviewerFlags.filter((f: string) => /appears empty/.test(f))).toEqual([]);
+  });
+
+  it('distinguishes a delimitation failure from an empty phase', () => {
+    // Phase 1 heading present but no Phase 2/Bridge heading follows → the check cannot run.
+    const truncated = '## Phase 1: Now (Months 1-3)';
+    const { reviewerFlags } = validateRoadmapPhases(truncated, []);
+    expect(reviewerFlags.some((f: string) => /could not be delimited.*did NOT run/.test(f))).toBe(true);
+    expect(reviewerFlags.some((f: string) => /appears empty/.test(f))).toBe(false);
+  });
+});

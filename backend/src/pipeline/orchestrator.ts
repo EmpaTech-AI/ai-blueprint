@@ -1,6 +1,6 @@
 import { PipelineJob, ConfidenceResult, BLOCKER_PREFIX } from '../types/pipeline';
 import { BUILD } from '../utils/buildInfo';
-import { resolveClientTitleName } from '../utils/clientName';
+import { parseRunIndex, resolveClientTitleName } from '../utils/clientName';
 import {
   loadJob,
   updateJobStatus,
@@ -26,7 +26,9 @@ import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
-import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseEarlyDimensions, HypothesisRoot } from '../utils/classGGuards';
+import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, HypothesisRoot } from '../utils/classGGuards';
+import { validateDataInventory, validatePoolExclusions } from '../utils/inventoryGuards';
+import { reconcileFinancials } from '../utils/financialReconciliation';
 import { log } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -136,21 +138,36 @@ function stripTestLabel(name: string): string {
 
 // Resolve the archetype hypothesis roots (base scores + flags) for the emitted hypothesis IDs by
 // scanning the archetype library and picking the file whose table best covers those IDs. READ-ONLY
-// — the archetype files are a frozen GREEN stage; we read, never edit. Returns an empty map if none
-// resolves, in which case the A4 guard simply skips (it never fails a run on a resolution miss).
-function resolveArchetypeRoots(emittedIds: Set<string>): Map<string, HypothesisRoot> {
+// — the archetype files are a frozen GREEN stage; we read, never edit.
+//
+// v37.4 (LunaCart TC1): this used to return a bare Map and swallow every failure in one `catch`, so
+// three distinct outcomes were indistinguishable to the caller — "no archetype covers these IDs"
+// (legitimate: 6 of 9 industries are SKELETON ONLY), "the directory could not be read" (a bug), and
+// "one file covered 1 of 8 IDs" (which made a 12%-covered run report exactly like a full one). The
+// resolution is now a diagnostic result so the guards can declare which of those actually happened.
+interface ArchetypeResolution {
+  roots: Map<string, HypothesisRoot>;
+  cover: number;          // how many of the emitted IDs the chosen table actually carries
+  source: string | null;  // which archetype file won
+  filesScanned: number;
+  error: string | null;   // non-null ⇒ internal fault, NOT a missing reference
+}
+
+function resolveArchetypeRoots(emittedIds: Set<string>): ArchetypeResolution {
   const dir = path.join(__dirname, '../skills/blueprint-intake/archetypes');
-  let best = new Map<string, HypothesisRoot>();
-  let bestCover = 0;
+  const res: ArchetypeResolution = { roots: new Map(), cover: 0, source: null, filesScanned: 0, error: null };
   try {
     for (const file of fs.readdirSync(dir)) {
       if (!file.endsWith('.md') || file.startsWith('_')) continue;
+      res.filesScanned++;
       const roots = parseArchetypeHypothesisTable(fs.readFileSync(path.join(dir, file), 'utf-8'));
       const cover = Array.from(emittedIds).filter(id => roots.has(id)).length;
-      if (cover > bestCover) { best = roots; bestCover = cover; }
+      if (cover > res.cover) { res.roots = roots; res.cover = cover; res.source = file; }
     }
-  } catch { /* archetype dir unavailable — the caller skips the guard */ }
-  return best;
+  } catch (e) {
+    res.error = String(e);
+  }
+  return res;
 }
 
 // ─── Main pipeline ─────────────────────────────────────────────────────────────
@@ -219,6 +236,68 @@ export async function runPipeline(jobId: string): Promise<void> {
     await saveStepOutput(jobId, 'B', dossier);
     const dossierClean = stripJustification(dossier);
 
+    // A11–A15 (v37.4, F13a/F13b): relational guards over the Stage-1 [DATA_INVENTORY] block. These
+    // recompute Integration Coverage, PP-0 severity and the Data grade from the inventory TABLES and
+    // compare them to the emitted marker — the same recompute-from-root shape as A4, but over a
+    // relationship (rule ↔ inventory) rather than a value.
+    //
+    // ARCHETYPE-INDEPENDENT BY CONSTRUCTION: the inventory comes from the client's own documents, not
+    // an archetype file, so unlike A4/A9 these run on every case — including VelocityFreight and
+    // GoldenBite, which have no ACTIVE archetype. That is the point: the two defects carrying 91% of
+    // LunaCart's expected harm were both rule-vs-architecture gaps that no value guard could see.
+    const inventoryResult = validateDataInventory(dossier);
+    if (inventoryResult.reviewerFlags.length > 0) {
+      reviewerFlags.push(...inventoryResult.reviewerFlags);
+      log('warn', 'GATE 1: [DATA_INVENTORY] relational guard findings (A11–A15)', {
+        jobId, count: inventoryResult.reviewerFlags.length, unavailable: inventoryResult.unavailableReason,
+      });
+    }
+    reviewerFlags.push(inventoryResult.unavailableReason
+      ? `⚠ C1 coverage — A11–A15 inventory relational guards: 0 of 5 assertion(s) checked — UNAVAILABLE (${inventoryResult.unavailableReason}). PP-0 severity and the Data grade are UNPINNED this run.`
+      : `C1 coverage — A11–A15 inventory relational guards [${inventoryResult.checked.join('/')}]: ${inventoryResult.checked.length} of 5 assertion(s) checked, ${inventoryResult.records.filter(r => !r.agreed).length} fork(s) in the checked scope.`);
+
+    // A17 (F12): form-vs-document numeric reconciliation. All four LunaCart financial defects escaped
+    // because nothing compared a form figure to a document figure — the pipeline adopted one source and
+    // never recorded that the other disagreed. Choosing an authoritative source is correct; choosing it
+    // SILENTLY is the defect, so a divergence must be declared or it BLOCKERs. Archetype-independent.
+    const reconciliation = reconcileFinancials(job.formAnswers, corpus, dossier);
+    if (reconciliation.reviewerFlags.length > 0) {
+      reviewerFlags.push(...reconciliation.reviewerFlags);
+      log('warn', 'GATE 1: A17 undeclared form-vs-document divergence (F12)', {
+        jobId, count: reconciliation.reviewerFlags.length,
+      });
+    }
+    // The divergence table is emitted EVERY run, empty or not, so "no divergence" is an affirmative
+    // result rather than an absence of output — the reading rule the LunaCart batch established.
+    reviewerFlags.push(
+      `C1 coverage — A17 financial reconciliation (F12): ${reconciliation.claimsFound} numeric claim(s) ` +
+      `extracted, ${reconciliation.divergences.filter(d => d.severity === 'blocker').length} blocker-grade ` +
+      `and ${reconciliation.divergences.filter(d => d.severity === 'advisory').length} advisory ` +
+      `divergence(s); table at financial_divergences.md.`,
+    );
+    try {
+      const logDir = path.join(JOBS_DIR, jobId);
+      fs.mkdirSync(logDir, { recursive: true });
+      fs.writeFileSync(path.join(logDir, 'financial_divergences.md'), reconciliation.divergenceTable);
+    } catch { /* non-fatal */ }
+
+    // A16: candidate-pool membership vs PP-0 severity. Deliberately asymmetric — see validatePoolExclusions.
+    // This is the guard for the defect class a count-based read cannot see: Section D stays at 7+H-0
+    // while its MEMBERSHIP diverges because an unauthorised band1_pool=no exclusion fired.
+    const poolResult = validatePoolExclusions(dossier);
+    if (poolResult.reviewerFlags.length > 0) {
+      reviewerFlags.push(...poolResult.reviewerFlags);
+      log('warn', 'GATE 1: A16 candidate-pool exclusion finding', {
+        jobId, severity: poolResult.severity, excluded: poolResult.excludedIds,
+      });
+    }
+    reviewerFlags.push(
+      `C1 coverage — A16 pool exclusions [A16]: PP-0 ${poolResult.severity ?? 'unresolvable'}, ` +
+      `${poolResult.excludedIds.length} band1_pool=no exclusion(s)` +
+      (poolResult.excludedIds.length > 0 ? ` [${poolResult.excludedIds.join(', ')}]` : '') +
+      (poolResult.declarationPresent ? ' · empty-set declaration present' : '') + '.',
+    );
+
     // Step C — blueprint-maturity
     assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'C');
@@ -278,54 +357,132 @@ export async function runPipeline(jobId: string): Promise<void> {
     // −2). Emits the C1 correction log (authored vs root_computed) for every card, unconditionally.
     // Acceptance-mode behaviour: flag + log, emit authored (raw model rate stays observable in the
     // document); production-mode overwrite is gated separately by ENFORCEMENT_MODE (not yet wired).
+    // v37.4 (LunaCart TC1, items 1+2): guards FAIL LOUDLY, never skip. Each family declares its own
+    // coverage (checked of expected) and, when it cannot run, WHY — separating a genuinely missing
+    // reference (no ACTIVE archetype: loud, partial scope) from an internal fault (a BLOCKER).
     try {
       const emittedIds = new Set<string>();
       const idRe = /<!--\s*score:\s*id=([\w-]+)/gi;
       let idm: RegExpExecArray | null;
       while ((idm = idRe.exec(opportunities)) !== null) emittedIds.add(idm[1].toLowerCase());
-      const roots = resolveArchetypeRoots(emittedIds);
-      const earlyDims = parseEarlyDimensions(maturity);
+      const resolution = resolveArchetypeRoots(emittedIds);
+      const roots = resolution.roots;
+      const maturityAvail = assessMaturityAvailability(maturity);
+      const earlyDims = maturityAvail.earlyDims;
+      const cardsEmitted = emittedIds.size;
       const logDir = path.join(JOBS_DIR, jobId);
+      const families: FamilyCoverage[] = [];
 
-      // A5 (class) correction records — no archetype needed (recompute from emitted I/F).
-      const correctionRecords = [...classificationCorrectionRecords(opportunities)];
+      // The single unavailability shared by both root guards: no archetype table carries these IDs.
+      // `filesScanned`/`cover` are reported so a 1-of-8 partial cover can never look like a full run.
+      const rootsUnavailable = resolution.error
+        ? { cause: 'archetype_read_error' as const,
+            detail: `the archetype library could not be read (${resolution.error}).` }
+        : roots.size === 0
+          ? { cause: 'no_archetype_match' as const,
+              detail: `no archetype file covers the emitted hypothesis IDs ` +
+                `[${[...emittedIds].sort().join(', ') || 'none'}] — scanned ${resolution.filesScanned} ` +
+                `file(s), best cover 0 of ${cardsEmitted}. This industry has no ACTIVE archetype.` }
+          : null;
 
-      // A4 (feasibility) recompute FROM ROOT — needs archetype base_F + Early maturity dims.
-      if (roots.size > 0 && earlyDims.size > 0) {
-        const { records: feasRecords, reviewerFlags: feasFlags } = validateFeasibilityFromRoot(opportunities, roots, earlyDims);
+      // A5 (class) — recompute from emitted I/F. Archetype-independent, so it is available whenever
+      // cards were emitted; this is the family that survived the LunaCart archetype gap.
+      const classRecords = classificationCorrectionRecords(opportunities);
+      // A11–A13 records join the C1 log so the R1 residual rate covers the inventory assertions too
+      // (they are Class-A derived values like any other: authored marker vs root-computed from tables).
+      const correctionRecords = [...classRecords, ...inventoryResult.records];
+      const classChecked = new Set(classRecords.map(r => r.elementId));
+      families.push({
+        family: 'A5 class (D6b recompute from emitted I/F)',
+        ruleId: 'A5',
+        expected: cardsEmitted,
+        checked: classChecked.size,
+        forks: classRecords.filter(r => !r.agreed).length,
+        unchecked: [...emittedIds].filter(id => !classChecked.has(id))
+          .map(id => ({ id, reason: 'unparseable_emitted_value' as const })),
+        unavailable: cardsEmitted === 0
+          ? { cause: 'guard_threw' as const, detail: 'no score markers found in the Stage-3 output.' }
+          : null,
+      });
+
+      // A4 (feasibility) recompute FROM ROOT — needs the archetype base_F and the dimension grades.
+      // An EMPTY earlyDims set is no longer a skip: adjustedF = base_F − 0 is a real assertion.
+      const a4Unavailable = rootsUnavailable ?? maturityAvail.unavailable;
+      if (!a4Unavailable) {
+        const { records: feasRecords, reviewerFlags: feasFlags, checked, unchecked } =
+          validateFeasibilityFromRoot(opportunities, roots, earlyDims);
         correctionRecords.push(...feasRecords);
         if (feasFlags.length > 0) {
           reviewerFlags.push(...feasFlags);
           log('warn', 'GATE 3: A4 feasibility fork detected (REG-27)', { jobId, count: feasFlags.length });
         }
+        families.push({
+          family: 'A4 feasibility (REG-27 root recompute)', ruleId: 'A4', expected: cardsEmitted,
+          checked: checked.length, forks: feasRecords.filter(r => !r.agreed).length, unchecked,
+          unavailable: null,
+        });
       } else {
-        reviewerFlags.push('A4 feasibility recompute SKIPPED — archetype roots or Early maturity dimensions not resolvable this run.');
+        families.push({
+          family: 'A4 feasibility (REG-27 root recompute)', ruleId: 'A4', expected: cardsEmitted,
+          checked: 0, forks: 0, unchecked: [], unavailable: a4Unavailable,
+        });
       }
 
       // A9 (root integrity) — impact/alignment/pinned-flags vs archetype row; Override Register.
-      if (roots.size > 0) {
-        const { reviewerFlags: a9Flags, overrideRegister } = validateRootIntegrity(opportunities, roots);
+      // Previously an `if (roots.size > 0)` with NO else, so on a non-archetype run A9 emitted
+      // nothing at all — not even a skip line. It now always declares its state.
+      if (!rootsUnavailable) {
+        const { reviewerFlags: a9Flags, overrideRegister, checked, unchecked } =
+          validateRootIntegrity(opportunities, roots);
         if (a9Flags.length > 0) {
           reviewerFlags.push(...a9Flags);
           log('warn', 'GATE 3: A9 root-integrity deviation without citation', { jobId, count: a9Flags.length });
         }
         reviewerFlags.push(`A9 Override Register: ${overrideRegister.length} cited/uncited deviation(s) from the archetype row; records at override_register.json`);
+        families.push({
+          family: 'A9 root integrity (impact/alignment/pinned flags)', ruleId: 'A9',
+          expected: cardsEmitted, checked: checked.length, forks: a9Flags.length, unchecked,
+          unavailable: null,
+        });
         try {
           fs.mkdirSync(logDir, { recursive: true });
           fs.writeFileSync(path.join(logDir, 'override_register.json'), JSON.stringify(overrideRegister, null, 2));
         } catch { /* non-fatal */ }
+      } else {
+        families.push({
+          family: 'A9 root integrity (impact/alignment/pinned flags)', ruleId: 'A9',
+          expected: cardsEmitted, checked: 0, forks: 0, unchecked: [], unavailable: rootsUnavailable,
+        });
       }
 
       // C1 correction log — written unconditionally (every Class-A value, every mode). Residual
-      // rate (R1) is read from this file, never from the emitted documents.
+      // rate (R1) is read from this file, never from the emitted documents. The per-family coverage
+      // declaration is what makes the fork count interpretable: a bare "N checked, 0 forks" is
+      // uninterpretable without knowing which families ran and over how many cards.
+      const coverage = buildGateACoverage(cardsEmitted, families);
       const forks = correctionRecords.filter(r => !r.agreed).length;
-      reviewerFlags.push(`C1 correction log: ${correctionRecords.length} Class-A value(s) checked, ${forks} fork(s); records at correction_log.json`);
+      reviewerFlags.push(`C1 correction log: ${correctionRecords.length} Class-A value-check(s) recorded, ${forks} fork(s); records at correction_log.json`);
+      reviewerFlags.push(...formatGateACoverage(coverage));
+      if (!coverage.gradeable) {
+        log('warn', 'GATE A coverage PARTIAL — Class-G guard family unavailable or incomplete', {
+          jobId,
+          unavailable: coverage.families.filter(f => f.unavailable).map(f => `${f.ruleId}:${f.unavailable!.cause}`),
+        });
+      }
       try {
         fs.mkdirSync(logDir, { recursive: true });
         fs.writeFileSync(path.join(logDir, 'correction_log.json'), JSON.stringify(correctionRecords, null, 2));
+        // Machine-readable coverage, so the acceptance harness keys off `gradeable` rather than prose.
+        fs.writeFileSync(path.join(logDir, 'gate_a_coverage.json'), JSON.stringify(coverage, null, 2));
       } catch { /* non-fatal: log persistence best-effort */ }
     } catch (e) {
-      log('warn', 'Class-G guards errored (non-fatal)', { jobId, error: String(e) });
+      // Was `log('warn', ...)` only — a thrown guard produced NO reviewer flag at all, the most
+      // silent failure in the layer. A guard that crashed did not check anything: say so, loudly.
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 3 Class-G guards THREW (${String(e)}) — A4/A5/A9 did not complete, so ` +
+        `NO Class-A value was verified this run. Treat Gate A as ungraded; this is an internal fault.`,
+      );
+      log('error', 'Class-G guards threw — Gate A ungraded', { jobId, error: String(e) });
     }
 
     // T-26 (S-29): cross-stage relay-field drift — the nine T-19 fields must be byte-identical
@@ -512,6 +669,17 @@ export async function runPipeline(jobId: string): Promise<void> {
     }
 
     await updateConfidenceScores(jobId, confidenceScores);
+    // v37.4 (admissibility): stamp the run identity as the FIRST line of the panel. A grader holding
+    // four panels from one batch previously could not attribute a flag to a run — the panels
+    // referenced different hypothesis IDs, so they were clearly different runs, but nothing mapped
+    // them to T1–T4. The index is recovered from the operator's job label, which already carries it.
+    const runIndex = parseRunIndex(job.clientName);
+    reviewerFlags.unshift(
+      `RUN: index=${runIndex ?? 'UNLABELLED'} job=${jobId} client="${job.clientName}" ` +
+      `date=${buildStampDate} pipeline=${BUILD.pipelineLabel} sha=${buildStampSha}` +
+      (runIndex ? '' : ' — no run index in the job label; jobId is the only key that maps this panel ' +
+        'to a run. Name the job "<Client> <version> Test N" to make the batch attributable.'),
+    );
     await updateReviewerFlags(jobId, reviewerFlags);
     await updateJobStatus(jobId, 'review_ready', 'complete', { outputDocxPath: docxPath, confidenceScores });
 

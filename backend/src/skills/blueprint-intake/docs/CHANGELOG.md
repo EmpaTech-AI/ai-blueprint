@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.2.0] — 2026-08-03 — v37.4: F13a/F13b spec closure + fail-loud guard layer (LunaCart TC1)
+
+### Added
+- **`[DATA_INVENTORY]` Stage-1 block** (`SKILL.md`) — the counted root for the PP-CORE-00 severity
+  gate and the Stage-2 Data dimension. Three tables (Core Systems, Integrations, Record Classes)
+  plus a `<!-- inventory: -->` computed marker. Tables are the root, the marker is derived, so a
+  model that miscounts its own table is caught.
+- **A11–A15 relational guards** (`backend/src/utils/inventoryGuards.ts`) — coverage arithmetic, PP-0
+  severity from coverage, Data grade from record classes, active-integration integrity, referential
+  integrity. **Archetype-independent by construction**, so they run on every case including the six
+  SKELETON industries.
+- **A16 pool-exclusion guard** — `band1_pool=no` exclusions vs PP-0 severity, deliberately asymmetric
+  (see `references/algorithms/hypothesis_selection.md`).
+- **A17 / F12 financial reconciliation** (`backend/src/utils/financialReconciliation.ts`) —
+  form-vs-document numeric divergence, derived-financial arithmetic, divergence table per run.
+- **G1–G3 Established governance gate** (`blueprint-maturity/SKILL.md` D4 Step 4).
+- **`fixtures/band3_calibration.md`** extended with a full inventory — the only case in the kit that
+  exercises C1 `>60% + reconciling SSOT` and `Data = Established`.
+
+### Changed
+- **F13b — `_core.md` §2 C1 redefined.** "zero or near-zero active integrations between core systems"
+  → **Integration Coverage = active ÷ (n_core − 1)**, thresholds ≤25% / >25–60% / >60%. Ratios only;
+  a count threshold is architecture-dependent.
+- **F13a — D4 D2 redefined.** The word "primary" was **removed, not defined** — it does not survive a
+  multi-source architecture. Replaced by per-record-class rating + priority-weighted aggregation.
+  The same undefined phrase in the **Evidenced-Absence table** was corrected in the same pass.
+- Class-G guards fail loudly with distinguishable causes; C1 declares per-family coverage.
+- `stripJustification` made drift-tolerant; scaffold detector now derives from one registry.
+- GATE-4 "Phase 1: Now appears empty" false fire fixed (tested for bold; the contract emits H3
+  headings and table rows).
+- Reviewer-flag panels carry a `RUN: index=` stamp.
+
+### Notes
+- Pipeline label bumped **v37.3 → v37.4** (`backend/package.json`).
+- Justification: `rework_docs/2026-08-03_v37_4_F13_SpecClosure_and_FailLoud_Justification.md`.
+
+---
+
 ## [2.1.0] — 2026-07-22 — Era-N remediation, Wave 2 (adjudicated plan, Steven 2026-07-22)
 
 ### Added

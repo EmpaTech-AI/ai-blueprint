@@ -217,6 +217,24 @@ export interface RoadmapValidationResult {
   reviewerFlags: string[];
 }
 
+// Is a phase section populated? Presentation-form agnostic by design — the previous bold-only test is
+// what produced 4 false "appears empty" flags per batch. Any ONE of these means the phase has content:
+//   • a canonical element ID (the contract's own guarantee — every Now/Next item must cite its ID)
+//   • an H3/H4 sub-heading (the output structure's opportunity form)
+//   • a bold run (the historic assumption, retained)
+//   • a table row carrying something other than pipes, dashes and whitespace (the Phase Summary form)
+export function phaseSectionHasItems(section: string): boolean {
+  if (/\bH-[A-Z]+-\d+\b/i.test(section)) return true;
+  if (/^[ \t]*#{3,4}[ \t]+\S/m.test(section)) return true;
+  if (/\*\*[^*\n]+\*\*/.test(section)) return true;
+  return section.split('\n').some(line => {
+    const t = line.trim();
+    if (!t.startsWith('|')) return false;
+    if (/^\|[\s:|-]+\|?$/.test(t)) return false;          // separator row
+    return /[A-Za-z0-9]/.test(t.replace(/\|/g, ''));      // a row with actual content
+  });
+}
+
 export function validateRoadmapPhases(
   roadmapOutput: string,
   opportunityScores: OpportunityScore[],
@@ -236,11 +254,34 @@ export function validateRoadmapPhases(
   if (!hasNext)  reviewerFlags.push('GATE 4: Roadmap missing "Phase 2: Next" section — Stage 4 output is incomplete.');
   if (!hasLater) reviewerFlags.push('GATE 4: Roadmap missing "Phase 3: Later" section — Stage 4 output is incomplete.');
 
-  // "Now" must have at least one opportunity title (bold heading)
+  // "Now" must contain at least one item.
+  //
+  // v37.4 false-fire fix. This tested for a BOLD run (`**title**`) — a presentation form the contract
+  // never specifies. The roadmap output structure emits opportunities as H3 headings under the H2
+  // phase heading ("## Phase 1: Now" → "### {Opportunity Title}"), and the mandatory Phase Summary
+  // presents them as TABLE ROWS. Neither is bold, so the check fired on every clean run: 4 false
+  // flags per batch, unchanged since v38, which is the noise that trains a reviewer to skip GATE 4.
+  //
+  // The replacement rests on the contract's own guarantee rather than on a formatting habit:
+  // blueprint-roadmap SKILL.md requires that "every opportunity detailed under Phase 1: Now and
+  // Phase 2: Next MUST cite its locked [ID]". A canonical element ID is therefore present whenever
+  // the phase is genuinely populated, in any presentation form. The other three forms are accepted
+  // too, so a run that drops the ID citation is still not falsely called empty by THIS assertion —
+  // the missing citation is a different rule's job.
   if (hasNow) {
-    const nowSection = roadmapOutput.match(/#{2,3}\s+Phase 1\b[^\n]*\n([\s\S]*?)(?=#{2,3}\s+Phase 2|#{2,3}\s+Bridge|$)/i)?.[1] ?? '';
-    if (!/\*\*[^*]+\*\*/.test(nowSection)) {
-      reviewerFlags.push('GATE 4: "Phase 1: Now" appears empty — every roadmap must include at least one item in Now.');
+    const nowSection = roadmapOutput.match(/#{2,3}\s+Phase 1\b[^\n]*\n([\s\S]*?)(?=#{2,3}\s+Phase 2|#{2,3}\s+Bridge|$)/i)?.[1];
+    if (nowSection == null) {
+      // A capture failure is NOT an empty phase — the v37.4 rule is that unavailability must never
+      // masquerade as a finding. Say which one it is.
+      reviewerFlags.push(
+        'GATE 4: "Phase 1: Now" heading found but its section could not be delimited (no Phase 2 or ' +
+        'Bridge heading follows it) — the emptiness check did NOT run. Structural defect, not an empty phase.',
+      );
+    } else if (!phaseSectionHasItems(nowSection)) {
+      reviewerFlags.push(
+        'GATE 4: "Phase 1: Now" appears empty — no canonical element ID, sub-heading, bold title, or ' +
+        'table row found in the section. Every roadmap must include at least one item in Now.',
+      );
     }
   }
 
