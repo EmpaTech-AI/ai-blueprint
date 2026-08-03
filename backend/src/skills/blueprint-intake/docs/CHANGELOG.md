@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.3.0] — 2026-08-03 — v37.5: exact-match class swept · B3 routed · S4 anchors rendered
+
+Responds to the LunaCart v1.1 amended verdict and the six-batch comparison (both 2026-08-03).
+v1.1 scored **88%, equal to Meridian v38, on a non-archetype case**, harm 1.86 (lowest in the programme).
+
+### Added
+- **`utils/enumNormalise.ts`** — one normaliser for every guard that compares model-produced text. The
+  audit (Practice item 4) found the exact-match defect in **four more places** than the two known:
+  A13 rating, A12 severity, **A4 flag firing** (which failed in the report-clean direction — an
+  annotated flag would under-count and log `agreed: true`), and A9 flag equality.
+- **A16c exclusion provenance** — `band1_pool` is an archetype CORE-columns value, so an exclusion must
+  have a root. No archetype + exclusions present is a BLOCKER, because unlike A4/A9's unavailability it
+  changed the output. Verified against the real `recruitment.md`.
+- **`[SELF_AUDIT]` block** (`blueprint-opportunities/SKILL.md`) — B3 fixed by ROUTING after six batches
+  of failed instruction. The SKILL instructs the model using rule identifiers, so it cites them back;
+  the audit narration had no channel and landed in the deliverable. Now stripped for delivery.
+- **A18 `renderPhaseAnchors`** — S4 anchors RENDERED, not instructed. Six batches unstable
+  (4/5/5/5 · 5/6/9/8 · 5/3/8/9). `stripConfidenceTags` deletes the anchor before delivery, so it is a
+  grading assertion, not client prose — the app is the right place to assert it.
+- **`fixtures/lunacart_archetype_free_golden.md`** + `archetypeFreeGolden.test.ts` — LunaCart pinned as
+  the PERMANENT archetype-free golden. The test fails if any ACTIVE archetype claims retail/e-commerce,
+  if every industry becomes ACTIVE, or if an archetype file starts carrying `H-LC-*` IDs.
+
+### Changed
+- **A17a entity identity** — fixed (Practice item 7) rather than demoted to advisory (item 1), so it
+  stays a BLOCKER. Only DECLARED form metric fields establish a band; `parseQuantity` type-checks the
+  quantity kind so a percentage never satisfies currency and currency never satisfies a count.
+- The engineering-identifier detector now **quotes the match and its line**. For six batches it named
+  only the class — B3 was a defect report with no locus.
+- Marker parser: values run to the next `key=` boundary, so multi-word values are no longer truncated.
+
+### Notes
+- Pipeline label **v37.4 → v37.5**. Parent build v37.4 `sha=84b3029`.
+- **379 tests, 13 suites.** Justification: `rework_docs/2026-08-03_v37_5_Remediation_Justification.md`.
+- **Grading impact:** three metrics change MEANING — see
+  `rework_docs/2026-08-03_v37_5_Grading_Impact_Notice.md` before scoring the next batch.
+- **Open and outranking everything:** Meridian has not run since v38. Every v37.4/v37.5 change was
+  diagnosed on LunaCart.
+
+---
+
 ## [2.2.0] — 2026-08-03 — v37.4: F13a/F13b spec closure + fail-loud guard layer (LunaCart TC1)
 
 ### Added

@@ -471,7 +471,10 @@ describe('A16 — band1_pool exclusions vs PP-0 severity', () => {
 
   // ── Direction 1: hard. This is the direction that catches LunaCart. ──
   it('is clean at Critical with exclusions recorded (Meridian)', () => {
-    const r = validatePoolExclusions(withSectionH('Critical', MERIDIAN_H));
+    // v37.4a: A16c now requires the archetype row that carries the flag. Meridian's recruitment
+    // archetype marks both as band1_pool=no, which is what authorises the exclusion.
+    const r = validatePoolExclusions(withSectionH('Critical', MERIDIAN_H),
+      new Map([['h-rt-08', { band1Pool: 'no' }], ['h-rt-09', { band1Pool: 'no' }]]));
     expect(r.reviewerFlags).toEqual([]);
     expect(r.excludedIds).toEqual(['h-rt-08', 'h-rt-09']);
   });
@@ -556,5 +559,111 @@ describe('fail-loud when the inventory is missing', () => {
 
   it('parseInventoryMarker returns null rather than throwing on absent input', () => {
     expect(parseInventoryMarker('no marker here')).toBeNull();
+  });
+});
+
+// ── v37.4a: the dominant failure class — exact match against an unguaranteed form ──
+describe('normaliseEnumCell — seventh instance of the exact-match class (LunaCart v1.1 §3)', () => {
+  const { normaliseEnumCell, enumMatches, isYes } = require('./inventoryGuards');
+
+  it('takes the leading token past a parenthetical — the A14 false fire', () => {
+    expect(normaliseEnumCell('scheduled (celigo connector)')).toBe('scheduled');
+    expect(normaliseEnumCell('Degraded (siloed, 2/5)')).toBe('degraded');
+    expect(normaliseEnumCell('Critical (systemic)')).toBe('critical');
+    expect(normaliseEnumCell('Critical systemic')).toBe('critical');   // no parentheses
+    expect(normaliseEnumCell('yes — daily since 2024')).toBe('yes');
+    expect(normaliseEnumCell('**Early**')).toBe('early');
+    expect(normaliseEnumCell('functioning [Document-Backed]')).toBe('functioning');
+  });
+
+  it('matches on set membership after normalising', () => {
+    expect(enumMatches('scheduled (celigo connector)', ['scheduled', 'event'])).toEqual({ ok: true, normalised: 'scheduled' });
+    expect(enumMatches('manual export', ['scheduled', 'event'])).toEqual({ ok: false, normalised: 'manual' });
+  });
+
+  it('defaults an unreadable flag to NOT set — every flag here raises severity when set', () => {
+    expect(isYes('yes (documented p.4)')).toBe(true);
+    expect(isYes('no')).toBe(false);
+    expect(isYes('')).toBe(false);
+    expect(isYes(undefined)).toBe(false);
+    expect(isYes('unknown')).toBe(false);
+  });
+});
+
+describe('A14 — annotated mechanism/status no longer false-fires', () => {
+  const annotated = block({
+    core: [['shopify plus', 'orders', 'yes', 'P1'], ['netsuite erp', 'finance', 'yes', 'P3']],
+    integrations: [['shopify plus', 'netsuite erp', 'scheduled (celigo connector)', 'functioning (daily)', 'yes']],
+    classes: [['orders', 'shopify plus', 'yes', 'P1', 'Reliable'], ['finance', 'netsuite erp', 'no', 'n/a', 'Reliable']],
+    marker: 'n_core=2 active_integrations=1 integration_coverage=1.00 designated_ssot=netsuite erp ' +
+      'ssot_reconciles_all_load_bearing=yes load_bearing_degraded_or_absent=0 data_grade=Developing pp0_severity=none',
+  });
+
+  it('accepts "scheduled (celigo connector)" — the exact firing from the v1.1 panels', () => {
+    expect(validateDataInventory(annotated).reviewerFlags).toEqual([]);
+  });
+
+  it('still rejects a genuinely manual mechanism, and names what it normalised to', () => {
+    const manual = annotated.replace('scheduled (celigo connector)', 'manual CSV export (weekly)');
+    const flags = validateDataInventory(manual).reviewerFlags;
+    expect(flags.some(f => /A14.*normalised "manual".*must be scheduled or event/.test(f))).toBe(true);
+  });
+
+  it('accepts an annotated Degraded rating for A13', () => {
+    const degraded = block({
+      core: [['a', 'x', 'yes', 'P1'], ['b', 'y', 'yes', 'P2']],
+      integrations: [],
+      classes: [['x', 'a', 'yes', 'P1', 'Degraded (siloed, quality 2/5)'], ['y', 'b', 'no', 'n/a', 'Reliable']],
+      marker: 'n_core=2 active_integrations=0 integration_coverage=0.00 ssot_reconciles_all_load_bearing=no ' +
+        'load_bearing_degraded_or_absent=1 data_grade=Early pp0_severity=Critical',
+    });
+    expect(validateDataInventory(degraded).reviewerFlags).toEqual([]);
+  });
+
+  it('marker values may be multi-word — governance_owner is no longer truncated', () => {
+    const m = parseInventoryMarker('<!-- inventory: n_core=4 governance_owner=Head of Data (M. Lindqvist) governance_owner_named=yes -->');
+    expect(m!.governance.ownerName).toBe('Head of Data (M. Lindqvist)');
+    expect(m!.nCore).toBe(4);
+  });
+});
+
+// ── A16c: exclusion provenance ──────────────────────────────────────────────────
+describe('A16c — an exclusion must have a root in the archetype row', () => {
+  const withSectionH2 = (severity: string, sectionH: string) =>
+    `# Dossier\n\n<!-- inventory: n_core=5 integration_coverage=0.00 pp0_severity=${severity} -->\n\n## Section H\n\n${sectionH}\n`;
+  const EXCLUDED = '- Excluded (`band1_pool=no`, PP-0 Critical (systemic)): H-RT-08 (score 50); H-RT-09 (score 32)';
+  const roots = (flags: Record<string, string>) =>
+    new Map(Object.entries(flags).map(([id, band1Pool]) => [id, { band1Pool }]));
+
+  it('is clean when every excluded ID carries band1_pool=no', () => {
+    const r = validatePoolExclusions(withSectionH2('Critical', EXCLUDED), roots({ 'h-rt-08': 'no', 'h-rt-09': 'no' }));
+    expect(r.reviewerFlags).toEqual([]);
+    expect(r.provenanceChecked).toBe(true);
+  });
+
+  it('BLOCKERs an exclusion that CONTRADICTS its archetype row', () => {
+    const r = validatePoolExclusions(withSectionH2('Critical', EXCLUDED), roots({ 'h-rt-08': 'yes', 'h-rt-09': 'no' }));
+    expect(r.reviewerFlags.some(f => /A16c.*h-rt-08.*archetype row carries band1_pool=yes/.test(f))).toBe(true);
+  });
+
+  it('BLOCKERs an exclusion whose ID is absent from the archetype table', () => {
+    const r = validatePoolExclusions(withSectionH2('Critical', EXCLUDED), roots({ 'h-rt-08': 'no' }));
+    expect(r.reviewerFlags.some(f => /A16c.*h-rt-09.*ABSENT from the archetype/.test(f))).toBe(true);
+  });
+
+  // The LunaCart v1 T4 behaviour: an exclusion applied with no archetype to authorise it.
+  it('BLOCKERs any exclusion when no archetype resolved — it changed the output with no source', () => {
+    const r = validatePoolExclusions(withSectionH2('Critical', EXCLUDED), new Map());
+    expect(r.provenanceChecked).toBe(false);
+    const flag = r.reviewerFlags.find(f => /A16c/.test(f))!;
+    expect(flag).toMatch(/NO archetype resolved.*model assertion/s);
+    expect(flag).toMatch(/CHANGED\s+THE OUTPUT/);
+  });
+
+  it('does not run A16c at all when there are no exclusions to root', () => {
+    const r = validatePoolExclusions(
+      withSectionH2('High', '- No pool exclusions this engagement.'), new Map());
+    expect(r.reviewerFlags).toEqual([]);
+    expect(r.provenanceChecked).toBe(false);
   });
 });

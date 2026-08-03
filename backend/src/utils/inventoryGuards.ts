@@ -24,6 +24,12 @@
 
 import { BLOCKER_PREFIX } from '../types/pipeline';
 import { CorrectionRecord, makeRecord } from './correctionLog';
+// v37.4a (LunaCart v1.1 §3): every enum comparison in this module goes through the shared normaliser.
+// A14 rejected `mechanism=scheduled (celigo connector)` — the mechanism IS scheduled; the parenthetical
+// names the tool. Rating, data grade and PP-0 severity carried the identical bug and were fixed in the
+// same sweep (`Degraded (siloed, 2/5)`, `Early (capped)`, `Critical systemic` without parentheses).
+import { normaliseEnumCell, enumMatches, enumEquals, isYes } from './enumNormalise';
+export { normaliseEnumCell, enumMatches, isYes };
 
 // ─── Parsed shapes ───────────────────────────────────────────────────────────────
 
@@ -92,7 +98,6 @@ export interface DataInventory {
 
 // ─── Parsing ─────────────────────────────────────────────────────────────────────
 
-const YES = /^y(es)?$/i;
 const GROUNDED_CONFIDENCE = /\[(Document[- ]?Backed|Form[- ]?Stated)/i;
 
 // Split a markdown table row into trimmed cells, dropping the leading/trailing pipe artefacts and
@@ -135,10 +140,12 @@ const MARKER_RE = /<!--\s*inventory:\s*([\s\S]*?)-->/i;
 export function parseInventoryMarker(text: string): InventoryMarker | null {
   const m = MARKER_RE.exec(text);
   if (!m) return null;
+  // v37.4a: values run to the next `key=` boundary, not to the next space. The old `[^\s]+` truncated
+  // every multi-word value — `governance_owner=Head of Data (M. Lindqvist)` parsed as "Head", which
+  // still satisfied G1's presence check while silently losing the name the check exists to capture.
   const fields: Record<string, string> = {};
-  for (const pair of m[1].match(/([\w]+)=([^\s]+)/g) ?? []) {
-    const eq = pair.indexOf('=');
-    fields[pair.slice(0, eq)] = pair.slice(eq + 1);
+  for (const f of m[1].matchAll(/(\w+)\s*=\s*([\s\S]*?)(?=\s+\w+\s*=|\s*$)/g)) {
+    fields[f[1]] = f[2].trim();
   }
   const num = (k: string): number | null => {
     const v = fields[k];
@@ -146,7 +153,7 @@ export function parseInventoryMarker(text: string): InventoryMarker | null {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
-  const bool = (k: string): boolean | null => (fields[k] == null ? null : YES.test(fields[k]));
+  const bool = (k: string): boolean | null => (fields[k] == null ? null : isYes(fields[k]));
   return {
     nCore: num('n_core'),
     activeIntegrations: num('active_integrations'),
@@ -179,7 +186,7 @@ export function parseDataInventory(dossier: string): DataInventory {
   const coreSystems = tableRowsAfterHeading(body, /core systems/i).map(c => ({
     system: (c[0] ?? '').toLowerCase(),
     recordClasses: (c[1] ?? '').split(',').map(s => s.trim().toLowerCase()).filter(s => s && s !== 'n/a' && s !== 'none'),
-    isCore: YES.test(c[2] ?? ''),
+    isCore: isYes(c[2]),
     coreBecause: c[3] ?? '',
     confidence: c[4] ?? '',
   }));
@@ -189,16 +196,16 @@ export function parseDataInventory(dossier: string): DataInventory {
     b: (c[1] ?? '').toLowerCase(),
     mechanism: (c[2] ?? '').toLowerCase(),
     status: (c[3] ?? '').toLowerCase(),
-    active: YES.test(c[4] ?? ''),
+    active: isYes(c[4]),
     confidence: c[5] ?? '',
   }));
 
   const recordClasses = tableRowsAfterHeading(body, /record classes/i).map(c => ({
     recordClass: (c[0] ?? '').toLowerCase(),
     systemOfRecord: (c[1] ?? '').toLowerCase(),
-    loadBearing: YES.test(c[2] ?? ''),
+    loadBearing: isYes(c[2]),
     loadBearingBecause: c[3] ?? '',
-    rating: (c[4] ?? '').toLowerCase(),
+    rating: normaliseEnumCell(c[4] ?? ''),   // "Degraded (siloed, 2/5)" → "degraded"
     ratingBecause: c[5] ?? '',
     confidence: c[6] ?? '',
   }));
@@ -337,15 +344,21 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
   const rootSeverity = pp0SeverityFromCoverage(
     computed.integrationCoverage, m.ssotReconcilesAllLoadBearing === true,
   );
-  const emittedSeverity = (m.pp0Severity ?? 'absent').replace(/\s*\(.*\)$/, '');
-  records.push(makeRecord('stage1', 'pp-core-00', 'severity', emittedSeverity, rootSeverity, {
+  // Normalised, so "Critical (systemic)" AND "Critical systemic" (no parentheses — the form the
+  // LunaCart v1 T3 run actually emitted) both resolve to the same token.
+  const emittedSeverity = m.pp0Severity ? (normaliseEnumCell(m.pp0Severity) || 'absent') : 'absent';
+  // Both sides normalised so the record's `agreed` matches the guard's own comparison — a record whose
+  // agreement disagrees with its flag would corrupt the R1 residual rate read from this log.
+  // The raw marker value is preserved in rootInputs and printed in the flag, so nothing is lost.
+  records.push(makeRecord('stage1', 'pp-core-00', 'severity', emittedSeverity, normaliseEnumCell(rootSeverity), {
+    emittedRaw: m.pp0Severity ?? 'absent',
     coverage: round2(computed.integrationCoverage),
     ssotReconcilesAllLoadBearing: m.ssotReconcilesAllLoadBearing,
     rule: 'A12 _core.md §2.1 threshold table',
   }, 'A12'));
-  if (!new RegExp(`^${rootSeverity}$`, 'i').test(emittedSeverity)) {
+  if (!enumEquals(emittedSeverity, rootSeverity)) {
     reviewerFlags.push(
-      `${BLOCKER_PREFIX} GATE 1 A12 (PP-0 severity, F13b): marker pp0_severity=${emittedSeverity} but ` +
+      `${BLOCKER_PREFIX} GATE 1 A12 (PP-0 severity, F13b): marker pp0_severity=${m.pp0Severity ?? 'absent'} but ` +
       `Integration Coverage ${round2(computed.integrationCoverage)} with ` +
       `ssot_reconciles_all_load_bearing=${m.ssotReconcilesAllLoadBearing === true ? 'yes' : 'no'} ` +
       `resolves to ${rootSeverity} under the _core.md §2.1 threshold table (≤0.25 Critical; ` +
@@ -357,11 +370,13 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
 
   // ── A13: Data grade from the record classes (the F13a rule) ──
   checked.push('A13');
-  records.push(makeRecord('stage1', 'maturity_data', 'data_grade', m.dataGrade ?? 'absent', computed.dataGrade, {
-    loadBearingDegradedOrAbsent: computed.loadBearingDegradedOrAbsent,
-    rule: 'A13 D4 Step 4 priority-weighted aggregation',
-  }, 'A13'));
-  if (m.dataGrade == null || m.dataGrade.toLowerCase() !== computed.dataGrade.toLowerCase()) {
+  records.push(makeRecord('stage1', 'maturity_data', 'data_grade',
+    m.dataGrade ? normaliseEnumCell(m.dataGrade) : 'absent', normaliseEnumCell(computed.dataGrade), {
+      emittedRaw: m.dataGrade ?? 'absent',
+      loadBearingDegradedOrAbsent: computed.loadBearingDegradedOrAbsent,
+      rule: 'A13 D4 Step 4 priority-weighted aggregation',
+    }, 'A13'));
+  if (m.dataGrade == null || !enumEquals(m.dataGrade, computed.dataGrade)) {
     reviewerFlags.push(
       `${BLOCKER_PREFIX} GATE 1 A13 (Data grade, F13a): marker data_grade=${m.dataGrade ?? 'absent'} but ` +
       `${computed.loadBearingDegradedOrAbsent} load-bearing record class(es) are Degraded/Absent, which ` +
@@ -375,8 +390,11 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
   checked.push('A14');
   for (const i of inv.integrations.filter(r => r.active)) {
     const reasons: string[] = [];
-    if (!['scheduled', 'event'].includes(i.mechanism)) reasons.push(`mechanism=${i.mechanism || 'absent'} (must be scheduled or event)`);
-    if (i.status !== 'functioning') reasons.push(`status=${i.status || 'absent'} (must be functioning)`);
+    // Normalised set membership, not exact match — "scheduled (celigo connector)" is scheduled.
+    const mech = enumMatches(i.mechanism, ['scheduled', 'event']);
+    const stat = enumMatches(i.status, ['functioning']);
+    if (!mech.ok) reasons.push(`mechanism=${i.mechanism || 'absent'} → normalised "${mech.normalised || 'empty'}" (must be scheduled or event)`);
+    if (!stat.ok) reasons.push(`status=${i.status || 'absent'} → normalised "${stat.normalised || 'empty'}" (must be functioning)`);
     if (!GROUNDED_CONFIDENCE.test(i.confidence)) reasons.push(`confidence=${i.confidence || 'absent'} (must be Document-Backed or Form-Stated)`);
     if (reasons.length > 0) {
       reviewerFlags.push(
@@ -471,9 +489,26 @@ export interface PoolExclusionResult {
   excludedIds: string[];
   declarationPresent: boolean;
   unavailableReason: string | null;
+  provenanceChecked: boolean;
 }
 
-export function validatePoolExclusions(dossier: string): PoolExclusionResult {
+// A16c (v37.4a): exclusion-flag PROVENANCE. A16 asserts an exclusion is *authorised* by PP-0's
+// severity; A16c asserts it has a *root*. `band1_pool` is an archetype column, so an exclusion is only
+// verifiable against the archetype's CORE-columns table. Three outcomes:
+//
+//   • row says band1_pool=no                → authorised and rooted. Clean.
+//   • row says band1_pool=yes, or ID absent → the exclusion CONTRADICTS or LACKS its root. BLOCKER.
+//   • no archetype resolvable, exclusions present → the exclusion rests on a model assertion with no
+//     authoritative source. BLOCKER, because unlike A4/A9's unavailability this one CHANGED THE
+//     OUTPUT: a fabricated exclusion silently removes a real opportunity from the client's
+//     deliverable. Unverifiable-and-inert is a ⚠; unverifiable-and-acted-upon is not.
+//
+// `poolFlags` is supplied by the caller (the orchestrator resolves the archetype); pass an empty map
+// when none resolved — that is the third case, not a reason to skip.
+export function validatePoolExclusions(
+  dossier: string,
+  poolFlags: Map<string, { band1Pool: string }> = new Map(),
+): PoolExclusionResult {
   const marker = parseInventoryMarker(dossier);
   const severity = marker?.pp0Severity ? marker.pp0Severity.replace(/\s*\(.*\)$/, '') : null;
 
@@ -498,7 +533,8 @@ export function validatePoolExclusions(dossier: string): PoolExclusionResult {
         `[DATA_INVENTORY] marker), so the ${ids.length} band1_pool exclusion(s) cannot be checked ` +
         `against it. Candidate-pool membership is UNVERIFIED this run.`,
       ],
-      severity: null, excludedIds: ids, declarationPresent, unavailableReason: 'severity_unresolvable',
+      severity: null, excludedIds: ids, declarationPresent,
+      unavailableReason: 'severity_unresolvable', provenanceChecked: false,
     };
   }
 
@@ -527,5 +563,37 @@ export function validatePoolExclusions(dossier: string): PoolExclusionResult {
     );
   }
 
-  return { reviewerFlags, severity, excludedIds: ids, declarationPresent, unavailableReason: null };
+  // ── A16c: does each exclusion have a root? ──
+  let provenanceChecked = false;
+  if (ids.length > 0) {
+    if (poolFlags.size === 0) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 1 A16c (exclusion provenance): ${ids.length} candidate(s) excluded under ` +
+        `band1_pool=no [${ids.join(', ')}] but NO archetype resolved, so the flag has no authoritative ` +
+        `source and the exclusion is a model assertion. Unlike A4/A9's unavailability this one CHANGED ` +
+        `THE OUTPUT — a fabricated exclusion silently removes a real opportunity from the client's ` +
+        `deliverable. Restore the candidates or supply the archetype row that carries the flag.`,
+      );
+    } else {
+      provenanceChecked = true;
+      for (const id of ids) {
+        const root = poolFlags.get(id);
+        if (!root) {
+          reviewerFlags.push(
+            `${BLOCKER_PREFIX} GATE 1 A16c (exclusion provenance): ${id} was excluded under ` +
+            `band1_pool=no but the ID is ABSENT from the archetype's CORE-columns table, so the flag ` +
+            `has no root. An exclusion may only rest on an archetype row, never on a per-run judgement.`,
+          );
+        } else if (!/^no$/.test(root.band1Pool)) {
+          reviewerFlags.push(
+            `${BLOCKER_PREFIX} GATE 1 A16c (exclusion provenance): ${id} was excluded under ` +
+            `band1_pool=no but its archetype row carries band1_pool=${root.band1Pool || 'empty'}. The ` +
+            `exclusion CONTRADICTS its own root — restore the candidate to the pool.`,
+          );
+        }
+      }
+    }
+  }
+
+  return { reviewerFlags, severity, excludedIds: ids, declarationPresent, unavailableReason: null, provenanceChecked };
 }

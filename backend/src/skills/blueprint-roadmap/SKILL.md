@@ -435,16 +435,32 @@ Next → Later, with the canonical H-RT-XX ID so the assignment is machine-check
 Every opportunity from Stage 3 appears in exactly one row. The per-phase detail below expands
 these rows; it must not contradict them.
 
-**Anchor-emission self-check (REG-26 — mandatory, run before emitting output).** Every
-opportunity detailed under **Phase 1: Now** and **Phase 2: Next** MUST cite its locked
-Feasibility exactly once in its *Why now* line as `[Archetype-Anchored — locked at Stage 1]`
-(the score basis is a reproducible Stage-1 lookup, never a per-run re-derivation). **Later**
-Big-Bet blocks do not carry this anchor. Before finalising, count the
-`[Archetype-Anchored` anchors in the document: the count MUST equal the number of Now + Next
-opportunities — no more, no fewer. A missing or duplicated anchor is a pre-flight FAIL; fix it
-before emitting. (The v37.1 batch emitted 3/6/7/0 anchors across four runs where the stable
-count is exactly the Now+Next total — this self-check pins that count so the anchor class does
-not drift run to run.)
+**Anchor emission (REG-26 → A18, v37.5: RENDERED by the app — do not count anchors).** Every
+opportunity detailed under **Phase 1: Now** and **Phase 2: Next** cites its locked Feasibility in its
+*Why now* line as `[Archetype-Anchored — locked at Stage 1]` (the score basis is a reproducible
+Stage-1 lookup, never a per-run re-derivation). **Later** Big-Bet blocks do not carry this anchor.
+
+**You are no longer asked to count them.** From v37.5 the app renders the anchor set deterministically
+(`A18`): it inserts a missing anchor, drops a duplicate, corrects a cited Feasibility to the locked
+Stage-1 score, and removes anchors from Later/Bridge — so the document-level count is a function of the
+phase map rather than of arithmetic done while writing prose.
+
+Six batches of the previous self-check never stabilised it: 4/5/5/5, then 5/6/9/8, then 5/3/8/9,
+against a pin of exactly the Now+Next total. That is not a discipline failure — counting occurrences
+of a token across a 4,000-word document is the wrong task to hand to a writer, and the anchor is
+stripped by the delivery strip before any client sees it, so it was never client-facing content in the
+first place. It is a grading assertion, and the app is the right place to assert it.
+
+**What you must still do — and it is the part the app cannot do for you:**
+
+1. **Write the *Why now* line.** A18 needs somewhere to put the anchor. A Now/Next block with no
+   *Why now* line is reported as malformed and its anchor is NOT rendered — the app will not guess a
+   location in your prose.
+2. **Cite the canonical ID in the block** (`Element: H-XX-NN`). Without it the locked Feasibility
+   cannot be looked up and the anchor cannot be rendered.
+3. **State the score correctly if you state it at all.** If you cite `Feasibility n/5`, A18 attaches
+   the tag to your citation rather than restating it — and corrects `n` to the locked value, logging
+   the correction to the C1 record. Cite the Stage-1 value, never a re-derived one.
 
 ### Phase 1: Now (Months 1–3)
 

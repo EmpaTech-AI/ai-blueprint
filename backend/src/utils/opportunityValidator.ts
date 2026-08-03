@@ -303,6 +303,196 @@ export function validateRoadmapPhases(
   return { reviewerFlags };
 }
 
+// ─── A18 (v37.5): RENDER the Stage-4 anchors instead of instructing them ──────────────────────────
+//
+// The S4 anchor count has never stabilised in six batches: 4/5/5/5 · 5/6/9/8 · 5/3/8/9 against a pinned
+// expectation of exactly (Now + Next) opportunities. REG-26 added a mandatory self-check instructing the
+// model to count its own `[Archetype-Anchored` tags before emitting. It did not work, and it was never
+// going to: counting occurrences of a token across a 4,000-word document is the kind of task a language
+// model is worst at, and the pin is a *count*, not a judgement.
+//
+// The decisive fact that makes rendering obviously correct: **`stripConfidenceTags` removes every
+// `[Archetype-Anchored …]` tag on the delivery path.** The anchor never reaches a client document — it
+// is a GRADING artifact, an internal assertion that each Now/Next block cited its locked Stage-1
+// feasibility. So six batches have been spent asking the model to precisely count tags that are deleted
+// before anyone outside the Practice sees them. Rendering writes to an internal-only surface.
+//
+// What this does, per Now/Next opportunity block:
+//   • 0 anchors        → insert one, after an existing "Feasibility n/5" mention if present
+//   • >1 anchors       → keep the first, drop the rest
+//   • wrong value      → correct the cited feasibility to the locked Stage-1 score
+//   • Later/Bridge     → remove (REG-26 pins the count to Now+Next; Big-Bet blocks use other framing)
+//   • no *Why now* line → NOT guessed at. Reported as a malformed block, because inserting into
+//     arbitrary prose is a worse failure than an honest structural flag.
+//
+// A C1 correction record is written per block, so the model's RAW anchor rate stays observable in
+// `correction_log.json` even though the artifact is corrected — the same acceptance/production split
+// that governs the arithmetic auto-patch.
+const ANCHOR_RE = /\s*\[Archetype[- ]?Anchored[^\]]*\]/gi;
+const FEASIBILITY_MENTION = /\bFeasibility\s+(\d)\s*\/\s*5/i;
+const WHY_NOW_RE = /^([ \t]*\*{0,2}\s*Why now\s*:?\s*\*{0,2})(.*)$/im;
+const canonicalAnchor = (f: number) => `Feasibility ${f}/5 [Archetype-Anchored — locked at Stage 1]`;
+
+export interface AnchorRenderResult {
+  corrected: string;
+  records: CorrectionRecord[];
+  reviewerFlags: string[];
+  summary: {
+    nowNextBlocks: number; inserted: number; deduplicated: number;
+    valueCorrected: number; removedFromLater: number; malformed: number;
+    authoredTotal: number; renderedTotal: number;
+  };
+}
+
+// Split a roadmap into phase sections, labelled by which phase they are.
+function phaseSections(md: string): Array<{ phase: 1 | 2 | 3 | 0; start: number; end: number }> {
+  const re = /^[ \t]*#{2,3}[ \t]+(?:\*{0,2})(Phase\s+([123])\b|Bridge\b)/gim;
+  const marks: Array<{ phase: 1 | 2 | 3 | 0; index: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(md)) !== null) {
+    marks.push({ phase: m[2] ? (Number(m[2]) as 1 | 2 | 3) : 0, index: m.index });
+  }
+  return marks.map((mark, i) => ({
+    phase: mark.phase, start: mark.index,
+    end: i + 1 < marks.length ? marks[i + 1].index : md.length,
+  }));
+}
+
+// Opportunity blocks inside a phase section: H3/H4 headings and the body up to the next one.
+function opportunityBlocks(section: string): Array<{ start: number; end: number }> {
+  const re = /^[ \t]*#{3,4}[ \t]+\S[^\n]*$/gm;
+  const heads: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(section)) !== null) heads.push(m.index);
+  return heads.map((h, i) => ({ start: h, end: i + 1 < heads.length ? heads[i + 1] : section.length }));
+}
+
+export function renderPhaseAnchors(
+  roadmapOutput: string,
+  opportunityScores: OpportunityScore[],
+): AnchorRenderResult {
+  const feasibilityById = new Map(opportunityScores.map(s => [s.id.toLowerCase(), s.feasibility]));
+  const records: CorrectionRecord[] = [];
+  const reviewerFlags: string[] = [];
+  const summary = {
+    nowNextBlocks: 0, inserted: 0, deduplicated: 0, valueCorrected: 0,
+    removedFromLater: 0, malformed: 0, authoredTotal: 0, renderedTotal: 0,
+  };
+  summary.authoredTotal = (roadmapOutput.match(/\[Archetype[- ]?Anchored/gi) ?? []).length;
+
+  const sections = phaseSections(roadmapOutput);
+  if (sections.length === 0) {
+    return { corrected: roadmapOutput, records, reviewerFlags, summary };  // nothing to render against
+  }
+
+  // Rebuild the document section by section, so edits never invalidate a later index.
+  let out = '';
+  let cursor = 0;
+  for (const sec of sections) {
+    out += roadmapOutput.slice(cursor, sec.start);
+    let body = roadmapOutput.slice(sec.start, sec.end);
+    cursor = sec.end;
+
+    if (sec.phase === 3 || sec.phase === 0) {
+      // REG-26 pins the count to Now + Next, so an anchor here breaks the count.
+      const found = (body.match(ANCHOR_RE) ?? []).length;
+      if (found > 0) {
+        body = body.replace(ANCHOR_RE, '');
+        summary.removedFromLater += found;
+      }
+      out += body;
+      continue;
+    }
+
+    // Now / Next: render one anchor per block, from the back so indices stay valid.
+    const blocks = opportunityBlocks(body);
+    for (const b of [...blocks].reverse()) {
+      const block = body.slice(b.start, b.end);
+      const id = (/\bH-[A-Z]+-\d+\b/i.exec(block)?.[0] ?? '').toLowerCase();
+      const locked = feasibilityById.get(id);
+      const anchors = block.match(ANCHOR_RE) ?? [];
+      summary.nowNextBlocks++;
+
+      const why = WHY_NOW_RE.exec(block);
+      if (!why) {
+        summary.malformed++;
+        reviewerFlags.push(
+          `GATE 4 A18 (anchor render): the Phase ${sec.phase} block ${id || '(no ID cited)'} has no ` +
+          `"Why now" line, so its locked-feasibility anchor cannot be rendered. Structural defect — the ` +
+          `anchor was NOT guessed into arbitrary prose. Fix the block shape.`,
+        );
+        continue;
+      }
+
+      let newBlock = block;
+      if (anchors.length > 1) {
+        // Keep the first, drop the rest.
+        let seen = 0;
+        newBlock = newBlock.replace(ANCHOR_RE, a => (++seen === 1 ? a : ''));
+        summary.deduplicated += anchors.length - 1;
+      }
+
+      if (anchors.length === 0) {
+        const lineStart = why.index + why[1].length;
+        const lineEnd = lineStart + why[2].length;
+        const line = why[2];
+        const mention = FEASIBILITY_MENTION.exec(line);
+        let patched: string;
+        if (mention && mention.index != null) {
+          // The prose already cites the score — attach the tag to it rather than restating it.
+          const at = mention.index + mention[0].length;
+          patched = `${line.slice(0, at)} [Archetype-Anchored — locked at Stage 1]${line.slice(at)}`;
+        } else if (locked != null) {
+          const trimmed = line.replace(/\s*$/, '');
+          const needsStop = trimmed.length > 0 && !/[.!?]$/.test(trimmed);
+          patched = `${trimmed}${needsStop ? '.' : ''} ${canonicalAnchor(locked)}.`;
+        } else {
+          summary.malformed++;
+          reviewerFlags.push(
+            `GATE 4 A18 (anchor render): Phase ${sec.phase} block ${id || '(no ID cited)'} carries no ` +
+            `anchor and its locked Stage-1 feasibility is unknown (ID absent from the Stage-3 score set), ` +
+            `so nothing can be rendered. Cite the canonical ID in the block.`,
+          );
+          out += '';
+          continue;
+        }
+        newBlock = newBlock.slice(0, lineStart) + patched + newBlock.slice(lineEnd);
+        summary.inserted++;
+      } else if (locked != null) {
+        // An anchor exists — make sure the feasibility it cites is the locked one.
+        const mention = FEASIBILITY_MENTION.exec(newBlock);
+        if (mention && Number(mention[1]) !== locked) {
+          newBlock = newBlock.replace(FEASIBILITY_MENTION, `Feasibility ${locked}/5`);
+          summary.valueCorrected++;
+          records.push(makeRecord('stage4', id || 'unknown', 'anchor_feasibility',
+            Number(mention[1]), locked, { rule: 'A18 locked Stage-1 feasibility' }, 'A18'));
+        }
+      }
+
+      records.push(makeRecord('stage4', id || 'unknown', 'anchor_count', anchors.length, 1,
+        { phase: sec.phase, rule: 'A18 one anchor per Now/Next block (REG-26)' }, 'A18'));
+      body = body.slice(0, b.start) + newBlock + body.slice(b.end);
+    }
+    out += body;
+  }
+  out += roadmapOutput.slice(cursor);
+
+  summary.renderedTotal = (out.match(/\[Archetype[- ]?Anchored/gi) ?? []).length;
+  const changed = summary.inserted + summary.deduplicated + summary.valueCorrected + summary.removedFromLater;
+  if (changed > 0) {
+    reviewerFlags.push(
+      `GATE 4 A18 (anchor render): anchors RENDERED, not instructed — ${summary.authoredTotal} authored → ` +
+      `${summary.renderedTotal} rendered across ${summary.nowNextBlocks} Now/Next block(s). ` +
+      `${summary.inserted} inserted, ${summary.deduplicated} duplicate(s) dropped, ` +
+      `${summary.valueCorrected} value(s) corrected to the locked Stage-1 score, ` +
+      `${summary.removedFromLater} removed from Later/Bridge. The raw authored rate stays observable in ` +
+      `correction_log.json (A18 records); the count is now a function of the phase map, not of model ` +
+      `discipline. Six batches of REG-26 self-check instruction never stabilised it (4/5/5/5 · 5/6/9/8 · 5/3/8/9).`,
+    );
+  }
+  return { corrected: out, records, reviewerFlags, summary };
+}
+
 // ─── REG-22 sibling (Era-O′ / REG-24 correlate): Stage-4 Archetype-Anchored floor ──────
 //
 // The v37 run that mis-placed H-RT-07 (Next instead of Now) ALSO dropped its

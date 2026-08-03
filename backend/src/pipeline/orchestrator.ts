@@ -25,8 +25,8 @@ import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
-import { validateOpportunityScores, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
-import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, HypothesisRoot } from '../utils/classGGuards';
+import { validateOpportunityScores, renderPhaseAnchors, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
+import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseArchetypePoolFlags, PoolFlags, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, HypothesisRoot } from '../utils/classGGuards';
 import { validateDataInventory, validatePoolExclusions } from '../utils/inventoryGuards';
 import { reconcileFinancials } from '../utils/financialReconciliation';
 import { log } from '../utils/logger';
@@ -151,6 +151,31 @@ interface ArchetypeResolution {
   source: string | null;  // which archetype file won
   filesScanned: number;
   error: string | null;   // non-null ⇒ internal fault, NOT a missing reference
+}
+
+// A16c support: resolve the archetype's CORE-columns table (`band1_pool`) for the archetype this run
+// declared. The dossier's INTAKE_FACTS names it (`ARCHETYPE: recruitment`), which is a far more direct
+// key than best-ID-coverage — pool exclusions are recorded at Stage 1, so no scored IDs exist yet.
+// Returns an empty map when the declared archetype is `generic`, absent, or unreadable; A16c treats
+// that as "no root", which is the third case it is built to catch.
+function resolveArchetypePoolFlags(dossier: string): Map<string, PoolFlags> {
+  const declared = /^\s*ARCHETYPE\s*[:=]\s*([\w-]+)/m.exec(dossier)?.[1]?.toLowerCase();
+  if (!declared || declared === 'generic' || declared === 'unknown') return new Map();
+  try {
+    const file = path.join(__dirname, '../skills/blueprint-intake/archetypes', `${declared}.md`);
+    const md = fs.readFileSync(file, 'utf-8');
+    const flags = parseArchetypePoolFlags(md);
+    // `_core.md` carries H-CORE-00's own CORE columns; merge so an H-0 exclusion is checkable too.
+    try {
+      const core = parseArchetypePoolFlags(
+        fs.readFileSync(path.join(__dirname, '../skills/blueprint-intake/archetypes/_core.md'), 'utf-8'),
+      );
+      for (const [id, f] of core) if (!flags.has(id)) flags.set(id, f);
+    } catch { /* _core.md unreadable — the archetype's own rows still stand */ }
+    return flags;
+  } catch {
+    return new Map();
+  }
 }
 
 function resolveArchetypeRoots(emittedIds: Set<string>): ArchetypeResolution {
@@ -284,7 +309,10 @@ export async function runPipeline(jobId: string): Promise<void> {
     // A16: candidate-pool membership vs PP-0 severity. Deliberately asymmetric — see validatePoolExclusions.
     // This is the guard for the defect class a count-based read cannot see: Section D stays at 7+H-0
     // while its MEMBERSHIP diverges because an unauthorised band1_pool=no exclusion fired.
-    const poolResult = validatePoolExclusions(dossier);
+    // A16c needs the archetype's CORE-columns table (where band1_pool lives) to check that each
+    // exclusion has a root. Resolved independently of the Stage-3 hypothesis-library resolution
+    // because pool exclusions are recorded at Stage 1, before any card is scored.
+    const poolResult = validatePoolExclusions(dossier, resolveArchetypePoolFlags(dossier));
     if (poolResult.reviewerFlags.length > 0) {
       reviewerFlags.push(...poolResult.reviewerFlags);
       log('warn', 'GATE 1: A16 candidate-pool exclusion finding', {
@@ -295,7 +323,8 @@ export async function runPipeline(jobId: string): Promise<void> {
       `C1 coverage — A16 pool exclusions [A16]: PP-0 ${poolResult.severity ?? 'unresolvable'}, ` +
       `${poolResult.excludedIds.length} band1_pool=no exclusion(s)` +
       (poolResult.excludedIds.length > 0 ? ` [${poolResult.excludedIds.join(', ')}]` : '') +
-      (poolResult.declarationPresent ? ' · empty-set declaration present' : '') + '.',
+      (poolResult.declarationPresent ? ' · empty-set declaration present' : '') +
+      (poolResult.provenanceChecked ? ' · A16c provenance checked against the archetype row' : '') + '.',
     );
 
     // Step C — blueprint-maturity
@@ -506,11 +535,34 @@ export async function runPipeline(jobId: string): Promise<void> {
     // Step D2 — blueprint-roadmap
     assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'D2');
-    const roadmap = await runStepWithGate(
+    const roadmapRaw = await runStepWithGate(
       'Stage 4 (Action Roadmap)', 'stepD2',
       (corrective?) => runStepD2(opportunitiesClean, maturityClean, corrective),
       confidenceScores, reviewerFlags,
     );
+
+    // A18 (v37.5): RENDER the [Archetype-Anchored] anchors rather than instructing the model to count
+    // them. Six batches of the REG-26 self-check never stabilised the count (4/5/5/5 · 5/6/9/8 · 5/3/8/9)
+    // against a pin of exactly Now+Next. The anchor is stripped by stripConfidenceTags before delivery,
+    // so this writes to an internal grading surface only — no client-facing prose is authored here.
+    // Runs BEFORE the validators so they grade the rendered document, and the raw rate is kept in the
+    // A18 correction records.
+    const anchorRender = renderPhaseAnchors(roadmapRaw, gate3Scores);
+    const roadmap = anchorRender.corrected;
+    if (anchorRender.reviewerFlags.length > 0) {
+      reviewerFlags.push(...anchorRender.reviewerFlags);
+      log('info', 'GATE 4: A18 anchor render', { jobId, ...anchorRender.summary });
+    }
+    // A18 records join the SINGLE C1 log, because the R1 residual rate is read from that one file.
+    // Stage 4 runs after the Class-G block wrote it, so merge rather than write a second log.
+    if (anchorRender.records.length > 0) {
+      try {
+        const logPath = path.join(JOBS_DIR, jobId, 'correction_log.json');
+        const existing = fs.existsSync(logPath) ? JSON.parse(fs.readFileSync(logPath, 'utf-8')) : [];
+        fs.writeFileSync(logPath, JSON.stringify([...existing, ...anchorRender.records], null, 2));
+      } catch { /* non-fatal: log persistence is best-effort, the flags still carry the finding */ }
+    }
+
     // GATE 4: validate phase structure and Quick Win placement against Stage 3 scores.
     const { reviewerFlags: gate4Flags } = validateRoadmapPhases(roadmap, gate3Scores);
     if (gate4Flags.length > 0) {

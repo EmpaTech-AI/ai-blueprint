@@ -289,12 +289,42 @@ export function stripDataInventory(text: string): string {
     .trim();
 }
 
+// ─── B3 (v37.5): route the self-audit, do not scrub the prose ─────────────────────────────────────
+//
+// B3 has failed six consecutive batches: internal engineering identifiers (REG-21, T-19, S-47, WL-14)
+// reach the Stage-3 client surface ×4 every batch. The cause is not carelessness — the opportunities
+// SKILL instructs the model using those identifiers ("Membership-equality check (REG-21 — mandatory,
+// run before emitting output)"), and the model reproduces them when it confirms it ran the checks.
+//
+// The fix is ROUTING, not scrubbing. The self-audit is legitimate, useful content that belongs in the
+// run record; it simply has no channel of its own, so it lands in the deliverable. Giving it a
+// `[SELF_AUDIT]` block means the identifiers have a home that is stripped for delivery — the same move
+// that fixed `[CONFIDENCE_PROPAGATION]` and `[JUSTIFICATION]`.
+//
+// The `engineering-id` detector stays as the backstop for anything that leaks OUTSIDE the block, and it
+// now quotes the token it found so a residual is adjudicable rather than mysterious.
+export function stripSelfAudit(text: string): string {
+  return text
+    // Paired-marker form, and the heading-led form at any level (mirrors stripConfidencePropagation).
+    .replace(/\[SELF_AUDIT\][\s\S]*?\[END SELF_AUDIT\]/gi, '')
+    .replace(/\n*#{1,4}[ \t]*\*{0,2}\[?SELF[_ ]AUDIT\]?[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\[END JUSTIFICATION\]|$)/gi, '\n')
+    .replace(/^.*\[(?:END )?SELF_AUDIT\].*$/gim, '')
+    // Parenthetical rule citations the model sprinkles into prose when narrating a check it ran:
+    // "(REG-21)", "(per T-19)", "(REG-22 / WL-14)". Closed form — an identifier alone in parentheses,
+    // optionally several. A bare token in running prose is deliberately NOT touched: that is a real
+    // leak and the detector's job, and a blanket strip could eat a client's own reference.
+    .replace(/\s*\((?:per\s+|see\s+)?(?:[TSD]|WL|REG)-\d{1,3}(?:\s*[/,;]\s*(?:[TSD]|WL|REG)-\d{1,3})*\)/g, '')
+    .replace(/[ \t]+([.,;)])/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function stripForDelivery(text: string): string {
   const steps = [
     stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
     stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
     stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly, stripConfidencePropagation,
-    stripDataInventory, stripFieldTokens,
+    stripDataInventory, stripSelfAudit, stripFieldTokens,
   ];
   return steps.reduce((t, fn) => fn(t), text);
 }
@@ -333,12 +363,27 @@ export function stripForDeliveryStage5(text: string): string {
 export function detectResidualScaffold(text: string, stageLabel = 'Stage 5'): string[] {
   const flags: string[] = [];
   for (const form of SCAFFOLD_FORMS) {
-    if (form.detect.test(text)) {
-      // Never-ship: a residual scaffold form in any staged deliverable blocks release until resolved.
-      flags.push(`${BLOCKER_PREFIX} ${stageLabel} residual scaffold (${form.label}) survived delivery strip — do not release.`);
+    const hit = form.detect.exec(text);
+    if (hit) {
+      // v37.5 (B3): quote the MATCH and its surrounding line. For six batches this flag said only
+      // "internal engineering identifier" with no indication of which token or where, so B3 could not
+      // be adjudicated — the reviewer had a defect report with no locus. A detector that cannot be
+      // acted on is barely better than no detector.
+      const line = lineAround(text, hit.index);
+      flags.push(
+        `${BLOCKER_PREFIX} ${stageLabel} residual scaffold (${form.label}) survived delivery strip — ` +
+        `found "${hit[0].trim().slice(0, 60)}" in: "${line}". Do not release.`,
+      );
     }
   }
   return flags;
+}
+
+// The line containing `index`, trimmed and bounded — enough context to locate the leak in the artifact.
+function lineAround(text: string, index: number): string {
+  const start = text.lastIndexOf('\n', index) + 1;
+  const end = text.indexOf('\n', index);
+  return text.slice(start, end === -1 ? undefined : end).trim().slice(0, 160);
 }
 
 // ─── T-29: permit-only section allowlist (Approach 2 — the durable KR5 fix) ──────
@@ -490,6 +535,11 @@ export const SCAFFOLD_FORMS: ScaffoldForm[] = [
   { id: 'data-inventory', label: '[DATA_INVENTORY] machine channel (F13a/F13b)', removedBy: 'delivery-strip',
     detect: /^[ \t]*#{1,4}[ \t]*\*{0,2}\[?DATA_INVENTORY\b|<!--\s*inventory:/im,
     sample: '## [DATA_INVENTORY]\n\n### Core Systems\n| System | Record classes held | Core? | Core because (stated priority) | Confidence |\n|---|---|---|---|---|\n| shopify | orders, products | yes | Priority 1 | [Document-Backed] |\n\n<!-- inventory: n_core=1 active_integrations=0 integration_coverage=0.00 data_grade=Early -->\n' },
+  // NEW in v37.5 — the B3 routing channel. The self-audit is legitimate run-record content; it just
+  // needed somewhere to live that is not the client surface.
+  { id: 'self-audit', label: '[SELF_AUDIT] mandatory-check narration (B3 routing)', removedBy: 'delivery-strip',
+    detect: /\[(?:END )?SELF_AUDIT\]|^[ \t]*#{1,4}[ \t]*\*{0,2}\[?SELF[_ ]AUDIT\b/im,
+    sample: '## [SELF_AUDIT]\nMembership-equality (REG-21): 8 of 8 IDs match Stage 1.\n[END SELF_AUDIT]\n' },
   { id: 'coverage-status-line', label: 'Coverage/Confidence status line', removedBy: 'delivery-strip',
     detect: /^\s*(?:Coverage|Confidence|Sections?|Status)\s*[:—-]/im,
     sample: 'Coverage: Sections A–H\n' },

@@ -463,6 +463,46 @@ Stage 1 score comment before finalising output.
 
 These patterns disqualify output from pipeline use.
 
+## [SELF_AUDIT] Block (mandatory — B3 routing, ratified 2026-08-03)
+
+Every mandatory check above is confirmed **inside a `[SELF_AUDIT]` block, and nowhere else.**
+
+**Why this block exists.** Internal rule identifiers — `REG-21`, `REG-22`, `REG-23`, `T-19`, `T-30`,
+`S-47`, `D-9` — reached the Stage-3 **client surface** in six consecutive batches. The cause is not
+carelessness: this document instructs you using those identifiers, so when you confirm a check you
+naturally cite the identifier you were given. That confirmation is useful and belongs in the run
+record. It simply had no channel of its own, so it landed in the deliverable.
+
+**The rule, stated as a boundary rather than a prohibition:**
+
+- Rule identifiers (`REG-nn`, `T-nn`, `S-nn`, `WL-nn`, `D-n`) may appear **only** inside
+  `[SELF_AUDIT]`. The block is stripped from every delivery path, so nothing here reaches a client.
+- **Opportunity card prose, rationales, the portfolio view and the executive summary carry NO rule
+  identifiers.** State the substance instead: not *"placed in Later per T-27"* but *"placed in Later
+  because it depends on the data foundation completing first."* The client-facing reason is always the
+  business reason; the rule ID is the internal audit trail for the same decision.
+- A rule identifier found outside the block in any staged deliverable is a **never-ship BLOCKER**
+  (`S-36 / WL-14`). The detector now quotes the token and its line, so the fix is a one-line edit.
+
+Emit the block once, immediately before `[JUSTIFICATION]`:
+
+```
+## [SELF_AUDIT]
+
+- Membership equality (REG-21): {N} of {N} Stage-1 Section D IDs present, order preserved — PASS
+- Composite arithmetic (REG-23): every stated product equals I×F×A — PASS
+- Archetype-Anchored presence (REG-22): {N} AA tags, one per card — PASS
+- Score marker completeness: {N} markers = Section D count — PASS
+- Classification conformance (D6b): every `class=` matches the pinned tree — PASS
+- Phase-field completeness (T-19): nine relay fields verbatim on every marker — PASS
+- H-CORE-00 undivided (T-30): one card, one marker, no sub-components — PASS / n/a
+
+[END SELF_AUDIT]
+```
+
+Report a genuine FAIL here rather than a PASS you did not verify — the block is an audit record, and a
+fabricated PASS is worse than an admitted gap. If a check failed and you corrected it, say so.
+
 ## First-Turn Behavior
 
 When given the Compressed Dossier + Readiness Snapshot:

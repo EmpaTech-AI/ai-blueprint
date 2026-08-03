@@ -25,6 +25,7 @@ import {
   stripOperatorAssembly,
   stripConfidencePropagation,
   stripDataInventory,
+  stripSelfAudit,
   stripFieldTokens,
 } from './confidenceScorer';
 
@@ -153,7 +154,7 @@ describe('SCAFFOLD_FORMS — detector and strips can never drift apart', () => {
       stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
       stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
       stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly,
-      stripConfidencePropagation, stripDataInventory, stripFieldTokens,
+      stripConfidencePropagation, stripDataInventory, stripSelfAudit, stripFieldTokens,
     };
     for (const [name, fn] of Object.entries(pipe)) {
       const covered = SCAFFOLD_FORMS.filter(f => f.detect.test(f.sample) && !f.detect.test(fn(f.sample)));
@@ -215,5 +216,72 @@ describe('SCAFFOLD_FORMS — detector and strips can never drift apart', () => {
     expect(out).not.toMatch(/I have received/);
     expect(out).not.toMatch(/Proceeding to Chunk/);
     expect(detectResidualScaffold(out)).toEqual([]);
+  });
+});
+
+// ── B3 (v37.5): routing the Stage-3 self-audit rather than scrubbing prose ──────
+describe('stripSelfAudit — B3, unfixed for six batches', () => {
+  const AUDIT = [
+    '### Opportunity #1 — Returns Triage', '',
+    'Cuts manual triage time by an estimated 40%.', '',
+    '## [SELF_AUDIT]', '',
+    '- Membership equality (REG-21): 8 of 8 Stage-1 IDs present — PASS',
+    '- Phase-field completeness (T-19): nine relay fields verbatim — PASS', '',
+    '[END SELF_AUDIT]', '',
+  ].join('\n');
+
+  it('removes the block and the identifiers it carries', () => {
+    const out = stripSelfAudit(AUDIT);
+    expect(out).toMatch(/Returns Triage/);
+    expect(out).toMatch(/40%/);
+    expect(out).not.toMatch(/REG-21|T-19|SELF_AUDIT/);
+  });
+
+  it('removes a heading-led block with no closing marker', () => {
+    const out = stripSelfAudit('### Card\n\nReal content.\n\n## [SELF_AUDIT]\n- REG-21: PASS\n');
+    expect(out).toMatch(/Real content/);
+    expect(out).not.toMatch(/REG-21/);
+  });
+
+  // The prose half: a parenthetical citation is a closed form and safe to remove.
+  it('removes parenthetical rule citations from card prose', () => {
+    expect(stripSelfAudit('Placed in Later (T-27) because the data foundation must land first.'))
+      .toBe('Placed in Later because the data foundation must land first.');
+    expect(stripSelfAudit('Scored per the pinned tree (REG-22 / WL-14).'))
+      .toBe('Scored per the pinned tree.');
+    expect(stripSelfAudit('Verified (see D-9).')).toBe('Verified.');
+  });
+
+  // A bare token in running prose is a REAL leak — left for the detector, not silently scrubbed.
+  it('leaves a bare identifier in prose for the detector rather than hiding it', () => {
+    const bare = 'The placement follows T-27 ordering.';
+    expect(stripSelfAudit(bare)).toBe(bare);
+    expect(detectResidualScaffold(bare).some(f => /engineering identifier/.test(f))).toBe(true);
+  });
+
+  it('does not touch client content that merely contains a hyphen and digits', () => {
+    for (const s of ['Certified to ISO-27001 standard.', 'Model GPT-4 was evaluated.', 'Q-3 revenue rose.']) {
+      expect(stripSelfAudit(s)).toBe(s);
+    }
+  });
+
+  it('the whole delivery pipe removes the block, and the scan then reports clean', () => {
+    const out = stripForDelivery(AUDIT);
+    expect(out).not.toMatch(/REG-21|T-19|SELF_AUDIT/);
+    expect(detectResidualScaffold(out)).toEqual([]);
+  });
+});
+
+describe('detector diagnostics — B3 was unadjudicable for six batches', () => {
+  it('quotes the offending token AND its line, so the leak has a locus', () => {
+    const doc = '# Executive Summary\n\nThe roadmap sequences returns first per REG-21 ordering.\n';
+    const flag = detectResidualScaffold(doc).find(f => /engineering identifier/.test(f))!;
+    expect(flag).toMatch(/found "REG-21"/);
+    expect(flag).toMatch(/sequences returns first per REG-21 ordering/);
+  });
+
+  it('bounds the quoted line so a minified deliverable cannot flood the panel', () => {
+    const flag = detectResidualScaffold(`x REG-21 ${'y'.repeat(500)}`)[0];
+    expect(flag.length).toBeLessThan(400);
   });
 });

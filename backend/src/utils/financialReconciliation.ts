@@ -61,6 +61,18 @@ export const FORM_METRIC_FIELDS: Record<string, string> = {
   budget_range: 'budget',
 };
 
+// What the number itself was written as. v37.4a: type-checking the QUANTITY, not just the metric
+// label, is what stops a percentage or a currency figure being admitted as a headcount.
+export type Qualifier = 'currency' | 'percent' | 'plain';
+
+// Which quantity forms may satisfy which metric. A percentage is never a currency amount; a currency
+// amount is never a count. Set membership, not a numeric type guess.
+const QUALIFIER_ALLOWED: Record<MetricUnit, Qualifier[]> = {
+  currency: ['currency', 'plain'],
+  percent: ['percent'],
+  count: ['plain'],
+};
+
 export interface FinancialClaim {
   metric: string;
   unit: MetricUnit;
@@ -71,6 +83,12 @@ export interface FinancialClaim {
   source: string;            // "form:revenue_range" | "document:financial_summary (03_x.pdf)"
   isForm: boolean;
   period: string | null;     // FY2025 / 2024 — used to scope A17b and A17c
+  // v37.4a (LunaCart v1.1 §2.1): TRUE only for a range read from a DECLARED form metric field
+  // (FORM_METRIC_FIELDS). A range mined from free-text prose is not an authoritative band, and
+  // treating it as one is what produced the entity-mismatch cluster: a LunaBox subscriber count from
+  // `top_priorities` and an industry benchmark percentage from `pain_point_4` were both admitted as
+  // revenue bands and compared against real revenue. Only a declared band can gate anything.
+  isDeclaredBand: boolean;
 }
 
 // ─── Number normalisation ────────────────────────────────────────────────────────
@@ -126,23 +144,45 @@ export function parseRange(input: string): { low: number; high: number } | null 
   return lowScaled <= high ? { low: lowScaled, high } : { low: high, high: lowScaled };
 }
 
-export function parsePoint(text: string, unit: MetricUnit): number | null {
+// Is the number at `index` (length `len`) immediately followed by a percent sign?
+function followedByPercent(text: string, index: number, len: number): boolean {
+  return /^\s*%/.test(text.slice(index + len));
+}
+
+// Returns the value AND how it was written. The qualifier is what lets a metric reject a quantity of
+// the wrong kind — "58.2%" must not satisfy `revenue`, "€156,000" must not satisfy `headcount`.
+export function parseQuantity(text: string, unit: MetricUnit): { value: number; qualifier: Qualifier } | null {
   if (unit === 'percent') {
     const m = new RegExp(PCT).exec(text);
-    return m ? parseFloat(m[1]) : null;
+    return m ? { value: parseFloat(m[1]), qualifier: 'percent' } : null;
   }
   // Qualified first — a fiscal-year token is neither symbol- nor scale-qualified, so this skips it.
-  for (const re of [NUM_SYMBOL, NUM_SUFFIXED]) {
-    const m = re.exec(text);
-    if (m) {
-      const v = scale(m[1], m[2]);
-      if (Number.isFinite(v)) return v;
+  const sym = NUM_SYMBOL.exec(text);
+  if (sym) {
+    const v = scale(sym[1], sym[2]);
+    if (Number.isFinite(v)) return { value: v, qualifier: 'currency' };
+  }
+  const suf = NUM_SUFFIXED.exec(text);
+  if (suf) {
+    const v = scale(suf[1], suf[2]);
+    if (Number.isFinite(v)) {
+      return { value: v, qualifier: followedByPercent(text, suf.index, suf[0].length) ? 'percent' : 'plain' };
     }
   }
-  const m = NUM_BARE.exec(stripPeriodTokens(text));
-  if (!m) return null;
-  const v = scale(m[1], undefined);
-  return Number.isFinite(v) ? v : null;
+  const stripped = stripPeriodTokens(text);
+  const bare = NUM_BARE.exec(stripped);
+  if (!bare) return null;
+  const v = scale(bare[1], undefined);
+  if (!Number.isFinite(v)) return null;
+  return { value: v, qualifier: followedByPercent(stripped, bare.index, bare[0].length) ? 'percent' : 'plain' };
+}
+
+export function parsePoint(text: string, unit: MetricUnit): number | null {
+  return parseQuantity(text, unit)?.value ?? null;
+}
+
+export function qualifierSatisfies(unit: MetricUnit, qualifier: Qualifier): boolean {
+  return QUALIFIER_ALLOWED[unit].includes(qualifier);
 }
 
 const PERIOD_RE = /\b(?:FY\s?)?(20\d{2})(?:\s*[/-]\s*\d{2,4})?\b/i;
@@ -178,12 +218,15 @@ export function extractClaims(text: string, source: string, isForm: boolean): Fi
     for (const spec of METRIC_SPECS) {
       if (!spec.label.test(line)) continue;
       const range = spec.unit === 'percent' ? null : parseRange(line);
-      const point = range ? null : parsePoint(line, spec.unit);
-      if (!range && point === null) continue;
+      const q = range ? null : parseQuantity(line, spec.unit);
+      // Quantity-kind check: reject a number written in a form this metric cannot take.
+      if (q && !qualifierSatisfies(spec.unit, q.qualifier)) continue;
+      if (!range && !q) continue;
       claims.push({
         metric: spec.metric, unit: spec.unit,
-        value: point, rangeLow: range?.low ?? null, rangeHigh: range?.high ?? null,
+        value: q?.value ?? null, rangeLow: range?.low ?? null, rangeHigh: range?.high ?? null,
         raw: line.trim().slice(0, 200), source, isForm, period: periodOf(line),
+        isDeclaredBand: false,   // mined from prose — never an authoritative band
       });
     }
   }
@@ -200,12 +243,14 @@ export function collectClaims(formAnswers: FormAnswers, corpus: DocumentCorpus):
     const text = Array.isArray(answer) ? answer.join(' ') : String(answer);
     const spec = METRIC_SPECS.find(s => s.metric === metric)!;
     const range = parseRange(text);
-    const point = range ? null : parsePoint(text, spec.unit);
-    if (!range && point === null) continue;
+    const q = range ? null : parseQuantity(text, spec.unit);
+    if (q && !qualifierSatisfies(spec.unit, q.qualifier)) continue;
+    if (!range && !q) continue;
     claims.push({
-      metric, unit: spec.unit, value: point,
+      metric, unit: spec.unit, value: q?.value ?? null,
       rangeLow: range?.low ?? null, rangeHigh: range?.high ?? null,
       raw: text.trim().slice(0, 200), source: `form:${fieldId}`, isForm: true, period: null,
+      isDeclaredBand: range !== null,   // a declared metric field IS an authoritative band
     });
   }
   for (const [fieldId, answer] of Object.entries(formAnswers)) {
@@ -249,9 +294,19 @@ const fmt = (n: number, unit: MetricUnit) =>
 //
 // The below-band case still appears in the divergence table, so the reviewer sees it — it is
 // downgraded, not hidden. That is the distinction between an unsafe assertion and a lost signal.
+// v37.4a (LunaCart v1.1 §2.1): the band side is now restricted to `isDeclaredBand` — a range read from
+// a DECLARED form metric field. Previously any range mined from any form answer became a band once its
+// line happened to carry a metric label, which admitted:
+//   • a LunaBox subscriber count from `top_priorities` (2,840–5,000) as a revenue band
+//   • an industry benchmark percentage from `pain_point_4` (15–20) as a revenue band
+//   • a growth TARGET from `growth_targets` (18M–22M) as a current-revenue band
+// All three then produced blocker-grade divergences against real revenue figures. Ivan's diagnosis was
+// exact: pair only within a declared metric identity, matching on set membership rather than on a
+// numeric type guess. `growth_targets` is additionally a projection by field semantics, so excluding
+// undeclared fields closes the projection leak on the form side too.
 function checkRangeContainment(claims: FinancialClaim[]): Divergence[] {
   const out: Divergence[] = [];
-  const ranges = claims.filter(c => c.isForm && c.rangeLow !== null && c.rangeHigh !== null);
+  const ranges = claims.filter(c => c.isDeclaredBand && c.rangeLow !== null && c.rangeHigh !== null);
   for (const range of ranges) {
     for (const doc of claims.filter(c => !c.isForm && c.metric === range.metric && c.value !== null)) {
       const v = doc.value!;

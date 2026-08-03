@@ -12,6 +12,7 @@
 
 import { BLOCKER_PREFIX } from '../types/pipeline';
 import { CorrectionRecord, makeRecord } from './correctionLog';
+import { isYes, enumEquals, normaliseEnumCell } from './enumNormalise';
 
 // A4 flag → maturity-dimension map (contract v1.3 §4.1, verified against all 12 runs).
 export const FLAG_DIMENSION: Record<string, string> = {
@@ -33,7 +34,10 @@ export function recomputeAdjustedFeasibility(
 ): { adjustedF: number; firing: string[] } {
   const firing: string[] = [];
   for (const [flag, dim] of Object.entries(FLAG_DIMENSION)) {
-    if ((flags[flag] ?? 'no').toLowerCase() === 'yes' && earlyDims.has(dim)) firing.push(flag);
+    // v37.4a: normalised, so an annotated flag value ("yes (documented p.4)") still fires. An exact
+// match here would silently UNDER-count firing flags and log a false agreement — the worst
+    // direction for this class of bug to fail in.
+    if (isYes(flags[flag]) && earlyDims.has(dim)) firing.push(flag);
   }
   return { adjustedF: Math.max(1, baseF - firing.length), firing };
 }
@@ -66,6 +70,34 @@ export function parseArchetypeHypothesisTable(md: string): Map<string, Hypothesi
     const flags: Record<string, string> = {};
     FLAG_COLUMNS.forEach((f, i) => { flags[f] = (cells[7 + i] ?? '').toLowerCase(); });
     out.set(id, { baseImpact, baseFeasibility, baseAlignment, flags });
+  }
+  return out;
+}
+
+// A16c (v37.4a): the archetype's CORE-columns table, which is where `band1_pool` actually lives —
+// NOT the Hypothesis Library table above. Shape (`_core.md` §5):
+//   | ID | `agent_shaped` | `h0_consumer` | `band1_pool` | Notes |
+// A16 asserts that an exclusion is authorised by PP-0's severity; A16c asserts it has a ROOT — that the
+// excluded candidate's archetype row really carries `band1_pool=no`. Without this, an exclusion is a
+// model assertion with no source, and a fabricated one silently removes a real opportunity from the
+// client's deliverable (LunaCart v1 T4 did exactly that).
+export interface PoolFlags { agentShaped: string; h0Consumer: string; band1Pool: string; }
+
+export function parseArchetypePoolFlags(md: string): Map<string, PoolFlags> {
+  const out = new Map<string, PoolFlags>();
+  for (const line of md.split('\n')) {
+    if (!/^\|\s*\**\s*H-[A-Z]+-\d+\s*\**\s*\|/.test(line)) continue;
+    const cells = line.split('|').map(c => c.replace(/[`*]/g, '').trim());
+    if (cells.length < 5) continue;
+    const id = cells[1].toLowerCase();
+    // Discriminate this table from the Hypothesis Library by the ONE cell we actually need: in the
+    // CORE-columns table cells[4] is `band1_pool` (yes/no); in the Hypothesis Library cells[4] is
+    // Typical Feasibility (a digit), which can never normalise to yes/no. Deliberately not a check on
+    // cells[2..4] all being enum-ish — H-CORE-00's row is `| H-CORE-00 | n/a | n/a | yes |` and `n/a`
+    // normalises to "n", so an all-cells check silently dropped the one ID whose exclusion matters most.
+    const tokens = [cells[2], cells[3], cells[4]].map(c => normaliseEnumCell(c));
+    if (!['yes', 'no'].includes(tokens[2])) continue;
+    out.set(id, { agentShaped: tokens[0], h0Consumer: tokens[1], band1Pool: tokens[2] });
   }
   return out;
 }
@@ -225,11 +257,13 @@ export function validateRootIntegrity(
       ['alignment', root.baseAlignment, Number(fields.alignment)],
     ];
     for (const flag of A9_PINNED_FLAGS) {
-      checks.push([flag, root.flags[flag] ?? 'no', (fields[flag] ?? 'no').toLowerCase()]);
+      checks.push([flag, root.flags[flag] ?? 'no', fields[flag] ?? 'no']);
     }
     for (const [field, archVal, emitVal] of checks) {
       if (Number.isNaN(emitVal as number)) continue; // unparseable emitted number — skip
-      if (String(archVal) !== String(emitVal)) {
+      // Normalised on both sides: an archetype `yes` must match an emitted `yes (client confirmed)`.
+      // An exact compare here would route a non-deviation into the Override Register as a BLOCKER.
+      if (!enumEquals(archVal, emitVal)) {
         overrideRegister.push({ elementId: id, field, archetypeValue: archVal, emittedValue: emitVal, cited });
         if (!cited) {
           reviewerFlags.push(

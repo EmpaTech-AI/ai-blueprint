@@ -16,6 +16,8 @@ import {
   parsePoint,
   isExcludedLine,
   divergenceDeclared,
+  parseQuantity,
+  qualifierSatisfies,
 } from './financialReconciliation';
 import { FormAnswers, DocumentCorpus, ParsedDocument } from '../types/pipeline';
 import { BLOCKER_PREFIX } from '../types/pipeline';
@@ -233,5 +235,88 @@ describe('claim collection', () => {
   it('also mines free-text form answers, which carry metrics in practice', () => {
     const claims = collectClaims({ ...FORM, pain_point_1: 'Our net margin is 4.2% and falling.' }, corpusOf());
     expect(claims.some(c => c.metric === 'net_margin' && c.source === 'form:pain_point_1')).toBe(true);
+  });
+});
+
+// ── v37.4a: A17a entity-identity fix (LunaCart v1.1 §2.1) ──────────────────────
+//
+// The batch produced an entity-mismatch cluster: any numeric range mined from any form answer became
+// an authoritative band once its line carried a metric label. Every row below is a real firing from
+// the v1.1 panels, and each must now be silent.
+describe('A17a entity identity — only DECLARED form fields establish a band', () => {
+  const withDoc = (form: FormAnswers, text: string) =>
+    reconcileFinancials(form, corpusOf(doc('financial_summary', text)), '');
+
+  it('does not treat a subscriber count from top_priorities as a revenue band', () => {
+    const r = withDoc(
+      { revenue_range: '€2M–€10M', top_priorities: 'Grow LunaBox subscription revenue from 2,840 to 5,000 members' },
+      'Total revenue FY2025: €8,247,600',
+    );
+    expect(r.reviewerFlags).toEqual([]);
+  });
+
+  it('does not treat an industry benchmark percentage from a pain point as a revenue band', () => {
+    const r = withDoc(
+      { revenue_range: '€2M–€10M', pain_point_4: 'Industry revenue benchmark for returns is 15–20 percent' },
+      'Total revenue FY2025: €8,247,600',
+    );
+    expect(r.reviewerFlags).toEqual([]);
+  });
+
+  it('does not treat a growth TARGET from growth_targets as a current-revenue band', () => {
+    const r = withDoc(
+      { revenue_range: '€2M–€10M', growth_targets: 'Reach revenue of 18,000,000–22,000,000 by FY2028' },
+      'Total revenue FY2025: €2,000,000',
+    );
+    expect(r.reviewerFlags).toEqual([]);
+  });
+
+  it('a declared band still gates — the fix narrows the source, not the assertion', () => {
+    const r = withDoc({ revenue_range: '€2M–€10M' }, 'Total revenue FY2025: €14.5M');
+    expect(r.reviewerFlags.some(f => /A17a.*revenue.*EXCEEDS/.test(f))).toBe(true);
+  });
+
+  // Ivan's §2.1 row 1: a figure INSIDE the band reported as EXCEEDS. Pinned so it cannot happen.
+  it('never fires when the document figure is inside the declared band', () => {
+    for (const v of ['€2,000,000', '€8,247,600', '€10,000,000', '€5.5M']) {
+      const r = withDoc({ revenue_range: '€2M–€10M' }, `Total revenue FY2025: ${v}`);
+      expect({ v, flags: r.reviewerFlags }).toEqual({ v, flags: [] });
+    }
+  });
+});
+
+describe('quantity-kind checking — a percentage is not currency, currency is not a count', () => {
+  it('rejects a percentage as a revenue figure', () => {
+    expect(qualifierSatisfies('currency', 'percent')).toBe(false);
+    const r = reconcileFinancials({ revenue_range: '€2M–€10M' },
+      corpusOf(doc('financial_summary', 'Revenue growth was 58.2%')), '');
+    expect(r.reviewerFlags).toEqual([]);
+  });
+
+  it('rejects a currency figure as a headcount', () => {
+    expect(qualifierSatisfies('count', 'currency')).toBe(false);
+    const r = reconcileFinancials({ company_size: '51-200' },
+      corpusOf(doc('sales_pipeline', 'Staff cost this period: €156,000')), '');
+    expect(r.reviewerFlags).toEqual([]);
+  });
+
+  it('still admits a plain or symbol-qualified number as currency', () => {
+    expect(qualifierSatisfies('currency', 'plain')).toBe(true);
+    expect(qualifierSatisfies('currency', 'currency')).toBe(true);
+    expect(qualifierSatisfies('percent', 'percent')).toBe(true);
+  });
+
+  it('parseQuantity reports how the number was written', () => {
+    expect(parseQuantity('Revenue: €6.4M', 'currency')).toEqual({ value: 6.4e6, qualifier: 'currency' });
+    expect(parseQuantity('Growth was 58.2%', 'currency')).toMatchObject({ qualifier: 'percent' });
+    expect(parseQuantity('Headcount: 240', 'count')).toEqual({ value: 240, qualifier: 'plain' });
+  });
+
+  it('A17b is untouched by the A17a narrowing — it stays a BLOCKER', () => {
+    const p = doc('financial_summary', [
+      'FY2025 total revenue: €6.4M', 'FY2025 net profit: €256,000', 'FY2025 net margin: 12.5%',
+    ].join('\n'));
+    expect(reconcileFinancials({}, corpusOf(p), '').reviewerFlags
+      .some(f => /A17b.*net_margin/.test(f))).toBe(true);
   });
 });

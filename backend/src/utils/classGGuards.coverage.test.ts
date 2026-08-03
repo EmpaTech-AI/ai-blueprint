@@ -19,6 +19,8 @@ import {
   HypothesisRoot,
 } from './classGGuards';
 import { BLOCKER_PREFIX } from '../types/pipeline';
+import fs from 'fs';
+import path from 'path';
 
 const SIX_DIMS = (grades: Record<string, string>) =>
   ['Strategy', 'Data', 'Technology', 'People', 'Processes', 'Governance']
@@ -232,5 +234,41 @@ describe('Gate A coverage — per-family declaration, not one fake denominator',
     const line = formatGateACoverage(cov).find(l => /A4 feasibility/.test(l))!;
     expect(line).toMatch(/1 declared gap\(s\): h-core-00/);
     expect(line).toMatch(/1 UNEXPECTED unchecked card\(s\): h-lc-07 \(unparseable_emitted_value\)/);
+  });
+});
+
+// ── A16c support: the pool-flags parser, read against the REAL archetype file ──────
+//
+// If this parser fails on recruitment.md, A16c BLOCKERs Meridian's two legitimate exclusions and the
+// v37.4 regression batch reads as a catastrophe. Tested against the file, not a fixture, for that reason.
+describe('parseArchetypePoolFlags — real recruitment archetype', () => {
+  const { parseArchetypePoolFlags } = require('./classGGuards');
+  const md = fs.readFileSync(
+    path.join(__dirname, '../skills/blueprint-intake/archetypes/recruitment.md'), 'utf-8');
+  const flags = parseArchetypePoolFlags(md);
+
+  it('roots Meridian\'s two excluded candidates at band1_pool=no', () => {
+    expect(flags.get('h-rt-08')?.band1Pool).toBe('no');
+    expect(flags.get('h-rt-09')?.band1Pool).toBe('no');
+  });
+
+  it('includes H-CORE-00, whose row uses "n/a" in the other two columns', () => {
+    expect(flags.get('h-core-00')).toMatchObject({ band1Pool: 'yes' });
+  });
+
+  it('marks every other hypothesis as poolable, so no exclusion is silently authorised', () => {
+    const poolable = [...flags.entries()].filter(([, f]) => f.band1Pool === 'yes').map(([id]) => id);
+    expect(poolable).toContain('h-rt-01');
+    expect(poolable.length).toBeGreaterThan(10);
+  });
+
+  it('does not mistake the Hypothesis Library table for the CORE-columns table', () => {
+    // The library's cells[4] is Typical Feasibility (a digit) and must never be read as band1_pool.
+    const libraryOnly = [
+      '| ID | Hypothesis | Typ Impact | Typ Feasibility | Typ Alignment | Default Class |',
+      '|---|---|---|---|---|---|',
+      '| H-XX-01 | Some hypothesis | 5 | 3 | 5 | Foundation Builder |',
+    ].join('\n');
+    expect(parseArchetypePoolFlags(libraryOnly).size).toBe(0);
   });
 });
