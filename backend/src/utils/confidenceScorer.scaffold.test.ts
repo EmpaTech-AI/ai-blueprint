@@ -164,7 +164,7 @@ describe('SCAFFOLD_FORMS — detector and strips can never drift apart', () => {
 
   it('author-discipline forms are declared as such — the detector is their only guard', () => {
     const authorOnly = SCAFFOLD_FORMS.filter(f => f.removedBy === 'author-discipline');
-    expect(authorOnly.map(f => f.id).sort()).toEqual(['engineering-id', 'h-rt-placeholder', 'quality-check']);
+    expect(authorOnly.map(f => f.id).sort()).toEqual(['bare-block-name', 'engineering-id', 'h-rt-placeholder', 'quality-check']);
     // They survive the delivery strip by design; the never-ship BLOCKER is what stops them.
     for (const form of authorOnly) {
       expect(detectResidualScaffold(form.sample).length).toBeGreaterThan(0);

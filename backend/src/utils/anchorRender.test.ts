@@ -126,7 +126,7 @@ describe('renderPhaseAnchors — the count becomes a function of the phase map',
     const r = renderPhaseAnchors(malformed, scores);
     expect(r.summary.malformed).toBe(1);
     expect(r.summary.inserted).toBe(0);
-    expect(r.reviewerFlags.some(f => /no "Why now" line/.test(f) && /NOT guessed/.test(f))).toBe(true);
+    expect(r.reviewerFlags.some(f => /phase-opener line/.test(f) && /NOT guessed/.test(f))).toBe(true);
   });
 
   it('flags rather than invents when no ID resolves to a locked score', () => {

@@ -26,8 +26,10 @@ import { detectResidualComponentMarkers } from '../docx/components';
 import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, renderPhaseAnchors, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
-import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseArchetypePoolFlags, PoolFlags, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, HypothesisRoot } from '../utils/classGGuards';
-import { validateDataInventory, validatePoolExclusions } from '../utils/inventoryGuards';
+import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseArchetypePoolFlags, PoolFlags, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, GateACoverage, HypothesisRoot } from '../utils/classGGuards';
+import { validateDataInventory, validatePoolExclusions, renderInventoryMarker } from '../utils/inventoryGuards';
+import { extractStage1Manifest, validateAgainstManifest } from '../utils/stage1Manifest';
+import { resolveRung, formatRungDeclaration } from '../utils/archetypeRung';
 import { reconcileFinancials } from '../utils/financialReconciliation';
 import { log } from '../utils/logger';
 import path from 'path';
@@ -201,6 +203,9 @@ export async function runPipeline(jobId: string): Promise<void> {
   const job = loadJob(jobId);
   const reviewerFlags: string[] = [];
   const confidenceScores: PipelineJob['confidenceScores'] = {};
+  // Set by the Class-G block; read at the end so the rung declaration can quote the MEASURED coverage
+  // fraction rather than a nominal claim (eight-batch report III.2 rule 3).
+  let gateACoverageSnapshot: GateACoverage | null = null;
 
   // D8: Build-freshness guard. In production the server runs node dist/server.js — if
   // npm run build was executed after this process started, dist/ is newer than the loaded
@@ -253,13 +258,48 @@ export async function runPipeline(jobId: string): Promise<void> {
     // Step B — blueprint-intake (chunked 3-pass invocation)
     assertNotCancelled(jobId);
     await updateJobStatus(jobId, 'running', 'B');
-    const dossier = await runStepWithGate(
+    const dossierRaw = await runStepWithGate(
       'Stage 1 (Intake Analysis)', 'stepB',
       (corrective?) => runStepB(job.formAnswers, corpus, corrective),
       confidenceScores, reviewerFlags,
     );
+    // III.3 pin 2 (v37.6): RENDER the inventory marker from its own tables before anything reads it.
+    // R1 was the heaviest model item of the eight-batch era — the marker claimed 4–5 active integrations
+    // against a table recompute of 2, in 4/4 LunaCart runs and 2/4 Meridian runs — and it feeds
+    // C1 → PP-0 → H-CORE-00. The tables are transcription; the marker is arithmetic over them, and Law 2
+    // says copying is reproducible while deriving is sampled. So the app derives it, not the model.
+    // A11 still records the authored values against the rendered ones, so the raw rate stays measurable.
+    const inventoryRender = renderInventoryMarker(dossierRaw);
+    const dossier = inventoryRender.corrected;
+    if (inventoryRender.rendered) {
+      reviewerFlags.push(
+        `GATE 1 A11 (inventory RENDERED, not derived): ${inventoryRender.changedFields.length} marker ` +
+        `field(s) corrected from the tables [${inventoryRender.changedFields.join(', ')}]. The marker is ` +
+        `now a function of the Core Systems / Integrations / Record Classes tables; the model's authored ` +
+        `values are recorded as A11 forks in correction_log.json so the derivation rate stays observable.`,
+      );
+      log('warn', 'GATE 1: inventory marker rendered from tables (R1)', {
+        jobId, changed: inventoryRender.changedFields,
+      });
+    }
+
     await saveStepOutput(jobId, 'B', dossier);
     const dossierClean = stripJustification(dossier);
+
+    // III.3 pin 1 (v37.6): freeze the Stage-1 ID set, scores and relay flags into a run-local manifest.
+    // At rung C there is no archetype row, so A9 cannot run — this manifest IS the root, which converts
+    // A9-equivalent checking from archetype-dependent to case-independent.
+    const stage1Manifest = extractStage1Manifest(dossier);
+    try {
+      const logDir = path.join(JOBS_DIR, jobId);
+      fs.mkdirSync(logDir, { recursive: true });
+      fs.writeFileSync(path.join(logDir, 'stage1_manifest.json'), JSON.stringify(stage1Manifest, null, 2));
+    } catch { /* non-fatal */ }
+    reviewerFlags.push(
+      `A19 Stage-1 freeze: ${stage1Manifest.elements.length} element(s) frozen at Stage-1 exit ` +
+      `[${stage1Manifest.ids.join(', ') || 'none'}] — impact/alignment/relay flags pinned, feasibility ` +
+      `directional (may fall, never rise); manifest at stage1_manifest.json.`,
+    );
 
     // A11–A15 (v37.4, F13a/F13b): relational guards over the Stage-1 [DATA_INVENTORY] block. These
     // recompute Integration Coverage, PP-0 severity and the Data grade from the inventory TABLES and
@@ -372,6 +412,20 @@ export async function runPipeline(jobId: string): Promise<void> {
       reviewerFlags.push(...gate3Flags);
       log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
     }
+
+    // A19 (III.3 pin 1): assert Stage 3 against the Stage-1 freeze. At rung C this is the ONLY root that
+    // exists — A9 needs an archetype row and there is none — so this is what makes impact/alignment/flag
+    // integrity checkable on a case with no library.
+    const manifestCheck = validateAgainstManifest(opportunities, stage1Manifest, 'Stage 3');
+    if (manifestCheck.reviewerFlags.length > 0) {
+      reviewerFlags.push(...manifestCheck.reviewerFlags);
+      log('warn', 'GATE 3: A19 Stage-1 freeze deviation', { jobId, count: manifestCheck.reviewerFlags.length });
+    }
+    reviewerFlags.push(
+      `C1 coverage — A19 Stage-1 freeze [A19]: ${manifestCheck.checked} of ${stage1Manifest.elements.length} ` +
+      `frozen element(s) checked at Stage 3, ${manifestCheck.records.filter(r => !r.agreed).length} fork(s)` +
+      (manifestCheck.unavailableReason ? ` — UNAVAILABLE (${manifestCheck.unavailableReason})` : '') + '.',
+    );
 
     // REG-25 (v37.1): D6b classification-label fork — the class label (marker or prose) must
     // match the pinned tree applied to the emitted scores. Recompute-from-I/F, zero-false-fire.
@@ -488,7 +542,20 @@ export async function runPipeline(jobId: string): Promise<void> {
       // rate (R1) is read from this file, never from the emitted documents. The per-family coverage
       // declaration is what makes the fork count interpretable: a bare "N checked, 0 forks" is
       // uninterpretable without knowing which families ran and over how many cards.
+      // A19 joins the coverage families — it is the rung-C root, so its coverage belongs in the same
+      // declaration as A4/A9 rather than in a separate line a reader has to reconcile.
+      families.push({
+        family: 'A19 Stage-1 freeze (impact/alignment/relay flags)', ruleId: 'A19',
+        expected: cardsEmitted, checked: manifestCheck.checked,
+        forks: manifestCheck.records.filter(r => !r.agreed).length, unchecked: [],
+        unavailable: manifestCheck.unavailableReason
+          ? { cause: 'guard_threw', detail: `Stage-1 freeze unavailable: ${manifestCheck.unavailableReason}.` }
+          : null,
+      });
+      correctionRecords.push(...manifestCheck.records);
+
       const coverage = buildGateACoverage(cardsEmitted, families);
+      gateACoverageSnapshot = coverage;
       const forks = correctionRecords.filter(r => !r.agreed).length;
       reviewerFlags.push(`C1 correction log: ${correctionRecords.length} Class-A value-check(s) recorded, ${forks} fork(s); records at correction_log.json`);
       reviewerFlags.push(...formatGateACoverage(coverage));
@@ -725,6 +792,18 @@ export async function runPipeline(jobId: string): Promise<void> {
     // four panels from one batch previously could not attribute a flag to a run — the panels
     // referenced different hypothesis IDs, so they were clearly different runs, but nothing mapped
     // them to T1–T4. The index is recovered from the operator's job label, which already carries it.
+    // Item 7 (III.2 rule 3): the RUNG is a first-class output, stamped with the MEASURED Class-A coverage
+    // fraction. The paired batch had to withdraw an 88%≈88% parity claim because nothing on the artifact
+    // showed that one case was structurally a third as verifiable. Printing the rung and the fraction on
+    // the run record makes that mistake unavailable rather than merely discouraged.
+    const rung = resolveRung(dossier, path.join(__dirname, '../skills/blueprint-intake/archetypes'));
+    const covChecked = gateACoverageSnapshot
+      ? gateACoverageSnapshot.families.filter(f => !f.unavailable).reduce((n, f) => n + f.checked, 0) : 0;
+    const covExpected = gateACoverageSnapshot
+      ? gateACoverageSnapshot.families.reduce((n, f) => n + f.expected, 0) : 0;
+    reviewerFlags.unshift(formatRungDeclaration(rung, covChecked, covExpected));
+    log('info', `Archetype rung ${rung.rung} (${rung.verification}) — Class-A coverage ${covChecked}/${covExpected}`, { jobId });
+
     const runIndex = parseRunIndex(job.clientName);
     reviewerFlags.unshift(
       `RUN: index=${runIndex ?? 'UNLABELLED'} job=${jobId} client="${job.clientName}" ` +

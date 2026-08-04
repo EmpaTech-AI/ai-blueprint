@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.4.0] — 2026-08-04 — v37.6: engineering side complete for the confirmation pair
+
+Responds to the **eight-batch cross-era report** (32 runs, first controlled pair on v37.5 `4ca96a2`).
+Meridian ≈90% [22/24 checked], LunaCart ≈78% [8/24]; both release-FAIL, ~93% of blockers one class.
+
+### Added
+- **`utils/archetypeRung.ts`** — the activation ladder as a first-class output (III.2). Every run record
+  opens with `RUNG: A|B|C` + the MEASURED Class-A coverage fraction + the non-comparability reading rule.
+  Rung is read from INDEX status for the DECLARED archetype, never inferred from the industry string; an
+  unlisted archetype resolves to C, because inferring ACTIVE from a file's existence is what rule 1 forbids.
+- **`utils/stage1Manifest.ts` (A19)** — III.3 pin 1, the Stage-1 freeze. **This gives rung C a root:** A9
+  needs an archetype row and there is none at rung C, so the frozen manifest is that row. ID set,
+  impact, alignment and the nine relay flags are frozen; feasibility is DIRECTIONAL (may fall via the D6
+  adjustment, never rise). Joins the Gate A coverage families.
+- **`renderInventoryMarker`** — III.3 pin 2. Closes R1/R2/R9 by construction. The authored values are
+  still recorded as A11 forks, so the fix does not remove its own evidence.
+- **A16c over-capture fail-safe** — suspends with ONE diagnostic when the scrape returns >half the library.
+- Name-cell normalisation: `normaliseName` / `normaliseNameList` / `namesResolve`.
+
+### Changed
+- **I1 A15 compound names (~32 BLOCKERs):** `Vincere/Zoho Recruit`, `shopify plus + klaviyo`,
+  `zoho recruit (migrating)`. A NAME cell is not an ENUM cell — `normaliseEnumCell` takes the leading
+  token and would have matched the wrong system silently.
+- **I2 A17 enumerator tokenisation (~19):** `1. Revenue Summary` parsed as `revenue=1`.
+- **I4 A18 phase openers:** the contract emits three (`Why now` / `Why next, not now` / `Why later`).
+  **Consequently the (Now+Next) pin was probably UNREACHABLE, not wrong — see the release note.**
+- **I5/I6 B3:** trailing-gloss parentheticals; `MACHINE_BLOCK_NAMES` closes the false-CLEAN gap.
+- **I3 A16:** exclusion IDs scoped to the record label, with a clause-scoped fallback.
+- **I7 GATE-4:** Quick-Win recomputed from post-adjustment feasibility, not the emitted label.
+- **R5 `[DATA_INVENTORY]` emission:** the block was documented but ABSENT from the mandatory Chunk-3
+  production order. Documentation is not a checklist.
+
+### Notes
+- Label **v37.5 → v37.6**. **425 tests, 15 suites.**
+- Release note: `rework_docs/2026-08-04_v37_6_Engineering_Complete_Release_Note.md`.
+- **Blocked on Practice spec:** item 6 (phase-placement counted rules) — R6 does not close without it.
+
+---
+
 ## [2.3.0] — 2026-08-03 — v37.5: exact-match class swept · B3 routed · S4 anchors rendered
 
 Responds to the LunaCart v1.1 amended verdict and the six-batch comparison (both 2026-08-03).

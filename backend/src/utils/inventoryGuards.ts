@@ -28,7 +28,7 @@ import { CorrectionRecord, makeRecord } from './correctionLog';
 // A14 rejected `mechanism=scheduled (celigo connector)` — the mechanism IS scheduled; the parenthetical
 // names the tool. Rating, data grade and PP-0 severity carried the identical bug and were fixed in the
 // same sweep (`Degraded (siloed, 2/5)`, `Early (capped)`, `Critical systemic` without parentheses).
-import { normaliseEnumCell, enumMatches, enumEquals, isYes } from './enumNormalise';
+import { normaliseEnumCell, enumMatches, enumEquals, isYes, namesResolve } from './enumNormalise';
 export { normaliseEnumCell, enumMatches, isYes };
 
 // ─── Parsed shapes ───────────────────────────────────────────────────────────────
@@ -442,18 +442,93 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
     );
   }
   // A record class whose system of record is not a declared core system means the two tables disagree.
-  const declared = new Set(inv.coreSystems.map(s => s.system));
+  //
+  // v37.5a (I1, ~32 BLOCKERs — the largest single blocker source in the paired batch): this compared raw
+  // lowercase strings, so `Vincere/Zoho Recruit`, `shopify plus + klaviyo` and `zoho recruit (migrating)`
+  // all failed against correctly-declared systems. A system-of-record cell legitimately names MORE THAN
+  // ONE system, and either side may carry an annotation. Compared as name SETS now — and note this uses
+  // `namesResolve`, not `normaliseEnumCell`, because the leading-token rule would turn `shopify plus`
+  // into `shopify` and silently match the wrong system.
+  const declared = inv.coreSystems.map(s => s.system);
   for (const r of inv.recordClasses) {
-    if (r.systemOfRecord && r.systemOfRecord !== 'none' && !declared.has(r.systemOfRecord)) {
+    const resolution = namesResolve(r.systemOfRecord, declared);
+    if (!resolution.ok) {
       reviewerFlags.push(
         `${BLOCKER_PREFIX} GATE 1 A15 (cross-table integrity): record class ${r.recordClass} names ` +
-        `system of record "${r.systemOfRecord}", which is absent from the Core Systems table. Every ` +
-        `system of record must appear there (Core?=yes or no) or the two tables describe different stacks.`,
+        `system of record "${r.systemOfRecord}", of which ${resolution.missing.map(m => `"${m}"`).join(', ')} ` +
+        `${resolution.missing.length === 1 ? 'is' : 'are'} absent from the Core Systems table. Every system ` +
+        `of record must appear there (Core?=yes or no) or the two tables describe different stacks. ` +
+        `Compound cells ("a + b", "a / b") and annotations ("(migrating)") are tolerated — this names the ` +
+        `system that genuinely has no row.`,
       );
     }
   }
 
   return { reviewerFlags, records, checked, unavailableReason: null };
+}
+
+// ─── III.3 pin 2 (v37.6): the inventory marker is RENDERED from the tables ───────────────────────
+//
+// Eight-batch register R1 — the heaviest model item of the era, and R2/R9 with it. LunaCart's marker
+// claimed `active_integrations=4/4/5` against a table recompute of 2/2/3, in 4 of 4 runs, and Meridian
+// forked the same way in 2 of 4. The marker feeds C1 → PP-0 → H-CORE-00, so a wrong count is a wrong
+// input on the keystone chain: R2 showed PP-0 reaching the right severity via the WRONG CLAUSE, one
+// differently-shaped client away from silently dropping the AI Company Brain.
+//
+// The tables are transcription (copying); the marker is arithmetic over them (deriving). Law 2 of the
+// eight-batch report: copying is reproducible, deriving is sampled. So the model should not derive it —
+// the app should. Same render-don't-instruct move as A18, applied to the input side.
+//
+// IMPORTANT — this deliberately does NOT make A11 vacuous. Rendering the marker would remove the defect
+// AND the evidence, so the authored values are still recorded as C1 A11 records against the rendered
+// ones. The artifact becomes correct; the model's raw derivation rate stays measurable. Removing a
+// defect and its measurement in one change is how a fix becomes unfalsifiable.
+export interface InventoryRenderResult {
+  corrected: string;
+  rendered: boolean;
+  changedFields: string[];
+}
+
+const round2r = (n: number) => Math.round(n * 100) / 100;
+
+export function renderInventoryMarker(dossier: string): InventoryRenderResult {
+  const inv = parseDataInventory(dossier);
+  if (!inv.present || !inv.marker) return { corrected: dossier, rendered: false, changedFields: [] };
+
+  const computed = computeInventory(inv);
+  const m = inv.marker;
+  const changedFields: string[] = [];
+  const setField = (text: string, key: string, value: string): string => {
+    const re = new RegExp(`(${key}\\s*=\\s*)([\\s\\S]*?)(?=\\s+\\w+\\s*=|\\s*-->)`, 'i');
+    return re.test(text) ? text.replace(re, `$1${value}`) : text;
+  };
+
+  const marker = MARKER_RE.exec(dossier);
+  if (!marker) return { corrected: dossier, rendered: false, changedFields: [] };
+  let block = marker[0];
+
+  const derived: Array<[string, number | string, number | string]> = [
+    ['n_core', m.nCore ?? 'absent', computed.nCore],
+    ['active_integrations', m.activeIntegrations ?? 'absent', computed.activeIntegrations],
+    ['integration_coverage', m.integrationCoverage == null ? 'absent' : round2r(m.integrationCoverage), round2r(computed.integrationCoverage).toFixed(2)],
+    ['load_bearing_degraded_or_absent', m.loadBearingDegradedOrAbsent ?? 'absent', computed.loadBearingDegradedOrAbsent],
+    ['data_grade', m.dataGrade ?? 'absent', computed.dataGrade],
+  ];
+  for (const [key, authored, root] of derived) {
+    if (String(authored) !== String(root)) changedFields.push(key);
+    block = setField(block, key, String(root));
+  }
+
+  // pp0_severity is derived from the rendered coverage, so it renders too — this is R2's fix.
+  const rootSeverity = pp0SeverityFromCoverage(computed.integrationCoverage, m.ssotReconcilesAllLoadBearing === true);
+  if (!enumEquals(m.pp0Severity ?? 'absent', rootSeverity)) changedFields.push('pp0_severity');
+  block = setField(block, 'pp0_severity', rootSeverity);
+
+  return {
+    corrected: changedFields.length > 0 ? dossier.replace(marker[0], block) : dossier,
+    rendered: changedFields.length > 0,
+    changedFields,
+  };
 }
 
 // ─── A16: band1_pool exclusions vs PP-0 severity ─────────────────────────────────
@@ -514,11 +589,37 @@ export function validatePoolExclusions(
 
   // Collect IDs from ANY line that both mentions the flag and uses an exclusion verb — a broader net
   // than the canonical summary line, so a reworded record cannot slip the hard direction.
+  // v37.5a (I3, 13 BLOCKERs on Meridian): this scraped EVERY hypothesis ID from any line that mentioned
+  // `band1_pool=no` plus an exclusion verb. Section H also carries a candidate REGISTER that lists the
+  // whole evaluated pool on one line and narrates the exclusion in the same sentence — so a 2-item
+  // exclusion was read as the full 13-ID library, and A16c then reported 11 "contradicts its root"
+  // BLOCKERs for candidates that were never excluded.
+  //
+  // The record names its excluded IDs AFTER the label, not anywhere on the line. Scope to that segment:
+  // the text following the last colon after the flag, up to the first em-dash (which begins the
+  // rationale in the canonical form: "…: H-RT-08 (score 50); H-RT-09 (score 32) — both standalone bets").
   const excludedIds = new Set<string>();
   let claimedSeverity: string | null = null;
   for (const line of dossier.split('\n')) {
     if (!/band1_pool\s*=\s*no/i.test(line) || !EXCLUSION_VERB.test(line)) continue;
-    for (const id of line.match(HYPOTHESIS_ID) ?? []) excludedIds.add(id.toLowerCase());
+    const flagAt = line.toLowerCase().lastIndexOf('band1_pool');
+    const afterFlag = line.slice(flagAt);
+    const colon = afterFlag.indexOf(':');
+    const tail = colon >= 0 ? afterFlag.slice(colon + 1).split(/\s[—–]\s|\.\s/)[0] : '';
+    let captured = tail.match(HYPOTHESIS_ID) ?? [];
+    // Fallback for the reworded record form — "H-RT-08 was removed from the pool (`band1_pool=no`)" —
+    // where the ID PRECEDES the flag and there is no label. Scoped to the CLAUSE containing the flag,
+    // not the whole line, so a register that lists the pool in an earlier clause is still excluded.
+    if (captured.length === 0) {
+      const clauses = line.split(/;|\.\s/);
+      let offset = 0;
+      for (const clause of clauses) {
+        const end = offset + clause.length;
+        if (flagAt >= offset && flagAt <= end) { captured = clause.match(HYPOTHESIS_ID) ?? []; break; }
+        offset = end + 1;
+      }
+    }
+    for (const id of captured) excludedIds.add(id.toLowerCase());
     const claim = /PP-0\s+(Critical|High)/i.exec(line);
     if (claim) claimedSeverity = claim[1];
   }
@@ -564,8 +665,22 @@ export function validatePoolExclusions(
   }
 
   // ── A16c: does each exclusion have a root? ──
+  //
+  // Over-capture fail-safe (v37.5a). If the scrape claims most of the archetype library was excluded,
+  // that is a parse failure, not 11 client-facing defects. Emit ONE diagnostic instead of N BLOCKERs:
+  // the eight-batch lesson is that an instrument defect which floods the panel costs more than the
+  // defect it was looking for, because it buries the real findings beside it.
   let provenanceChecked = false;
-  if (ids.length > 0) {
+  const overCaptured = poolFlags.size >= 4 && ids.length > poolFlags.size / 2;
+  if (overCaptured) {
+    reviewerFlags.push(
+      `⚠ GATE 1 A16c SUSPENDED (probable register-format over-capture): the exclusion scrape returned ` +
+      `${ids.length} of ${poolFlags.size} library IDs [${ids.join(', ')}]. An exclusion set larger than ` +
+      `half the pool is a parse failure, not a finding — Section H's candidate register lists the whole ` +
+      `evaluated pool and narrates the exclusion in the same line. Provenance NOT checked this run; ` +
+      `verify the exclusion record's shape against the contract.`,
+    );
+  } else if (ids.length > 0) {
     if (poolFlags.size === 0) {
       reviewerFlags.push(
         `${BLOCKER_PREFIX} GATE 1 A16c (exclusion provenance): ${ids.length} candidate(s) excluded under ` +

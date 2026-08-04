@@ -310,10 +310,16 @@ export function stripSelfAudit(text: string): string {
     .replace(/\n*#{1,4}[ \t]*\*{0,2}\[?SELF[_ ]AUDIT\]?[^\n]*\n[\s\S]*?(?=\n[ \t]*#{1,4}[ \t]|\[END JUSTIFICATION\]|$)/gi, '\n')
     .replace(/^.*\[(?:END )?SELF_AUDIT\].*$/gim, '')
     // Parenthetical rule citations the model sprinkles into prose when narrating a check it ran:
-    // "(REG-21)", "(per T-19)", "(REG-22 / WL-14)". Closed form — an identifier alone in parentheses,
-    // optionally several. A bare token in running prose is deliberately NOT touched: that is a real
-    // leak and the detector's job, and a blanket strip could eat a client's own reference.
-    .replace(/\s*\((?:per\s+|see\s+)?(?:[TSD]|WL|REG)-\d{1,3}(?:\s*[/,;]\s*(?:[TSD]|WL|REG)-\d{1,3})*\)/g, '')
+    // "(REG-21)", "(per T-19)", "(REG-22 / WL-14)", "(REG-21 pin)". Closed form — one or more
+    // identifiers inside parentheses, with an optional short trailing gloss.
+    //
+    // v37.5a (I5): the trailing gloss is new. The batch produced "(REG-21 pin)" ×4 on both cases, which
+    // the previous form missed because it required the closing paren immediately after the identifier —
+    // the RECURRENT instance of the very class B3 was rebuilt to fix. The gloss is bounded to 24
+    // characters with no sentence terminator, so it cannot swallow a clause.
+    // A bare token in running prose is still deliberately NOT touched: that is a real leak and the
+    // detector's job, and a blanket strip could eat a client's own reference.
+    .replace(/\s*\((?:per\s+|see\s+)?(?:[TSD]|WL|REG)-\d{1,3}(?:\s*[/,;]\s*(?:[TSD]|WL|REG)-\d{1,3})*(?:[ \t]+[^().!?;]{1,24})?\)/g, '')
     .replace(/[ \t]+([.,;)])/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -467,6 +473,26 @@ const STEP_N_INTERNAL_LINE = new RegExp(`^\\s*#{0,4}\\s*(?:[-*•]\\s*)?\\*{0,2}
 // H-RT-XX placeholders, quality-check self-grading) have NO strip by design — enumerating them here
 // records that the detector is the only thing standing between them and a client, which is a
 // different risk posture from a form that is mechanically removed.
+// v37.5a (I6 — the only instrument item in the batch that failed toward NOT SEEING, and therefore the
+// one weighted as if model-side). `SELF_AUDIT` was named in LunaCart client prose and nothing flagged it:
+// the registry knew the bracketed block form `[SELF_AUDIT]` and the heading form, but not the BARE NAME
+// in running text. Every machine-channel block has the same exposure, and hand-listing them is what
+// produced the gap — so the vocabulary is DERIVED from one declaration that the strips also key off.
+//
+// This is the registry's own blind spot: it was built to stop a strip existing without a detector, and it
+// did. It did not stop a detector knowing one SURFACE FORM of a token and not another.
+export const MACHINE_BLOCK_NAMES = [
+  'SELF_AUDIT', 'DATA_INVENTORY', 'JUSTIFICATION', 'CONFIDENCE_PROPAGATION',
+  'BAND_ASSIGNMENT', 'INTAKE_FACTS', 'CHECKPOINT',
+] as const;
+
+// A bare block name in prose — no brackets. The two lookbehinds exclude `[SELF_AUDIT]` and
+// `[END SELF_AUDIT]`, which have their own registry forms; without them a single leaked block would
+// raise two BLOCKERs for one defect and inflate the release-axis count the Practice is measuring.
+export const BARE_BLOCK_NAME_RE = new RegExp(
+  `(?<!\\[)(?<!\\[END )\\b(?:${MACHINE_BLOCK_NAMES.join('|')})\\b(?!\\])`,
+);
+
 export type ScaffoldRemovedBy = 'delivery-strip' | 'section-allowlist' | 'author-discipline';
 
 export interface ScaffoldForm {
@@ -555,6 +581,13 @@ export const SCAFFOLD_FORMS: ScaffoldForm[] = [
   { id: 'h-rt-placeholder', label: 'literal H-RT-XX placeholder', removedBy: 'author-discipline',
     detect: /H-RT-X{2,}/i,
     sample: 'See hypothesis H-RT-XX for detail.' },
+  // NEW in v37.5a — I6, the false-clean gap. Author-discipline because a machine-channel NAME written
+  // into client prose is a content defect, not a stray marker: there is no correct way to strip it
+  // without editing the sentence, so the detector is deliberately the only guard.
+  { id: 'bare-block-name', label: 'machine-channel block name in prose (I6 — derived vocabulary)',
+    removedBy: 'author-discipline',
+    detect: BARE_BLOCK_NAME_RE,
+    sample: 'The SELF_AUDIT confirms every check passed.' },
 ];
 
 const SCAFFOLD_SECTION_STRIP: RegExp[] = [

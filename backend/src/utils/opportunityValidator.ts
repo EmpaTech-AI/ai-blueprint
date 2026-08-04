@@ -288,7 +288,12 @@ export function validateRoadmapPhases(
   // Quick Wins must not appear in "Phase 3: Later"
   if (hasLater && opportunityScores.length > 0) {
     const laterSection = roadmapOutput.match(/#{2,3}\s+Phase 3\b[^\n]*\n([\s\S]*?)(?=#{2,3}\s+Bridge|$)/i)?.[1] ?? '';
-    for (const opp of opportunityScores.filter(s => s.class === 'QuickWin')) {
+    // v37.5a (I7): this filtered on the model's EMITTED `class=` label. A card whose label was wrong —
+    // exactly what REG-25 catches — then produced a spurious placement violation stacked on top of the
+    // label flag. The class is a pure function of the emitted (POST-adjustment) I/F, so recompute it
+    // from root rather than trusting the label. Same root→derived discipline as A4/A5.
+    const quickWins = opportunityScores.filter(s => deriveExpectedClass(s.impact, s.feasibility) === 'QuickWin');
+    for (const opp of quickWins) {
       if (laterSection.includes(opp.id)) {
         reviewerFlags.push(
           `GATE 4: Quick Win ${opp.id} appears in "Phase 3: Later" — ` +
@@ -330,7 +335,21 @@ export function validateRoadmapPhases(
 // that governs the arithmetic auto-patch.
 const ANCHOR_RE = /\s*\[Archetype[- ]?Anchored[^\]]*\]/gi;
 const FEASIBILITY_MENTION = /\bFeasibility\s+(\d)\s*\/\s*5/i;
-const WHY_NOW_RE = /^([ \t]*\*{0,2}\s*Why now\s*:?\s*\*{0,2})(.*)$/im;
+// v37.5a (I4). The roadmap contract emits a DIFFERENT opener per phase — `*Why now:*` (Phase 1),
+// `*Why next, not now:*` (Phase 2), `*Why later:*` (Phase 3) — and this knew only the first. Every
+// Phase-2 block was therefore reported malformed and got no anchor, which is Law 1 applied to a guard
+// written four days after the law was recorded: an exact match against a form the producer emits three
+// ways. The vocabulary is now declared from the contract rather than assumed.
+//
+// NOTE FOR THE PRACTICE: this bug produced BOTH halves of I4. The `Why now` literal explains the ~9
+// malformed-block flags, AND it explains why the rendered count came out below (Now + Next) — Phase-2
+// blocks were skipped, so the count could never reach the pinned total. The pin may not have been wrong;
+// it may have been unreachable. See the release note before withdrawing it.
+const PHASE_OPENERS = ['Why now', 'Why next, not now', 'Why next', 'Why later', 'Why then'];
+const WHY_NOW_RE = new RegExp(
+  `^([ \\t]*\\*{0,2}\\s*(?:${PHASE_OPENERS.map(o => o.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*:?\\s*\\*{0,2})(.*)$`,
+  'im',
+);
 const canonicalAnchor = (f: number) => `Feasibility ${f}/5 [Archetype-Anchored — locked at Stage 1]`;
 
 export interface AnchorRenderResult {
@@ -418,7 +437,8 @@ export function renderPhaseAnchors(
         summary.malformed++;
         reviewerFlags.push(
           `GATE 4 A18 (anchor render): the Phase ${sec.phase} block ${id || '(no ID cited)'} has no ` +
-          `"Why now" line, so its locked-feasibility anchor cannot be rendered. Structural defect — the ` +
+          `phase-opener line (one of: ${PHASE_OPENERS.join(' · ')}), so its locked-feasibility anchor ` +
+          `cannot be rendered. Structural defect — the ` +
           `anchor was NOT guessed into arbitrary prose. Fix the block shape.`,
         );
         continue;

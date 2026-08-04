@@ -55,3 +55,51 @@ export function enumEquals(a: string | number, b: string | number): boolean {
   const nb = typeof b === 'number' ? String(b) : normaliseEnumCell(b);
   return na === nb;
 }
+
+// ─── NAME cells are not enum cells ────────────────────────────────────────────────────────────────
+//
+// v37.5a (eight-batch report I1 — ~32 BLOCKERs, the largest single source). A15 compared a record
+// class's system-of-record against the Core Systems table using raw lowercase equality, and the batch
+// produced three failure shapes it could not survive:
+//
+//   `Vincere/Zoho Recruit`  vs  `vincere` + `zoho recruit (migrating)`   compound + annotation
+//   `shopify plus + klaviyo` vs `shopify plus` + `klaviyo`               compound with `+`
+//   `zoho recruit (migrating)`                                           annotation alone
+//
+// `normaliseEnumCell` is the WRONG tool here and using it would have been a second bug: it takes the
+// LEADING TOKEN, which turns `shopify plus` into `shopify` and `zoho recruit` into `zoho`. An enum cell
+// holds one value from a closed set; a NAME cell holds one or more open-vocabulary proper nouns, any of
+// which may be multi-word. They need different normalisers, and conflating them is how a tolerance fix
+// becomes a matching fix in the wrong direction.
+//
+// So: strip annotations, split on the separators that mean "and" in a table cell, keep multi-word names
+// whole, and compare as SETS.
+const NAME_SEPARATOR = /\s*(?:\+|\/|&|,|\band\b)\s*/i;
+
+export function normaliseName(name: string): string {
+  return name
+    .replace(/\([^)]*\)/g, ' ')          // (migrating), (planned)
+    .replace(/\[[^\]]*\]/g, ' ')         // a confidence tag in the wrong column
+    .replace(/[*`"']/g, ' ')             // markdown emphasis, quoting
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// One cell → the set of system names it actually names. `none`/`n/a` yield an empty list, which callers
+// read as "nothing to resolve" rather than "a system called none".
+export function normaliseNameList(cell: string): string[] {
+  if (!cell) return [];
+  const cleaned = normaliseName(cell);
+  if (!cleaned || /^(none|n\/?a|unknown|tbd)$/.test(cleaned)) return [];
+  return cleaned.split(NAME_SEPARATOR).map(n => n.trim()).filter(Boolean);
+}
+
+// Does every name in `cell` appear in `declared`? Returns the unresolved ones so a guard can name them
+// — the eight-batch report's own lesson that a flag without a locus survives six batches.
+export function namesResolve(cell: string, declared: Iterable<string>): { ok: boolean; missing: string[] } {
+  const pool = new Set<string>();
+  for (const d of declared) for (const n of normaliseNameList(d)) pool.add(n);
+  const missing = normaliseNameList(cell).filter(n => !pool.has(n));
+  return { ok: missing.length === 0, missing };
+}

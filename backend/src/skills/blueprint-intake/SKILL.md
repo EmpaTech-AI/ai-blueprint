@@ -353,7 +353,14 @@ H-0. [AI Company Brain, when gated] — Class: Big Bet — Links: PP-CORE-00
 
 **Chunk 3 production — triggered when operator says "continue to chunk 3" (or equivalent):**
 
-**Production order for Chunk 3 (mandatory):** E → F → G → H → [JUSTIFICATION] → Final marker.
+**Production order for Chunk 3 (mandatory):** E → F → G → H → **[DATA_INVENTORY]** → [JUSTIFICATION] → Final marker.
+
+**On `[DATA_INVENTORY]` (added to this order 2026-08-04).** The block was documented in this SKILL but
+absent from *this ordered list*, and it was consequently omitted in 1 of 4 Meridian runs — the eight-batch
+register's R5, weighted heavy despite being transient because a 25% chance per run of an unverifiable
+PP-0 severity and Data grade is not acceptable. Documentation is not a checklist: if a block is not in
+the production order, it is optional in practice. It is mandatory and it goes here, immediately before
+[JUSTIFICATION].
 The [JUSTIFICATION] block is always the absolute last substantive content before the Final marker
 (per `../methodology-and-contracts/SKILL.md`). Section H must not introduce new inline citation
 tags — its references are limited to "appendix item N" pointers to items tagged in Chunks 1–2.
@@ -887,7 +894,7 @@ When the user provides intake form responses and/or uploaded documents:
    Do NOT attempt to produce Sections C–H in the same response — single-pass generation truncates.
 4. Stop at the end of Checkpoint 1. Wait for the operator to reply "continue to chunk 2".
 5. When triggered, produce Chunk 2 (Section C + Section D + **Checkpoint 2 — mandatory final block, do not stop before emitting it**). Stop.
-6. When triggered, produce Chunk 3 (Sections E–H + [JUSTIFICATION] + Final marker).
+6. When triggered, produce Chunk 3 (Sections E–H + **[DATA_INVENTORY]** + [JUSTIFICATION] + Final marker).
 7. Inform the operator to assemble the three chunks and run `bash harness/gate.sh <path>` before
    invoking downstream skills.
 

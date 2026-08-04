@@ -124,6 +124,18 @@ export function stripPeriodTokens(line: string): string {
   return NUM_BARE.test(stripped) ? stripped : line;
 }
 
+// v37.5a (I2, ~19 BLOCKERs). A numbered heading or list item puts a digit BEFORE the metric label, and
+// the parser took it as the value: `1. Revenue Summary` became `revenue = 1`, which then made A17b
+// report `revenue 1 − costs 84,000 = −83,999` as a profitability contradiction. The enumerator is
+// structure, not data. Removing the prefix leaves any real figure on the line intact — a heading with no
+// figure then yields no claim at all, which is the correct outcome for a section title.
+const ENUMERATOR_PREFIX = /^([ \t]*(?:[-*•]\s*)?#{0,4}[ \t]*)(\d{1,2}[.)])(\s+)/;
+
+export function stripEnumeratorPrefix(line: string): string {
+  // Keep the indent/heading marker, drop the number and the gap that followed it.
+  return line.replace(ENUMERATOR_PREFIX, (_m, indent) => indent);
+}
+
 function scale(raw: string, suffix: string | undefined): number {
   const n = parseFloat(raw.replace(/[,\s]/g, ''));
   if (!Number.isFinite(n)) return NaN;
@@ -212,9 +224,11 @@ export function isExcludedLine(line: string): boolean {
 // the window is what produces false pairings.
 export function extractClaims(text: string, source: string, isForm: boolean): FinancialClaim[] {
   const claims: FinancialClaim[] = [];
-  for (const line of text.split('\n')) {
-    if (line.length > 400) continue;                 // a wall of prose is not a figure line
-    if (isExcludedLine(line)) continue;
+  for (const rawLine of text.split('\n')) {
+    if (rawLine.length > 400) continue;              // a wall of prose is not a figure line
+    if (isExcludedLine(rawLine)) continue;
+    // Drop a leading enumerator so a section number is never read as the metric's value (I2).
+    const line = stripEnumeratorPrefix(rawLine);
     for (const spec of METRIC_SPECS) {
       if (!spec.label.test(line)) continue;
       const range = spec.unit === 'percent' ? null : parseRange(line);
