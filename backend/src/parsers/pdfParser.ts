@@ -1,4 +1,5 @@
 import pdfParse from 'pdf-parse';
+import { repairConcatenatedCells } from './textRepair';
 import fs from 'fs';
 import path from 'path';
 import { ParsedDocument } from '../types/pipeline';
@@ -10,7 +11,12 @@ export async function parsePDF(filePath: string, category: string): Promise<Pars
   try {
     const buffer = fs.readFileSync(filePath);
     const data = await pdfParse(buffer);
-    let text = data.text?.trim() || '';
+    // E1 (v37.7): pdf-parse returns no cell separators, so adjacent table columns concatenate
+    // (`84,000 | 78,000 | HQ only` → `84,00078,000HQ only`). Repair the structurally-impossible
+    // boundaries BEFORE anything reads the text — the model reads this corpus too, so the corruption
+    // was feeding both the guards and the generation.
+    const repaired = repairConcatenatedCells(data.text ?? '');
+    let text = repaired.text.trim();
 
     if (text.length === 0) {
       return {
@@ -43,6 +49,8 @@ export async function parsePDF(filePath: string, category: string): Promise<Pars
       confidence: text.length < 200 ? 'low' : 'high',
       pageCount: data.numpages,
       wordCount: text.split(/\s+/).length,
+      extractionRepairs: repaired.repairs,
+      repairSamples: repaired.samples,
     };
   } catch (err: unknown) {
     return {

@@ -59,8 +59,33 @@ function markerFields(inner: string): Record<string, string> {
   return out;
 }
 
-export function extractStage1Manifest(dossier: string): Stage1Manifest {
-  const elements: FrozenElement[] = [];
+// v37.7 (register N1). The first exercise of A19 froze 9 elements at rung A (where 8 are expected) and
+// 15 at rung C (where 8 are), producing deterministic forks on every run. Two causes, both here:
+//
+//   • DUPLICATE markers. Register T-26 records duplicate score markers as a real model defect, and the
+//     extraction froze each occurrence separately — so a duplicate became two frozen elements whose
+//     values differed, and every downstream comparison forked against whichever was written last.
+//   • Markers OUTSIDE the authoritative list. A dossier carries score markers in Section D (the
+//     hypothesis list) and can carry illustrative or restated markers elsewhere; freezing all of them
+//     mixes the authority with its copies.
+//
+// A wrong manifest is worse than no manifest, because at rung C it is the ONLY integrity anchor that
+// exists — so this dedupes by ID, and reports a value-differing duplicate as the defect it is rather
+// than silently keeping one.
+export interface Stage1ExtractionResult {
+  manifest: Stage1Manifest;
+  duplicateIds: string[];          // appeared more than once with IDENTICAL values — deduped silently
+  conflictingIds: string[];        // appeared more than once with DIFFERENT values — a T-26 defect
+}
+
+const sameElement = (a: FrozenElement, b: FrozenElement): boolean =>
+  a.impact === b.impact && a.baseFeasibility === b.baseFeasibility && a.alignment === b.alignment &&
+  RELAY_FLAGS.every(f => a.flags[f] === b.flags[f]);
+
+export function extractStage1ManifestDetailed(dossier: string): Stage1ExtractionResult {
+  const byId = new Map<string, FrozenElement>();
+  const duplicateIds: string[] = [];
+  const conflictingIds: string[] = [];
   const re = new RegExp(SCORE_MARKER.source, 'g');
   let m: RegExpExecArray | null;
   while ((m = re.exec(dossier)) !== null) {
@@ -72,9 +97,27 @@ export function extractStage1Manifest(dossier: string): Stage1Manifest {
     if (!id || [impact, baseFeasibility, alignment].some(n => Number.isNaN(n))) continue;
     const flags: Record<string, string> = {};
     for (const flag of RELAY_FLAGS) flags[flag] = f[flag] ?? 'absent';
-    elements.push({ id, impact, baseFeasibility, alignment, flags });
+    const element: FrozenElement = { id, impact, baseFeasibility, alignment, flags };
+
+    const existing = byId.get(id);
+    if (!existing) { byId.set(id, element); continue; }
+    // FIRST occurrence wins: Section D precedes any restatement, and the authority should not depend on
+    // document order beyond that. A conflict is reported, never silently resolved.
+    if (sameElement(existing, element)) {
+      if (!duplicateIds.includes(id)) duplicateIds.push(id);
+    } else if (!conflictingIds.includes(id)) {
+      conflictingIds.push(id);
+    }
   }
-  return { frozenAt: 'stage1-exit', elements, ids: elements.map(e => e.id) };
+  const elements = [...byId.values()];
+  return {
+    manifest: { frozenAt: 'stage1-exit', elements, ids: elements.map(e => e.id) },
+    duplicateIds, conflictingIds,
+  };
+}
+
+export function extractStage1Manifest(dossier: string): Stage1Manifest {
+  return extractStage1ManifestDetailed(dossier).manifest;
 }
 
 export interface ManifestCheckResult {

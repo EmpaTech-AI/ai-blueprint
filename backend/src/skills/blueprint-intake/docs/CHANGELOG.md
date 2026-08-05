@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.5.0] — 2026-08-05 — v37.7: the five ten-batch engineering items
+
+Responds to the **ten-batch cross-era report** (40 runs, two controlled pairs). Meridian ≈91% [30/32],
+LunaCart ≈82% [16/32]; four consecutive batches at zero undetected harm.
+
+### Added
+- **`parsers/textRepair.ts` (E1, top register item)** — repairs separator-destroying PDF extraction at the
+  boundary, before anything reads the text. Only structurally-impossible boundaries are repaired, so every
+  repair is provable. **The corrupted corpus was feeding the MODEL too**, so E1 is a plausible upstream
+  cause of R1 and R4 — both previously scored model-side.
+- **`utils/phasePlacement.ts` (R6)** — derives the phase map from pinned inputs, every decision naming the
+  clause that fired. **ADVISORY: P1 (Now capacity) and P2 (does `d_gate4` defer alone) are UNSET** — the
+  Practice owns them, and guessed thresholds would re-sequence deliverables on guessed rules.
+- `extractStage1ManifestDetailed` (N1) — dedupe with duplicate/conflict separation.
+- `isPlacedIn` (N3) — structural placement vs prose mention, shared with the P-rules reader.
+
+### Changed
+- **E1 phantom €2.0B:** a single-letter scale suffix must now be ATTACHED. `Revenue 2.0 B 1,486,200` read
+  the standalone column label "B" as BILLION. `12.4M` and `12.4 million` still parse.
+- **N1 A19 freeze:** duplicates were frozen separately, so a T-26 duplicate with differing values produced
+  deterministic forks. Now first-occurrence-wins; an identical duplicate is a `⚠`, a conflicting one a
+  BLOCKER (at rung C the manifest is the only integrity anchor there is).
+- **N2 self-narration routed on ALL FOUR stage contracts**, widened beyond rule identifiers to receipts,
+  checkpoint confirmations, chunk narration and machine-channel block names. Makes the Practice's C6
+  prediction a falsifiable pre-registration.
+- **N3 GATE-4:** `laterSection.includes(id)` counted a contrastive prose mention as a misplacement.
+
+### Notes
+- Label **v37.6 → v37.7**. **449 tests, 16 suites.**
+- Release note: `rework_docs/2026-08-05_v37_7_Engineering_Complete_For_Confirmation_Pair.md`.
+- **Deferred with reason:** the durable E1 fix (table-aware extractor) ships AFTER the confirmation pair,
+  so the pair stays readable.
+- **Blocks R6:** the two Practice-owned P-rule constants.
+
+---
+
 ## [2.4.0] — 2026-08-04 — v37.6: engineering side complete for the confirmation pair
 
 Responds to the **eight-batch cross-era report** (32 runs, first controlled pair on v37.5 `4ca96a2`).

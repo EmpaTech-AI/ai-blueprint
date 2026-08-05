@@ -217,6 +217,21 @@ export interface RoadmapValidationResult {
   reviewerFlags: string[];
 }
 
+// Is `id` PLACED in this section, as opposed to merely mentioned in its prose? Placement is a structural
+// position: an `Element:`/`ID:` line, a markdown table row, or a heading. v37.7 register N3 — a
+// substring match over the section text counted a contrastive prose reference as a placement.
+export function isPlacedIn(section: string, id: string): boolean {
+  const needle = id.toLowerCase();
+  return section.split('\n').some(line => {
+    const t = line.trim();
+    if (!t.toLowerCase().includes(needle)) return false;
+    if (/^\**\s*(?:element|id|opportunity)\s*\**\s*[:—-]/i.test(t)) return true;  // Element: H-XX-NN
+    if (t.startsWith('|')) return true;                                          // table row
+    if (/^#{1,6}[ \t]/.test(t)) return true;                                     // heading
+    return false;
+  });
+}
+
 // Is a phase section populated? Presentation-form agnostic by design — the previous bold-only test is
 // what produced 4 false "appears empty" flags per batch. Any ONE of these means the phase has content:
 //   • a canonical element ID (the contract's own guarantee — every Now/Next item must cite its ID)
@@ -294,7 +309,11 @@ export function validateRoadmapPhases(
     // from root rather than trusting the label. Same root→derived discipline as A4/A5.
     const quickWins = opportunityScores.filter(s => deriveExpectedClass(s.impact, s.feasibility) === 'QuickWin');
     for (const opp of quickWins) {
-      if (laterSection.includes(opp.id)) {
+      // v37.7 (register N3): this was `laterSection.includes(opp.id)` — a MENTION anywhere in the Later
+      // section counted as placement, so a contrastive reference ("unlike H-EC-02, which lands in Now")
+      // read as a misplacement. Placement is structural: an `Element:` line, a table row, or a heading.
+      // Prose that merely names an ID is discussing it, not placing it.
+      if (isPlacedIn(laterSection, opp.id)) {
         reviewerFlags.push(
           `GATE 4: Quick Win ${opp.id} appears in "Phase 3: Later" — ` +
           `Quick Wins (Feasibility ≥ 4) must be in Now or Next. Verify Stage 4 phase assignment.`,

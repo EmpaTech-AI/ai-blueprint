@@ -28,7 +28,8 @@ import { calculateConfidence, stripJustification, stripForDelivery, stripForDeli
 import { validateOpportunityScores, renderPhaseAnchors, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
 import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseArchetypePoolFlags, PoolFlags, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, GateACoverage, HypothesisRoot } from '../utils/classGGuards';
 import { validateDataInventory, validatePoolExclusions, renderInventoryMarker } from '../utils/inventoryGuards';
-import { extractStage1Manifest, validateAgainstManifest } from '../utils/stage1Manifest';
+import { extractStage1ManifestDetailed, validateAgainstManifest } from '../utils/stage1Manifest';
+import { validatePlacement, placementInputsFrom } from '../utils/phasePlacement';
 import { resolveRung, formatRungDeclaration } from '../utils/archetypeRung';
 import { reconcileFinancials } from '../utils/financialReconciliation';
 import { log } from '../utils/logger';
@@ -251,6 +252,26 @@ export async function runPipeline(jobId: string): Promise<void> {
         `Pipeline halted to preserve output quality — fix or remove the failing file(s) and re-run.`,
       );
     }
+    // E1 (v37.7): report extraction repairs so corpus quality is VISIBLE. `pdf-parse` loses cell
+    // separators, so adjacent columns concatenate — the phantom €2.0B and every remaining F12 false fire
+    // on both cases came from that. The repair fixes the structurally-impossible boundaries; this line
+    // says how many, because a high count means the durable fix (a table-aware extractor) is still owed.
+    const totalRepairs = corpus.documents.reduce((n, d) => n + (d.extractionRepairs ?? 0), 0);
+    if (totalRepairs > 0) {
+      const worst = [...corpus.documents]
+        .sort((a, b) => (b.extractionRepairs ?? 0) - (a.extractionRepairs ?? 0))
+        .filter(d => (d.extractionRepairs ?? 0) > 0).slice(0, 3);
+      reviewerFlags.push(
+        `⚠ E1 extraction repair: ${totalRepairs} separator boundary/boundaries repaired across ` +
+        `${worst.length}+ document(s) — worst: ${worst.map(d => `${d.filename} (${d.extractionRepairs})`).join(', ')}. ` +
+        `Examples: ${worst[0]?.repairSamples?.join(' · ') || 'n/a'}. The source PDFs lose cell separators, so ` +
+        `adjacent table columns concatenate; each repair is a structurally-impossible boundary, never a ` +
+        `guess. A high count means figures in those documents were corrupt BEFORE any guard saw them — and ` +
+        `the model read the same corpus. Durable fix is a table-aware extractor (owed, not shipped).`,
+      );
+      log('warn', 'E1: extraction repairs applied', { jobId, totalRepairs });
+    }
+
     if (corpus.missingRequiredCategories.length > 0) {
       reviewerFlags.push(`Missing required document categories: ${corpus.missingRequiredCategories.join(', ')}`);
     }
@@ -289,7 +310,23 @@ export async function runPipeline(jobId: string): Promise<void> {
     // III.3 pin 1 (v37.6): freeze the Stage-1 ID set, scores and relay flags into a run-local manifest.
     // At rung C there is no archetype row, so A9 cannot run — this manifest IS the root, which converts
     // A9-equivalent checking from archetype-dependent to case-independent.
-    const stage1Manifest = extractStage1Manifest(dossier);
+    const stage1Extraction = extractStage1ManifestDetailed(dossier);
+    const stage1Manifest = stage1Extraction.manifest;
+    if (stage1Extraction.conflictingIds.length > 0) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 1 A19/T-26 (conflicting duplicate markers): ` +
+        `[${stage1Extraction.conflictingIds.join(', ')}] each appear more than once in the Stage-1 dossier ` +
+        `with DIFFERENT values. The freeze kept the first occurrence, but a conflicting duplicate means the ` +
+        `dossier states two different scores for one element — at rung C this manifest is the only ` +
+        `integrity anchor that exists, so a wrong manifest is worse than no manifest. Emit one marker per element.`,
+      );
+    }
+    if (stage1Extraction.duplicateIds.length > 0) {
+      reviewerFlags.push(
+        `⚠ A19/T-26: [${stage1Extraction.duplicateIds.join(', ')}] appear more than once with IDENTICAL ` +
+        `values — deduplicated for the freeze, but the contract is one marker per element (T-26).`,
+      );
+    }
     try {
       const logDir = path.join(JOBS_DIR, jobId);
       fs.mkdirSync(logDir, { recursive: true });
@@ -628,6 +665,20 @@ export async function runPipeline(jobId: string): Promise<void> {
         const existing = fs.existsSync(logPath) ? JSON.parse(fs.readFileSync(logPath, 'utf-8')) : [];
         fs.writeFileSync(logPath, JSON.stringify([...existing, ...anchorRender.records], null, 2));
       } catch { /* non-fatal: log persistence is best-effort, the flags still carry the finding */ }
+    }
+
+    // P-rules (R6): derive the phase map from pinned inputs and compare. ADVISORY until the Practice
+    // supplies P1 (Now capacity) and P2 (whether d_gate4 defers alone) — see phasePlacement.ts.
+    const placementCheck = validatePlacement(
+      roadmap,
+      placementInputsFrom(stage1Manifest.elements,
+        new Map(gate3Scores.map(s => [s.id.toLowerCase(), { impact: s.impact, feasibility: s.feasibility }]))),
+    );
+    reviewerFlags.push(...placementCheck.reviewerFlags);
+    if (placementCheck.divergences.length > 0) {
+      log(placementCheck.enforcing ? 'warn' : 'info', 'GATE 4: P-rules placement divergence', {
+        jobId, enforcing: placementCheck.enforcing, count: placementCheck.divergences.length,
+      });
     }
 
     // GATE 4: validate phase structure and Quick Win placement against Stage 3 scores.

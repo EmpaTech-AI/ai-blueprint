@@ -6,6 +6,10 @@ export interface ParsedDocument {
   confidence: 'high' | 'medium' | 'low';
   pageCount?: number;
   wordCount?: number;
+  // E1 (v37.7): count of separator boundaries repaired at extraction. Non-zero means the source PDF
+  // lost its cell separators — see parsers/textRepair.ts. Reported so corpus quality is visible.
+  extractionRepairs?: number;
+  repairSamples?: string[];
   error?: string;
 }
 

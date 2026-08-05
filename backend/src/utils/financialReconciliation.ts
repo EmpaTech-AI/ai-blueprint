@@ -30,6 +30,7 @@
 
 import { BLOCKER_PREFIX } from '../types/pipeline';
 import { FormAnswers, DocumentCorpus } from '../types/pipeline';
+import { hasUnreliableFigures } from '../parsers/textRepair';
 
 export type MetricUnit = 'currency' | 'percent' | 'count';
 
@@ -113,9 +114,14 @@ const RANGE_SEP = String.raw`\s*(?:[-–—]|to)\s*`;
 // The strip is reverted when it would leave no number at all, so a line whose only figure happens to
 // look like a year still yields a value rather than nothing.
 const NUM_CORE = String.raw`(\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
-const SCALE_SUFFIX = String.raw`(k|m|mn|bn|b|thousand|million|billion)`;
-const NUM_SYMBOL = new RegExp(String.raw`[€$£]\s*${NUM_CORE}\s*${SCALE_SUFFIX}?`, 'i');
-const NUM_SUFFIXED = new RegExp(`${NUM_CORE}\\s*${SCALE_SUFFIX}\\b`, 'i');
+// E1 (v37.7): a SINGLE-LETTER scale suffix must be ATTACHED to its number; only full words may be
+// separated by a space. This is the phantom €2.0B: `pdf-parse` concatenated a figure with a neighbouring
+// column label — `Revenue 2.0 B 1,486,200` — and `\s*(b)\b` read the standalone column header "B" as
+// BILLION, multiplying by 1e9. `12.4M` and `12.4 million` are both still read; `2.0 B` is not.
+const SCALE_WORD = String.raw`(thousand|million|billion)`;
+const SCALE_LETTER = String.raw`(k|m|mn|bn|b)`;
+const NUM_SYMBOL = new RegExp(String.raw`[€$£]\s*${NUM_CORE}(?:${SCALE_LETTER}\b|\s*${SCALE_WORD}\b)?`, 'i');
+const NUM_SUFFIXED = new RegExp(`${NUM_CORE}(?:${SCALE_LETTER}\\b|\\s*${SCALE_WORD}\\b)`, 'i');
 const NUM_BARE = new RegExp(NUM_CORE);
 const PERIOD_TOKEN = /\b(?:FY\s?)?20\d{2}(?:\s*[/-]\s*\d{2,4})?\b/gi;
 
@@ -169,14 +175,15 @@ export function parseQuantity(text: string, unit: MetricUnit): { value: number; 
     return m ? { value: parseFloat(m[1]), qualifier: 'percent' } : null;
   }
   // Qualified first — a fiscal-year token is neither symbol- nor scale-qualified, so this skips it.
+  // Group 2 is an attached single letter, group 3 a spaced full word — see the SCALE_* comment.
   const sym = NUM_SYMBOL.exec(text);
   if (sym) {
-    const v = scale(sym[1], sym[2]);
+    const v = scale(sym[1], sym[2] ?? sym[3]);
     if (Number.isFinite(v)) return { value: v, qualifier: 'currency' };
   }
   const suf = NUM_SUFFIXED.exec(text);
   if (suf) {
-    const v = scale(suf[1], suf[2]);
+    const v = scale(suf[1], suf[2] ?? suf[3]);
     if (Number.isFinite(v)) {
       return { value: v, qualifier: followedByPercent(text, suf.index, suf[0].length) ? 'percent' : 'plain' };
     }
@@ -227,6 +234,9 @@ export function extractClaims(text: string, source: string, isForm: boolean): Fi
   for (const rawLine of text.split('\n')) {
     if (rawLine.length > 400) continue;              // a wall of prose is not a figure line
     if (isExcludedLine(rawLine)) continue;
+    // E1: a line whose figures are unreliable beyond repair yields NO claims. A divergence computed
+    // from a corrupted token is attributed to the client's arithmetic when it belongs to the extraction.
+    if (hasUnreliableFigures(rawLine)) continue;
     // Drop a leading enumerator so a section number is never read as the metric's value (I2).
     const line = stripEnumeratorPrefix(rawLine);
     for (const spec of METRIC_SPECS) {

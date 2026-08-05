@@ -758,6 +758,49 @@ NetSuite→Postgres), coverage `0.33`, `designated_ssot=postgres`,
 `pp0_severity=High`. **No LunaCart run produced this combination** — T1 got severity right and the
 Data letter wrong; T2–T4 got the Data letter right and severity wrong.
 
+## [SELF_AUDIT] Block (mandatory — N2 routing, ratified 2026-08-05)
+
+Every mandatory check for this stage is confirmed **inside a `[SELF_AUDIT]` block, and nowhere else.**
+So is every operator-facing remark: document receipts, checkpoint confirmations, chunk narration, and
+any reference to a machine-channel block by name.
+
+**Why this block exists here.** The eight- and ten-batch reviews found stage self-narration in the
+delivered artifacts of **8 of 8 runs across both cases** — receipts, checkpoint lines, and block names in
+prose. It persisted through every remediation cycle that addressed it by instruction. The cause is not
+carelessness: this document instructs you using internal identifiers and block names, so when you confirm
+a check or acknowledge an input you naturally reproduce them. That confirmation is useful and belongs in
+the run record. It simply had no channel of its own, so it landed in the deliverable.
+
+`[SELF_AUDIT]` is stripped from every delivery path, so nothing inside it reaches a client.
+
+**The rule, as a boundary rather than a prohibition:**
+
+- Internal rule identifiers (`REG-nn`, `T-nn`, `S-nn`, `WL-nn`, `D-n`), machine-channel block names
+  (`SELF_AUDIT`, `DATA_INVENTORY`, `JUSTIFICATION`, `CONFIDENCE_PROPAGATION`, `BAND_ASSIGNMENT`,
+  `INTAKE_FACTS`, `CHECKPOINT`), receipts and chunk narration may appear **only** inside this block.
+- **Client-facing prose carries none of them.** State the substance instead: not *"per the D4 gate"* but
+  *"because the returns and support systems are not connected to the reporting layer."* The client-facing
+  reason is always the business reason; the identifier is the internal audit trail for the same decision.
+- Any of the above found outside this block in a staged deliverable is a **never-ship BLOCKER**
+  (`S-36 / WL-14`, plus the derived block-name vocabulary). The detector quotes the token and its line,
+  so the fix is a one-line edit.
+
+Emit the block once, immediately before `[JUSTIFICATION]`:
+
+```
+## [SELF_AUDIT]
+
+- {check name}: {result} — PASS / FAIL / n/a
+- Inputs received: {what was provided}
+- Corrections applied mid-run: {none, or what and why}
+
+[END SELF_AUDIT]
+```
+
+Report a genuine FAIL here rather than a PASS you did not verify — this is an audit record, and a
+fabricated PASS is worse than an admitted gap.
+
+
 ### [JUSTIFICATION] Block
 
 Mandatory. Format defined in `../methodology-and-contracts/SKILL.md`. The block opens with a
