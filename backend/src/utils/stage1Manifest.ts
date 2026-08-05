@@ -194,9 +194,22 @@ export function validateAgainstManifest(
       }
     }
 
-    // Feasibility is directional, not equal: A4 may reduce it, nothing may raise it.
-    records.push(makeRecord('stage3', e.id, 'feasibility_vs_base', e.baseFeasibility, root.baseFeasibility,
-      { rule: 'A19 feasibility ≤ base', base: root.baseFeasibility }, 'A19'));
+    // Feasibility is DIRECTIONAL, not equal: A4 may reduce it, nothing may raise it.
+    //
+    // Register A19d (v37.8) — the deterministic 4-forks on Meridian across two builds were THIS RECORD,
+    // not an extraction or flag-comparison defect. `makeRecord` derives `agreed` from string equality, so
+    // recording (emitted vs base) marked every LEGITIMATELY A4-ADJUSTED card as a fork: Meridian has four
+    // cards with firing flags, so exactly four forks appeared every run, on every build — which is
+    // precisely the deterministic signature the register flagged as instrument-suspect.
+    //
+    // The record now expresses the assertion it actually makes. `rootComputedValue` is the emitted value
+    // when it is within bounds, so `agreed` is true for a legitimate reduction and false ONLY when the
+    // score rose. The flag below was always correct; the RECORD was lying, which is worse — it inflated
+    // the fork count that the residual-rate metric R1 is read from.
+    const withinBase = Math.min(e.baseFeasibility, root.baseFeasibility);
+    records.push(makeRecord('stage3', e.id, 'feasibility_within_base', e.baseFeasibility, withinBase,
+      { rule: 'A19 feasibility ≤ base (directional; a reduction is the D6 adjustment, not a fork)',
+        base: root.baseFeasibility, emitted: e.baseFeasibility }, 'A19'));
     if (e.baseFeasibility > root.baseFeasibility) {
       reviewerFlags.push(
         `${BLOCKER_PREFIX} GATE 3 A19 (Stage-1 freeze): ${e.id} feasibility ROSE from ${root.baseFeasibility} ` +

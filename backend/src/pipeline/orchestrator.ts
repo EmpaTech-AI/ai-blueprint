@@ -23,7 +23,7 @@ import { runStepE } from './stepE-assembly';
 import { generateBlueprintDocx, generateBlueprintPdf, generateBlueprintTxt } from '../docx/assembler';
 import { generateBlueprintHtml } from '../docx/htmlAssembler';
 import { detectResidualComponentMarkers } from '../docx/components';
-import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus } from '../utils/confidenceScorer';
+import { calculateConfidence, stripJustification, stripForDelivery, stripForDeliveryStage5, detectResidualScaffold, stripToAllowlistedSections, allowlistStatus, SCAFFOLD_FORMS } from '../utils/confidenceScorer';
 // stripJustification retained for intermediate *Clean handoffs; stripForDeliveryStage5 is the Stage-5 chokepoint.
 import { validateOpportunityScores, renderPhaseAnchors, validateRoadmapPhases, validateRelayFields, validateRoleNames, validateStrictDependencyPhases, validateFirmSurnameBleed, validatePortfolioMembership, validateClassificationLabels, classificationCorrectionRecords } from '../utils/opportunityValidator';
 import { validateFeasibilityFromRoot, validateRootIntegrity, parseArchetypeHypothesisTable, parseArchetypePoolFlags, PoolFlags, assessMaturityAvailability, buildGateACoverage, formatGateACoverage, FamilyCoverage, GateACoverage, HypothesisRoot } from '../utils/classGGuards';
@@ -31,6 +31,7 @@ import { validateDataInventory, validatePoolExclusions, renderInventoryMarker } 
 import { extractStage1ManifestDetailed, validateAgainstManifest } from '../utils/stage1Manifest';
 import { validatePlacement, placementInputsFrom } from '../utils/phasePlacement';
 import { resolveRung, formatRungDeclaration } from '../utils/archetypeRung';
+import { computeUcr, formatUcr } from '../utils/unassistedConformance';
 import { reconcileFinancials } from '../utils/financialReconciliation';
 import { log } from '../utils/logger';
 import path from 'path';
@@ -207,6 +208,12 @@ export async function runPipeline(jobId: string): Promise<void> {
   // Set by the Class-G block; read at the end so the rung declaration can quote the MEASURED coverage
   // fraction rather than a nominal claim (eight-batch report III.2 rule 3).
   let gateACoverageSnapshot: GateACoverage | null = null;
+  // UCR accumulators (§VI.3). Every one is an INTERVENTION OPPORTUNITY count plus how many needed the app
+  // to step in — counting only the corrections that fired would make UCR unfalsifiable.
+  const allCorrectionRecords: Array<{ ruleId: string; agreed: boolean }> = [];
+  let anchorRenderSummary: { authoredTotal: number; renderedTotal: number } | null = null;
+  let stripFormsRemovedCount = 0;
+  let arithmeticPatchCount = 0;
 
   // D8: Build-freshness guard. In production the server runs node dist/server.js — if
   // npm run build was executed after this process started, dist/ is newer than the loaded
@@ -447,6 +454,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     const { corrected: opportunities, reviewerFlags: gate3Flags, scores: gate3Scores } = validateOpportunityScores(opportunitiesRaw);
     if (gate3Flags.length > 0) {
       reviewerFlags.push(...gate3Flags);
+      arithmeticPatchCount = gate3Flags.filter(f => /product|arithmetic|REG-23|REG-27/i.test(f)).length;
       log('warn', 'GATE 3: Stage 3 validation issues detected', { jobId, count: gate3Flags.length });
     }
 
@@ -590,6 +598,7 @@ export async function runPipeline(jobId: string): Promise<void> {
           : null,
       });
       correctionRecords.push(...manifestCheck.records);
+      allCorrectionRecords.push(...correctionRecords.map(r => ({ ruleId: r.ruleId, agreed: r.agreed })));
 
       const coverage = buildGateACoverage(cardsEmitted, families);
       gateACoverageSnapshot = coverage;
@@ -653,6 +662,7 @@ export async function runPipeline(jobId: string): Promise<void> {
     // A18 correction records.
     const anchorRender = renderPhaseAnchors(roadmapRaw, gate3Scores);
     const roadmap = anchorRender.corrected;
+    anchorRenderSummary = anchorRender.summary;
     if (anchorRender.reviewerFlags.length > 0) {
       reviewerFlags.push(...anchorRender.reviewerFlags);
       log('info', 'GATE 4: A18 anchor render', { jobId, ...anchorRender.summary });
@@ -738,6 +748,7 @@ export async function runPipeline(jobId: string): Promise<void> {
 
     // T-23 detector (the scan): assert no scaffold form survived the strip+envelope. Observability —
     // a residual flag means a relocation we did not anticipate; the envelope should make this empty.
+    stripFormsRemovedCount = SCAFFOLD_FORMS.filter(f => f.detect.test(assembled) && !f.detect.test(assembledForDelivery)).length;
     const residualFlags = detectResidualScaffold(assembledForDelivery);
     if (residualFlags.length > 0) {
       reviewerFlags.push(...residualFlags);
@@ -854,6 +865,23 @@ export async function runPipeline(jobId: string): Promise<void> {
       ? gateACoverageSnapshot.families.reduce((n, f) => n + f.expected, 0) : 0;
     reviewerFlags.unshift(formatRungDeclaration(rung, covChecked, covExpected));
     log('info', `Archetype rung ${rung.rung} (${rung.verification}) — Class-A coverage ${covChecked}/${covExpected}`, { jobId });
+
+    // UCR (twelve-batch report §VI.3, instated): what the model does UNASSISTED. Measured from this run's
+    // own correction log and render/strip counts rather than hand-estimated, so the trend is auditable.
+    // The artifact score prices what the client receives; UCR prices the system beneath the locks.
+    const ucr = computeUcr({
+      correctionRecords: allCorrectionRecords,
+      anchorsAuthored: anchorRenderSummary?.authoredTotal ?? 0,
+      anchorsRequired: anchorRenderSummary?.renderedTotal ?? 0,
+      inventoryFieldsRendered: inventoryRender.changedFields.length,
+      inventoryFieldsChecked: 6,          // the marker fields renderInventoryMarker derives
+      stripFormsRemoved: stripFormsRemovedCount,
+      stripFormsChecked: SCAFFOLD_FORMS.length,
+      arithmeticPatched: arithmeticPatchCount,
+      arithmeticChecked: gate3Scores.length,
+    });
+    reviewerFlags.unshift(formatUcr(ucr));
+    log('info', 'UCR computed', { jobId, ucr: ucr.ucr, clean: ucr.clean, opportunities: ucr.opportunities });
 
     const runIndex = parseRunIndex(job.clientName);
     reviewerFlags.unshift(

@@ -325,12 +325,55 @@ export function stripSelfAudit(text: string): string {
     .trim();
 }
 
+// ─── Law 3: a fix requiring model adoption is an instruction (v37.8, Sequence item 4) ─────────────
+//
+// N2 shipped `[SELF_AUDIT]` to all four stage contracts as "routing". It achieved **zero adoption in 8/8
+// runs** — the model never emitted the block, so the narration stayed in the deliverable and S1 Contract
+// did not move. The register's Law 3 names exactly why: **the model is never the enforcement point.** A
+// channel the model must choose to use is an instruction wearing routing's clothes.
+//
+// So the narration is stripped app-side. Closed vocabulary of whole-line forms, per the S-37 principle —
+// set membership, not intent-guessing — because these are lines that no client-facing section ever
+// contains, and a whole-line strip cannot mangle a sentence the way an inline edit could.
+//
+// What this deliberately does NOT strip: a machine-channel block NAME embedded in a real sentence
+// ("the DATA_INVENTORY shows four integrations"). There is no correct way to remove a noun from a clause,
+// so that stays with the detector — which is honest about being author-discipline rather than pretending
+// to a fix. The register's own framing: the detector remains for what the strip cannot prove.
+const STAGE_NARRATION_LINE = [
+  // Document receipts and input acknowledgements.
+  /^[ \t]*[-*•]?[ \t]*(?:I|We)(?:'ve| have)?\s+(?:received|reviewed|processed|parsed|analysed|analyzed|completed|read)\b/i,
+  /^[ \t]*[-*•]?[ \t]*(?:Inputs?|Documents?|Materials?|Files?)\s+(?:received|provided|processed|parsed)\b/i,
+  /^[ \t]*[-*•]?[ \t]*(?:All|Both)\s+\d*\s*(?:documents?|inputs?|files?)\s+(?:were\s+)?(?:received|parsed|processed)\b/i,
+  // Checkpoint / chunk narration.
+  /^[ \t]*#{0,4}[ \t]*\*{0,2}(?:Checkpoint|Chunk)\s+\d/i,
+  /^[ \t]*[-*•]?[ \t]*(?:Proceeding|Continuing|Moving on)\s+(?:to|with)\b/i,
+  /^[ \t]*[-*•]?[ \t]*(?:Producing|Emitting|Generating|Completing|Completed)\s+(?:Section|Chunk|Stage|Step)\b/i,
+  /^[ \t]*[-*•]?[ \t]*(?:Section|Stage|Step)\s+\w+\s+(?:complete|emitted|produced|done)\b/i,
+  // A SHORT line whose whole content is a reference to a machine channel and its emission state
+  // ("The DATA_INVENTORY block is emitted above."). Bounded to five trailing words: that is enough for
+  // every narration form observed, and short enough that a real sentence using the block as a subject
+  // ("The DATA_INVENTORY shows four active integrations across the stack") is NOT stripped — that one is
+  // content, has no correct inline edit, and belongs to the detector.
+  /^[ \t]*[-*•]?[ \t]*(?:The\s+)?\[?(?:SELF_AUDIT|DATA_INVENTORY|INTAKE_FACTS|CONFIDENCE_PROPAGATION|BAND_ASSIGNMENT)\]?(?:[ \t]+[A-Za-z]+){0,5}[ \t]*\.?[ \t]*$/i,
+  // Operator instructions to self.
+  /^[ \t]*[-*•]?[ \t]*(?:Operator|Reviewer)\s+(?:action|note|instruction)s?\s*[:—-]/i,
+] as const;
+
+export function stripStageNarration(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !STAGE_NARRATION_LINE.some(re => re.test(line)))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 export function stripForDelivery(text: string): string {
   const steps = [
     stripBuildStamp, stripJustification, stripCheckpointScaffold, stripConfidenceTags,
     stripGate4SelfCheck, stripHtmlComments, stripProcessNarration, stripStatusAndMetaAsides,
     stripEditorialBrackets, stripOperatorPreamble, stripOperatorAssembly, stripConfidencePropagation,
-    stripDataInventory, stripSelfAudit, stripFieldTokens,
+    stripDataInventory, stripSelfAudit, stripStageNarration, stripFieldTokens,
   ];
   return steps.reduce((t, fn) => fn(t), text);
 }

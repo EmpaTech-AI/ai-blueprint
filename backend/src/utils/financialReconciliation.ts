@@ -101,7 +101,9 @@ const MULTIPLIER: Record<string, number> = {
 };
 
 // A currency/count magnitude with optional symbol, thousands separators, decimal, and scale suffix.
-const NUM = String.raw`(?:[€$£]\s*)?(\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(k|m|mn|bn|b|thousand|million|billion)?`;
+// Uses the same no-plain-whitespace separator class as NUM_CORE — see instance 19 below. `parseRange`
+// reads this, and a form range ("€5M–€8M") never needs a space-separated thousands group.
+const NUM = String.raw`(?:[€$£]\s*)?(\d{1,3}(?:[,   ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(k|m|mn|bn|b|thousand|million|billion)?`;
 const PCT = String.raw`(\d+(?:\.\d+)?)\s*%`;
 // En-dash, em-dash, hyphen, "to", "–" — the form emits "€5M–€8M".
 const RANGE_SEP = String.raw`\s*(?:[-–—]|to)\s*`;
@@ -113,7 +115,18 @@ const RANGE_SEP = String.raw`\s*(?:[-–—]|to)\s*`;
 //   2. failing that, strip period tokens before falling back to a bare number.
 // The strip is reverted when it would leave no number at all, so a line whose only figure happens to
 // look like a year still yields a value rather than nothing.
-const NUM_CORE = String.raw`(\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
+// Register instance 19 (v37.8) — **the E1 repair CREATED this**, and it is Law 1's cleanest case: fixing
+// the layer below exposed the greedy assumption of the layer above. The thousands separator was `[,\s]`,
+// which accepts a PLAIN SPACE. Once the repair separated `84,00078,000` into `84,000 78,000`, the parser
+// re-joined them across that space into 84,000,780,000 — manufacturing €421B, €963B and a €1.16T figure
+// with a 57,915% margin.
+//
+// The rule, per the register: NO JOINS ACROSS PLAIN WHITESPACE. Typographic thousands separators are
+// still honoured — NBSP (U+00A0), narrow NBSP (U+202F) and thin space (U+2009) are genuine separators in
+// European typesetting and cannot be produced by a cell boundary — but an ordinary space between digit
+// groups is a boundary, not a separator.
+const THOUSANDS_SEP = String.raw`[,   ]`;
+const NUM_CORE = String.raw`(\d{1,3}(?:${THOUSANDS_SEP}\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
 // E1 (v37.7): a SINGLE-LETTER scale suffix must be ATTACHED to its number; only full words may be
 // separated by a space. This is the phantom €2.0B: `pdf-parse` concatenated a figure with a neighbouring
 // column label — `Revenue 2.0 B 1,486,200` — and `\s*(b)\b` read the standalone column header "B" as
@@ -136,6 +149,32 @@ export function stripPeriodTokens(line: string): string {
 // structure, not data. Removing the prefix leaves any real figure on the line intact — a heading with no
 // figure then yields no claim at all, which is the correct outcome for a section title.
 const ENUMERATOR_PREFIX = /^([ \t]*(?:[-*•]\s*)?#{0,4}[ \t]*)(\d{1,2}[.)])(\s+)/;
+
+// Is `label` the ROW LABEL of this line, rather than a mention somewhere in it? (Register item 16.)
+// Tab-separated cells come from the position-aware renderer; pipe-separated from markdown tables.
+export function labelsThisRow(line: string, label: RegExp): boolean {
+  const cells = line.includes('|') ? line.split('|') : line.includes('\t') ? line.split('\t') : null;
+  if (cells) {
+    // First non-empty cell is the row label. A metric named in a later cell labels THAT cell, not the row.
+    const first = cells.map(c => c.trim()).find(c => c.length > 0) ?? '';
+    return label.test(first);
+  }
+  // Prose. Fiscal-year tokens are masked first — with equal-length filler so indices still align against
+  // the original line — because `FY2025 total revenue: €6.4M` is a legitimate row whose label follows the
+  // year, and treating the year as the figure would drop it.
+  const masked = line.replace(/\b(?:FY\s?)?20\d{2}\b/gi, m => ' '.repeat(m.length));
+  const figure = /[€$£]?\s*\d/.exec(masked);
+  if (!figure) return label.test(line);
+
+  // A label counts in EITHER of two positions, and both are genuinely labels:
+  //   before the figure  — "Total revenue: €6.4M"   (the row label)
+  //   immediately after  — "12 employees", "240 staff"  (the figure's UNIT)
+  // Only the unit case needs the adjacency window: a metric word far from the figure is commentary
+  // ("costs were €84,000, which is 1.3% of revenue"), which is exactly what item 16 was about.
+  const head = line.slice(0, figure.index);
+  const unitWindow = line.slice(figure.index, figure.index + 24);
+  return label.test(head) || label.test(unitWindow);
+}
 
 export function stripEnumeratorPrefix(line: string): string {
   // Keep the indent/heading marker, drop the number and the gap that followed it.
@@ -240,7 +279,13 @@ export function extractClaims(text: string, source: string, isForm: boolean): Fi
     // Drop a leading enumerator so a section number is never read as the metric's value (I2).
     const line = stripEnumeratorPrefix(rawLine);
     for (const spec of METRIC_SPECS) {
-      if (!spec.label.test(line)) continue;
+      // Register item 16 (v37.8): metric attribution was "any line containing the metric's name", so a
+      // note or a neighbouring column that merely mentioned "revenue" donated its figure to `revenue`.
+      // A metric is identified by its ROW LABEL, which is a structural position:
+      //   • in a table row  → the label must be in the FIRST cell
+      //   • in a prose line → the label must precede the figure
+      // A mention after the number is commentary about it, not its label.
+      if (!labelsThisRow(line, spec.label)) continue;
       const range = spec.unit === 'percent' ? null : parseRange(line);
       const q = range ? null : parseQuantity(line, spec.unit);
       // Quantity-kind check: reject a number written in a form this metric cannot take.

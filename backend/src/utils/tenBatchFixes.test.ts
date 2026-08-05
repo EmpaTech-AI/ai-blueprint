@@ -210,16 +210,15 @@ describe('R6 — P-rules derive placement from pinned inputs', () => {
     expect(m.get('h-ec-02')).toBe('Later');
   });
 
-  // The honest status: it runs, it reports, it does not gate.
-  it('is ADVISORY until the Practice supplies P1 and P2, and says so', () => {
-    expect(P_RULES_ENFORCING).toBe(false);
+  // v37.8: the advisory era ENDED — P1=3 / P2=YES were delivered in the twelve-batch standing anchors,
+  // and the engine had already matched the emitted roadmap 0-divergence in 8/8 runs, so it flipped to
+  // enforcing on evidence. The divergence DETECTION asserted here is unchanged; only the severity moved.
+  // Enforcing behaviour is covered in twelveBatchFixes.test.ts (Seq 5).
+  it('detects the divergence identically now that it enforces', () => {
+    expect(P_RULES_ENFORCING).toBe(true);
     const roadmap = '## Phase 1: Now\n\nElement: H-EC-02\n\n## Phase 3: Later\n\n';
     const r = validatePlacement(roadmap, [el('h-ec-02', 5, 2)]);
-    expect(r.enforcing).toBe(false);
     expect(r.divergences).toEqual([{ id: 'h-ec-02', derived: 'Later', emitted: 'Now' }]);
-    expect(r.reviewerFlags[0]).toMatch(/P-rules ADVISORY \(not enforcing\)/);
-    expect(r.reviewerFlags[0]).toMatch(/R6 does not close until both are supplied/);
-    // Advisory means no BLOCKER — a guessed threshold must never gate client sequencing.
-    expect(r.reviewerFlags.some(f => f.startsWith('BLOCKER:'))).toBe(false);
+    expect(r.enforcing).toBe(true);
   });
 });

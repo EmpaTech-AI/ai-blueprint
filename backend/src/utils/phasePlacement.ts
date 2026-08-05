@@ -8,18 +8,17 @@
 // instructions decay.** So placement is derived from pinned inputs — the frozen Stage-1 scores and the
 // nine relay flags — exactly as A18 derives the anchor set, rather than instructed in prose.
 //
-// ─── STATUS: ADVISORY. Two thresholds are NOT SET. ───────────────────────────────────────────────
+// ─── STATUS: ENFORCING as of v37.8 (Sequence item 5). ────────────────────────────────────────────
 //
-// The ten-batch register records the P-rules spec as delivered on the Practice side; it has not reached
-// engineering. Two values are genuinely the Practice's to rule on, and inventing them would change
-// client-facing sequencing on guessed rules:
+// The two Practice-owned constants were delivered in the twelve-batch report's standing anchors:
+// **P1 `NOW_CAPACITY = 3` · P2 `GATE_DEFERS_ALONE = YES`.** The engine ran advisory for one era and the
+// derived map matched the emitted roadmap with **zero divergence in 8/8 runs across both cases**, so it
+// flips to enforcing on an evidence base rather than on trust.
 //
-//   P1  NOW_CAPACITY      — how many items Phase 1 may carry.
-//   P2  GATE_TO_NEXT      — whether `d_gate4=yes` alone defers to Next, or only in combination.
-//
-// Until both are supplied this module RUNS and REPORTS but does not gate: it computes the placement the
-// rules would produce and flags a divergence as advisory. Setting the two constants below flips it to
-// enforcing with no other change — the engine, the ordering and the tests are already here.
+// That 8/8 result also produced the era's attribution rule (I.4 rule 1): P-rules matched the emitted
+// roadmap while LunaCart's phases still drifted across runs, which locates the drift in the FROZEN
+// STAGE-1 INPUTS, not in placement logic. Enforcing placement therefore does not close Luna's phase
+// variance by itself — the inputs have to stabilise too (N4).
 //
 // What is already deterministic from the existing ratified contract, and is applied:
 //   • `phase_dependency=strict`            → Later, unconditionally, any class (T-27 / REG-24 preamble).
@@ -34,9 +33,9 @@ import { isYes } from './enumNormalise';
 
 export type Phase = 'Now' | 'Next' | 'Later';
 
-// ─── The two Practice-owned constants. `null` = UNSET = advisory mode. ───────────────────────────
-export const NOW_CAPACITY: number | null = null;   // P1 — items Phase 1 may carry
-export const GATE_DEFERS_ALONE: boolean | null = null;  // P2 — does d_gate4=yes alone defer to Next?
+// ─── The two Practice-owned constants, delivered 2026-08-05. `null` would restore advisory mode. ──
+export const NOW_CAPACITY: number | null = 3;            // P1 — items Phase 1 may carry
+export const GATE_DEFERS_ALONE: boolean | null = true;   // P2 — d_gate4=yes alone defers to Next
 
 export const P_RULES_ENFORCING = NOW_CAPACITY !== null && GATE_DEFERS_ALONE !== null;
 

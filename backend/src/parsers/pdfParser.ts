@@ -1,5 +1,6 @@
 import pdfParse from 'pdf-parse';
 import { repairConcatenatedCells } from './textRepair';
+import { renderPageWithLayout } from './layoutRenderer';
 import fs from 'fs';
 import path from 'path';
 import { ParsedDocument } from '../types/pipeline';
@@ -10,7 +11,9 @@ export async function parsePDF(filePath: string, category: string): Promise<Pars
   const filename = path.basename(filePath);
   try {
     const buffer = fs.readFileSync(filePath);
-    const data = await pdfParse(buffer);
+    // E1 durable fix (Sequence 1): supply a position-aware page renderer. pdf-parse's default joins
+    // same-line items with NO separator, which is the origin of every phantom figure. See layoutRenderer.
+    const data = await pdfParse(buffer, { pagerender: renderPageWithLayout } as never);
     // E1 (v37.7): pdf-parse returns no cell separators, so adjacent table columns concatenate
     // (`84,000 | 78,000 | HQ only` → `84,00078,000HQ only`). Repair the structurally-impossible
     // boundaries BEFORE anything reads the text — the model reads this corpus too, so the corruption
