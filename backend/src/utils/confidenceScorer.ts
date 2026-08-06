@@ -340,32 +340,83 @@ export function stripSelfAudit(text: string): string {
 // ("the DATA_INVENTORY shows four integrations"). There is no correct way to remove a noun from a clause,
 // so that stays with the detector — which is honest about being author-discipline rather than pretending
 // to a fix. The register's own framing: the detector remains for what the strip cannot prove.
+//
+// ── Register instance 21 (v37.9): the anchor and the markup ──────────────────────────────────────
+// Every pattern below was `^`-anchored and markup-blind, so two ordinary variants walked straight
+// through the closed vocabulary:
+//   TAIL      "Per the contract I will now produce Chunk 1."   — the phrase is at the END of the line
+//   MARKUP    "Producing **Chunk 1 only**:"                    — `\s+` met `**`, not `Chunk`
+// Both are handled below, but by different means, because they are different problems:
+//   • markup is a LEXICAL gap — `MK` (an optional emphasis run) is now admitted at every token
+//     boundary in these patterns, and `LEAD` accepts a bullet AND an emphasis run, in that order.
+//   • the tail is a POSITIONAL gap — and the honest response is to stop using position as the
+//     discriminator for the forms that don't need it. See NARRATION_PHRASE.
+// ` is a backtick, written as an escape so this stays a valid template literal.
+const MK = String.raw`(?:[*_\u0060]{1,3}[ \t]*)?`;   // an emphasis run: ** __ *** or a code span (u0060 = backtick)
+const LEAD = String.raw`^[ \t]*(?:[-*•+][ \t]+)?#{0,4}[ \t]*${MK}`;   // indent · bullet · heading · emphasis
+
 const STAGE_NARRATION_LINE = [
   // Document receipts and input acknowledgements.
-  /^[ \t]*[-*•]?[ \t]*(?:I|We)(?:'ve| have)?\s+(?:received|reviewed|processed|parsed|analysed|analyzed|completed|read)\b/i,
-  /^[ \t]*[-*•]?[ \t]*(?:Inputs?|Documents?|Materials?|Files?)\s+(?:received|provided|processed|parsed)\b/i,
-  /^[ \t]*[-*•]?[ \t]*(?:All|Both)\s+\d*\s*(?:documents?|inputs?|files?)\s+(?:were\s+)?(?:received|parsed|processed)\b/i,
+  new RegExp(`${LEAD}(?:I|We)(?:'ve| have)?\\s+(?:received|reviewed|processed|parsed|analysed|analyzed|completed|read)\\b`, 'i'),
+  new RegExp(`${LEAD}(?:Inputs?|Documents?|Materials?|Files?)\\s+(?:received|provided|processed|parsed)\\b`, 'i'),
+  new RegExp(`${LEAD}(?:All|Both)\\s+\\d*\\s*(?:documents?|inputs?|files?)\\s+(?:were\\s+)?(?:received|parsed|processed)\\b`, 'i'),
   // Checkpoint / chunk narration.
-  /^[ \t]*#{0,4}[ \t]*\*{0,2}(?:Checkpoint|Chunk)\s+\d/i,
-  /^[ \t]*[-*•]?[ \t]*(?:Proceeding|Continuing|Moving on)\s+(?:to|with)\b/i,
-  /^[ \t]*[-*•]?[ \t]*(?:Producing|Emitting|Generating|Completing|Completed)\s+(?:Section|Chunk|Stage|Step)\b/i,
-  /^[ \t]*[-*•]?[ \t]*(?:Section|Stage|Step)\s+\w+\s+(?:complete|emitted|produced|done)\b/i,
+  new RegExp(`${LEAD}(?:Checkpoint|Chunk)\\s+${MK}\\d`, 'i'),
+  new RegExp(`${LEAD}(?:Proceeding|Continuing|Moving on)\\s+(?:to|with)\\b`, 'i'),
+  new RegExp(`${LEAD}(?:Producing|Emitting|Generating|Completing|Completed)\\s+${MK}(?:Section|Chunk|Stage|Step)\\b`, 'i'),
+  new RegExp(`${LEAD}(?:Section|Stage|Step)\\s+${MK}\\w+\\s+(?:complete|emitted|produced|done)\\b`, 'i'),
   // A SHORT line whose whole content is a reference to a machine channel and its emission state
   // ("The DATA_INVENTORY block is emitted above."). Bounded to five trailing words: that is enough for
   // every narration form observed, and short enough that a real sentence using the block as a subject
   // ("The DATA_INVENTORY shows four active integrations across the stack") is NOT stripped — that one is
   // content, has no correct inline edit, and belongs to the detector.
-  /^[ \t]*[-*•]?[ \t]*(?:The\s+)?\[?(?:SELF_AUDIT|DATA_INVENTORY|INTAKE_FACTS|CONFIDENCE_PROPAGATION|BAND_ASSIGNMENT)\]?(?:[ \t]+[A-Za-z]+){0,5}[ \t]*\.?[ \t]*$/i,
+  new RegExp(`${LEAD}(?:The[ \\t]+)?${MK}\\[?(?:SELF_AUDIT|DATA_INVENTORY|INTAKE_FACTS|CONFIDENCE_PROPAGATION|BAND_ASSIGNMENT)\\]?[*_ \\t]*(?:[ \\t]+[A-Za-z]+){0,5}[ \\t]*\\.?[ \\t]*$`, 'i'),
   // Operator instructions to self.
-  /^[ \t]*[-*•]?[ \t]*(?:Operator|Reviewer)\s+(?:action|note|instruction)s?\s*[:—-]/i,
+  new RegExp(`${LEAD}(?:Operator|Reviewer)\\s+(?:action|note|instruction)s?[*_ \\t]*[:—-]`, 'i'),
 ] as const;
 
+// ── The phrase-anywhere class (instance 21, tail variant) ─────────────────────────────────────────
+// These forms carry their own discriminator. No client-facing section ever contains "produce Chunk 1"
+// or "emit Checkpoint 2" — a production VERB applied to a numbered PIPELINE UNIT is machine narration
+// wherever it appears in the line, so requiring it at position 0 was an accident of how the first
+// examples happened to be written, not a property of the form.
+//
+// The vocabulary stays closed (S-37 principle). What changes is that position is no longer part of it.
+const NARRATION_VERB = String.raw`(?:produc(?:e|es|ed|ing)|emit(?:s|ted|ting)?|generat(?:e|es|ed|ing)|output(?:s|ting)?|deliver(?:s|ed|ing)?|complet(?:e|es|ed|ing)|begin(?:s|ning)?|start(?:s|ed|ing)?)`;
+const PIPELINE_UNIT = String.raw`(?:Chunk|Checkpoint|Section|Stage|Step)`;
+
+const NARRATION_PHRASE = [
+  new RegExp(`\\b${NARRATION_VERB}\\s+${MK}(?:the\\s+)?${MK}${PIPELINE_UNIT}\\s*${MK}\\d`, 'i'),
+  new RegExp(`\\b${PIPELINE_UNIT}\\s*${MK}\\d+${MK}\\s+(?:only|now|next)\\b`, 'i'),
+] as const;
+
+// A phrase that may sit anywhere cannot be removed by deleting the line — a line like
+// "Revenue is €6.4M. Now producing Chunk 2." is exactly the mixed form a tail variant produces, and
+// whole-line removal would take the client's revenue figure with it. So removal is SENTENCE-level:
+// the sentence carrying the phrase goes, the rest of the line survives. Returns null when nothing but
+// narration remains, which is the common case (the observed instances were standalone lines).
+function stripNarrationPhrases(line: string): string | null {
+  const lead = /^[ \t]*(?:[-*•+][ \t]+)?/.exec(line)![0];
+  const body = line.slice(lead.length);
+  const sentences = body.split(/(?<=[.!?:;])[ \t]+/);
+  const kept = sentences.filter(s => !NARRATION_PHRASE.some(re => re.test(s)));
+  // No single sentence matched, so the phrase spans a boundary. Leave the line intact rather than
+  // guess at a split — the detector still reports it, which is the correct outcome for a form the
+  // strip cannot remove cleanly.
+  if (kept.length === sentences.length) return line;
+  const rebuilt = kept.join(' ').trim();
+  return rebuilt ? lead + rebuilt : null;
+}
+
 export function stripStageNarration(text: string): string {
-  return text
-    .split('\n')
-    .filter(line => !STAGE_NARRATION_LINE.some(re => re.test(line)))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n');
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    if (STAGE_NARRATION_LINE.some(re => re.test(line))) continue;
+    if (!NARRATION_PHRASE.some(re => re.test(line))) { out.push(line); continue; }
+    const kept = stripNarrationPhrases(line);
+    if (kept !== null) out.push(kept);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 export function stripForDelivery(text: string): string {
@@ -550,6 +601,12 @@ export const SCAFFOLD_FORMS: ScaffoldForm[] = [
   { id: 'checkpoint', label: 'CHECKPOINT block', removedBy: 'delivery-strip',
     detect: /CHECKPOINT\s+\d+/i,
     sample: '## CHECKPOINT 1 — Foundation Complete\nSections A–D emitted.\n' },
+  // v37.9 — instance 21 was a false CLEAN, not just an escaped strip: `Chunk N` narration was in NO
+  // registry form, so the detector could not report what the strip had missed. Registered here so the
+  // pair is complete again — every strip has a detector that proves it.
+  { id: 'chunk-narration', label: 'pipeline-unit production narration ("produce Chunk 1", instance 21)',
+    removedBy: 'delivery-strip', detect: NARRATION_PHRASE[0],
+    sample: 'Per the contract I will now produce Chunk 1.\n' },
   { id: 'operator-assembly', label: 'operator-assembly scaffold block (T-28)', removedBy: 'delivery-strip',
     detect: /Operator Assembly Instructions/i,
     sample: '**Operator Assembly Instructions**\nConcatenate the three chunks before conversion.\n' },

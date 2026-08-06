@@ -6,6 +6,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.7.0] — 2026-08-06 — v37.9: the five-item micro-release, held ahead of TC3
+
+Responds to the **fourteen-batch cross-era report** and the Practice's sequencing decision: hold TC3
+(VelocityFreight, a first-ever batch with no baseline) until instance 20's false-fire class is closed,
+because freight vocabulary is dense in exactly that shape — EUR2 pallets, FTL/LTL, 24/7, ISO codes, M365.
+
+### Changed
+- **Instance 20/20b — a digit inside an alphanumeric identifier is not a quantity.** `B2B` produced a
+  phantom €2.0B (Luna 4/4) and `M365` a headcount of 365 (Meridian 2/4). One lookbehind on the numeric
+  token. **The first attempt was wrong and the new tests caught it within the hour:** `(?<![A-Za-z])`
+  rejects the position after a letter, so the engine advanced into the digit run and matched `65`. The
+  guard has to exclude a preceding DIGIT as well.
+- **Instance 21 — the narration strip's `^` anchor and its markup blindness.** `Producing **Chunk 1
+  only**:` escaped because `\s+` met `**`; `…produce Chunk 1.` escaped because the phrase was at the end
+  of the line. Markup is now admitted at every token boundary, and forms that carry their own
+  discriminator (a production verb applied to a numbered pipeline unit) no longer use position at all —
+  they are removed at SENTENCE level, so a mixed line keeps its client content.
+  `Chunk N` narration was also in **no** registry form, so instance 21 was a false CLEAN rather than only
+  an escaped strip. Registered.
+- **The P&L ladder (the net_profit accounting identity).** `total_costs` held two component labels and
+  `net_profit` two higher profit levels, so `revenue − COGS = net_profit` fired on packs whose arithmetic
+  was *correct*. The register named one conflation; auditing the vocabulary found three. Levels are now
+  separate metrics with each cost level paired to the profit level it produces, gross and EBITDA margin
+  are checked (previously unpaired), and EBITDA carries no subtraction identity because the D&A add-back
+  is not derivable from these documents.
+- **N4 — "active integration" is DERIVED, not read.** A pair is active iff P-a inventoried ∧ P-b automatic
+  ∧ P-c functioning ∧ P-d cited. A14 was one-directional in the wrong way: an inflated `yes` was caught,
+  an under-stated `no` on a row whose predicates all hold was accepted in silence. Coverage now comes from
+  the predicates and the authored cell is a C1 measurement on every row.
+- **T1 — the placement clause.** P1's cap and P0b's deadline pull shared one rank-ordered pass, so a
+  deadline item that sorted below three Quick Wins entered a full Phase 1 anyway (Now silently carried 4)
+  and the wrong item kept its slot. Two passes: unconditional rules reserve capacity, the cap applies to
+  the remainder, and deadline items alone exceeding the cap is reported as over-commitment rather than
+  absorbed.
+
+### Notes
+- Label **v37.8 → v37.9**. **512 tests, 18 suites**; typecheck and build clean.
+- Release note: `rework_docs/2026-08-06_v37_9_Micro_Release_Before_TC3.md`.
+- **Open, not ours:** the LunaCart coverage pin. `fixtures/lunacart_archetype_free_golden.md` pins 0.33
+  (2 active pairs ÷ 6) and the fourteen-batch appendix pins 0.67 provisional. Not re-pinned — see the
+  release note §6.
+
+---
+
+## [2.6.0] — 2026-08-05 — v37.8: Sequence 1–6, R6 closed, UCR instrumented
+
+Backfilled — v37.8 shipped with a release note but no changelog entry.
+
+### Added
+- **`parsers/layoutRenderer.ts` (E1 durable fix)** — position-aware page rendering through pdf-parse's own
+  `pagerender` hook. **No dependency change was needed:** the default renderer breaks lines on the Y
+  coordinate and then concatenates every item on a line with nothing between them. Four lines. Uses the X
+  coordinate and each item's width, inserting a TAB (not a pipe — the corpus is read by the model too) on
+  a horizontal gap over 1.2 em.
+- **`utils/unassistedConformance.ts` (UCR)** — computed per run, denominator is intervention
+  OPPORTUNITIES not corrections, so adding a guard cannot flatter the score.
+
+### Changed
+- **Instance 19 — no thousands-joins across plain whitespace.** The E1 repair created this: once
+  `84,00078,000` was split, the parser re-joined it across the space into 84,000,780,000. NBSP, narrow
+  NBSP and thin space stay separators — a cell boundary cannot produce them.
+- **Item 16 — metric attribution by structural row label** rather than any line mentioning the name.
+  Over-tightened on the first pass (dropped `12 employees`, where the metric word is the unit) and the
+  existing suite caught it; adjacency window bounded to 24 characters.
+- **App-side narration strip (Law 3).** `[SELF_AUDIT]` routing achieved zero adoption in 8/8 — the
+  definition of an instruction.
+- **P1=3 / P2=YES → P-rules ENFORCING, R6 closes.** Flipped on evidence: 8/8 advisory runs matched the
+  emitted roadmap with zero divergence.
+- **A19 `feasibility_vs_base` → `feasibility_within_base`.** The deterministic 4-forks on Meridian were a
+  measurement artefact in the record, not extraction: every legitimate A4 reduction was being marked a
+  fork, and Meridian has exactly four flag-firing cards.
+
+### Notes
+- Label **v37.7 → v37.8**. **478 tests, 17 suites.**
+- Release note: `rework_docs/2026-08-05_v37_8_Sequence_1_6_Complete.md`.
+
+---
+
 ## [2.5.0] — 2026-08-05 — v37.7: the five ten-batch engineering items
 
 Responds to the **ten-batch cross-era report** (40 runs, two controlled pairs). Meridian ≈91% [30/32],

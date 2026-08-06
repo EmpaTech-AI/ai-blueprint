@@ -46,6 +46,8 @@ export interface IntegrationRow {
   b: string;
   mechanism: string;
   status: string;
+  // v37.9 (N4): the AUTHORED cell. No longer the source of truth for anything — see `derivedActive`.
+  // Kept because the authored-vs-derived comparison is the C1 measurement.
   active: boolean;
   confidence: string;
 }
@@ -252,14 +254,55 @@ export function dataGradeFromRecordClasses(rows: RecordClassRow[], governance?: 
   return governanceGatePasses(governance) ? 'Established' : 'Developing';
 }
 
+// ─── N4: "active integration" as four sub-predicates, DERIVED ────────────────────
+//
+// The Practice's N4 formula, ratified in the fourteen-batch report:
+//
+//     a pair is ACTIVE iff  P-a inventoried ∧ P-b automatic ∧ P-c functioning ∧ P-d cited
+//
+// v37.9 makes that the *computation* rather than an audit of the author's answer. Until now A14 read
+// the `Active?` cell and checked the author's yes against these predicates — which is one-directional
+// in exactly the wrong way. An inflated yes was caught; an under-stated **no** on a row whose four
+// predicates all hold was accepted in silence, and Integration Coverage came out too low with nothing
+// recorded. Reading a cell the model authors also puts the model at the enforcement point, which
+// Law 3 says never works.
+//
+// So the cell is no longer an input to anything. Coverage is computed from the predicates, and the
+// authored cell is compared against the derived value as a C1 measurement (see A14).
+export interface ActivePredicates {
+  inventoried: boolean;    // P-a — both endpoints are rows in the Core Systems table
+  automatic: boolean;      // P-b — mechanism ∈ {scheduled, event}: data moves without human action
+  functioning: boolean;    // P-c — status = functioning, not broken and not planned
+  cited: boolean;          // P-d — Document-Backed or Form-Stated, not inferred
+}
+
+export function activePredicates(i: IntegrationRow, inventoriedSystems: Set<string>): ActivePredicates {
+  return {
+    inventoried: inventoriedSystems.has(i.a) && inventoriedSystems.has(i.b),
+    automatic: enumMatches(i.mechanism, ['scheduled', 'event']).ok,
+    functioning: enumMatches(i.status, ['functioning']).ok,
+    cited: GROUNDED_CONFIDENCE.test(i.confidence),
+  };
+}
+
+export const derivedActive = (p: ActivePredicates): boolean =>
+  p.inventoried && p.automatic && p.functioning && p.cited;
+
+export const failedPredicates = (p: ActivePredicates): string[] =>
+  (Object.entries(p) as Array<[keyof ActivePredicates, boolean]>).filter(([, v]) => !v).map(([k]) => k);
+
 export function computeInventory(inv: DataInventory): ComputedInventory {
   const coreIds = new Set(inv.coreSystems.filter(s => s.isCore).map(s => s.system));
   const nCore = coreIds.size;
+  // P-a's set is every system NAMED in the Core Systems table — "inventoried", not "core". The
+  // core-only restriction below is a separate rule (§2.1) and stays separate.
+  const inventoriedSystems = new Set(inv.coreSystems.map(s => s.system));
   // Only integrations BETWEEN two core systems count toward coverage (§2.1: "active integrations
   // among core systems"). Deduplicated as unordered pairs, so an A→B / B→A double-emission counts once.
   const seen = new Set<string>();
   for (const i of inv.integrations) {
-    if (!i.active || !coreIds.has(i.a) || !coreIds.has(i.b)) continue;
+    if (!derivedActive(activePredicates(i, inventoriedSystems))) continue;
+    if (!coreIds.has(i.a) || !coreIds.has(i.b)) continue;
     seen.add([i.a, i.b].sort().join('|'));
   }
   const activeIntegrations = seen.size;
@@ -284,6 +327,8 @@ export interface InventoryGuardResult {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+// `makeRecord` compares as strings, so a boolean must arrive as the token the table itself uses.
+const yn = (b: boolean) => (b ? 'yes' : 'no');
 
 export function validateDataInventory(dossier: string): InventoryGuardResult {
   const inv = parseDataInventory(dossier);
@@ -386,24 +431,44 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
     );
   }
 
-  // ── A14: every Active?=yes row is genuinely scheduled/event + functioning + grounded ──
+  // ── A14 (N4): authored `Active?` vs the value DERIVED from P-a..P-d ──
+  // The derived value is what coverage used. This loop only measures whether the author agreed, and
+  // flags either direction of disagreement: an inflated yes over-states coverage and can under-state
+  // PP-0; an under-stated no leaves the artifact's own table contradicting its own coverage figure.
   checked.push('A14');
-  for (const i of inv.integrations.filter(r => r.active)) {
-    const reasons: string[] = [];
+  const inventoriedSystems = new Set(inv.coreSystems.map(s => s.system));
+  for (const i of inv.integrations) {
+    const p = activePredicates(i, inventoriedSystems);
+    const derived = derivedActive(p);
+    const pair = `${i.a}↔${i.b}`;
+    records.push(makeRecord('stage1', `integration:${pair}`, 'active', yn(i.active), yn(derived), {
+      rule: 'N4 active iff P-a inventoried ∧ P-b automatic ∧ P-c functioning ∧ P-d cited',
+      predicates: p,
+      mechanism: i.mechanism || 'absent', status: i.status || 'absent', confidence: i.confidence || 'absent',
+    }, 'A14'));
+    if (i.active === derived) continue;
     // Normalised set membership, not exact match — "scheduled (celigo connector)" is scheduled.
     const mech = enumMatches(i.mechanism, ['scheduled', 'event']);
     const stat = enumMatches(i.status, ['functioning']);
-    if (!mech.ok) reasons.push(`mechanism=${i.mechanism || 'absent'} → normalised "${mech.normalised || 'empty'}" (must be scheduled or event)`);
-    if (!stat.ok) reasons.push(`status=${i.status || 'absent'} → normalised "${stat.normalised || 'empty'}" (must be functioning)`);
-    if (!GROUNDED_CONFIDENCE.test(i.confidence)) reasons.push(`confidence=${i.confidence || 'absent'} (must be Document-Backed or Form-Stated)`);
-    if (reasons.length > 0) {
-      reviewerFlags.push(
-        `${BLOCKER_PREFIX} GATE 1 A14 (active-integration integrity): ${i.a}↔${i.b} is marked ` +
-        `Active?=yes but ${reasons.join('; ')}. An integration counts as active only when data moves ` +
-        `without human action, on a schedule or event trigger, and is currently functioning — a manual ` +
-        `export, a broken feed, or a planned one inflates Integration Coverage and can under-state PP-0.`,
-      );
-    }
+    const why = [
+      !p.inventoried ? `P-a: one or both endpoints are not rows in the Core Systems table` : null,
+      !p.automatic ? `P-b: mechanism=${i.mechanism || 'absent'} → normalised "${mech.normalised || 'empty'}" (must be scheduled or event)` : null,
+      !p.functioning ? `P-c: status=${i.status || 'absent'} → normalised "${stat.normalised || 'empty'}" (must be functioning)` : null,
+      !p.cited ? `P-d: confidence=${i.confidence || 'absent'} (must be Document-Backed or Form-Stated)` : null,
+    ].filter(Boolean);
+    reviewerFlags.push(
+      i.active
+        ? `${BLOCKER_PREFIX} GATE 1 A14 (N4 active-integration integrity): ${pair} is marked ` +
+          `Active?=yes but derives INACTIVE — ${why.join('; ')}. An integration counts as active only ` +
+          `when data moves without human action, on a schedule or event trigger, and is currently ` +
+          `functioning: a manual export, a broken feed, or a planned one inflates Integration Coverage ` +
+          `and can under-state PP-0. Coverage was computed from the derived value; correct the cell.`
+        : `${BLOCKER_PREFIX} GATE 1 A14 (N4 active-integration integrity): ${pair} is marked ` +
+          `Active?=${i.active === false ? 'no/absent' : String(i.active)} but all four predicates hold ` +
+          `(mechanism=${i.mechanism}, status=${i.status}, confidence=${i.confidence}), so it derives ` +
+          `ACTIVE. Coverage was computed from the derived value, which means the table as written now ` +
+          `contradicts the coverage figure beside it. Correct the cell or the row it disagrees with.`,
+    );
   }
 
   // ── A15: referential integrity of the inventory's own claims ──

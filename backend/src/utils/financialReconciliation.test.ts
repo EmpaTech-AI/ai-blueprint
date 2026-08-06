@@ -110,7 +110,8 @@ describe('A17b — derived arithmetic inside one source and period', () => {
     const r = reconcileFinancials(FORM, corpusOf(p), '');
     const flag = r.reviewerFlags.find(f => /A17b.*net_margin/.test(f))!;
     expect(flag).toContain(BLOCKER_PREFIX);
-    expect(flag).toMatch(/mis-states its own profitability by 8\.5 percentage points/);
+    // v37.9: the message names the specific margin now that all three are checked separately.
+    expect(flag).toMatch(/mis-states its own net margin by 8\.5 percentage points/);
   });
 
   it('BLOCKERs revenue − costs ≠ stated profit', () => {

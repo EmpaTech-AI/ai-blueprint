@@ -65,23 +65,50 @@ export function classOf(impact: number, feasibility: number): 'QuickWin' | 'BigB
 // Derive the whole phase map. Ordering is by (impact × feasibility) descending so capacity, when it is
 // set, displaces the LOWEST-value Quick Win rather than an arbitrary one — the roadmap contract's own
 // "if you have more Quick Wins than fit in Now, the lower-impact ones move to Next".
+// v37.9 — the T1 placement clause. P1's cap and P0b's deadline pull were in the same single pass, and
+// the pass ran in rank order, which made the interaction between them depend on where the deadline items
+// happened to sort:
+//
+//   • a deadline item that ranked BELOW three Quick Wins found Now already full — and, being exempt from
+//     deferral, entered anyway. Now silently carried 4, and nothing said so.
+//   • the displacement went the wrong way. A deadline item cannot move; a Quick Win can. So the item that
+//     should have lost its slot was the lowest-value Quick Win, not "whichever arrived after the cap".
+//
+// The clause: **deadline-pinned items are exempt from displacement, and the cap applies to the
+// remainder.** That is a two-pass shape, not a tie-break — the unconditional rules must resolve before
+// anything discretionary can know how much capacity is left. If deadline items ALONE exceed the cap, no
+// discretionary reordering can fix it: the roadmap is over-committed by items that cannot be moved, and
+// that is reported rather than absorbed (see `deadlineOverflow`).
 export function derivePlacement(elements: PlacementInput[]): PlacementDecision[] {
   const decisions: PlacementDecision[] = [];
   const ranked = [...elements].sort((a, b) => (b.impact * b.feasibility) - (a.impact * a.feasibility));
 
+  // ── Pass 1: the unconditional rules. These consume capacity before any Quick Win competes for it.
+  const unconditional = new Set<string>();
   let nowCount = 0;
   for (const e of ranked) {
     // 1. strict dependency wins over everything, any class (T-27 / REG-24 preamble rule 1).
     if (/^strict$/i.test((e.flags.phase_dependency ?? '').trim())) {
       decisions.push({ id: e.id, phase: 'Later', rule: 'P0a phase_dependency=strict → Later (unconditional)' });
+      unconditional.add(e.id);
       continue;
     }
-    // 2. a dated deadline pulls TOWARD Now (REG-24 preamble rule 2) — never deferred past its own date.
+    // 2. a dated deadline pulls TOWARD Now (REG-24 preamble rule 2) — never deferred past its own date,
+    //    and therefore never displaced by a higher-scoring Quick Win either.
     if (hasDatedDeadline(e.flags)) {
-      decisions.push({ id: e.id, phase: 'Now', rule: 'P0b dated deadline → Now (precedence preamble rule 2)' });
+      decisions.push({
+        id: e.id, phase: 'Now',
+        rule: 'P0b dated deadline → Now (precedence preamble rule 2; exempt from P1 displacement)',
+      });
+      unconditional.add(e.id);
       nowCount++;
       continue;
     }
+  }
+
+  // ── Pass 2: the discretionary rules, in rank order, against the residual capacity.
+  for (const e of ranked) {
+    if (unconditional.has(e.id)) continue;
     const cls = classOf(e.impact, e.feasibility);
     if (cls === 'QuickWin') {
       // P2 — the dependency gate. UNSET means we do not defer on it, and we say so.
@@ -89,9 +116,14 @@ export function derivePlacement(elements: PlacementInput[]): PlacementDecision[]
         decisions.push({ id: e.id, phase: 'Next', rule: 'P2 d_gate4=yes → Next (gate defers alone)' });
         continue;
       }
-      // P1 — capacity. UNSET means unbounded, and we say so.
+      // P1 — capacity. UNSET means unbounded, and we say so. `nowCount` already carries the deadline
+      // items placed in pass 1, so what is tested here is the RESIDUAL capacity.
       if (NOW_CAPACITY !== null && nowCount >= NOW_CAPACITY) {
-        decisions.push({ id: e.id, phase: 'Next', rule: `P1 Now capacity ${NOW_CAPACITY} reached → Next (lowest-value first)` });
+        decisions.push({
+          id: e.id, phase: 'Next',
+          rule: `P1 Now capacity ${NOW_CAPACITY} reached → Next (lowest-value Quick Win first; ` +
+            `deadline-pinned items are exempt from displacement and reserved their slots)`,
+        });
         continue;
       }
       decisions.push({ id: e.id, phase: 'Now', rule: 'P3 Quick Win (post-adjustment F ≥ 4) → Now' });
@@ -104,7 +136,23 @@ export function derivePlacement(elements: PlacementInput[]): PlacementDecision[]
     }
     decisions.push({ id: e.id, phase: 'Next', rule: 'P5 Foundation Builder → Next' });
   }
-  return decisions;
+
+  // Restore rank order. The two passes are an evaluation order, not an output order — a caller reading
+  // the derived map should still see it ranked, the way the roadmap presents it.
+  const byId = new Map(decisions.map(d => [d.id, d]));
+  return ranked.map(e => byId.get(e.id)!).filter(Boolean);
+}
+
+// The one case the clause cannot resolve: deadline-pinned items ALONE exceeding the cap. Every one of
+// them is exempt from displacement, so there is no discretionary move that brings Now back within P1 —
+// the roadmap is over-committed by items that cannot be deferred. Returns the offending ids so the
+// caller can report it; an empty array is the normal case.
+export function deadlineOverflow(elements: PlacementInput[]): string[] {
+  if (NOW_CAPACITY === null) return [];
+  const pinned = elements
+    .filter(e => !/^strict$/i.test((e.flags.phase_dependency ?? '').trim()) && hasDatedDeadline(e.flags))
+    .map(e => e.id);
+  return pinned.length > NOW_CAPACITY ? pinned : [];
 }
 
 // Build placement inputs by joining the FROZEN flags to the emitted post-adjustment feasibility. The
@@ -181,6 +229,21 @@ export function validatePlacement(roadmap: string, inputs: PlacementInput[]): Pl
       `flips this to enforcing with no other change.`,
     );
     return { reviewerFlags, derived, divergences, enforcing: false };
+  }
+
+  // T1: over-commitment by undeferrable items. Reported before the divergences because it explains
+  // them — if Now legitimately carries more than P1 allows, the emitted roadmap agreeing with the
+  // derived map is not the reassurance it looks like.
+  const overflow = deadlineOverflow(inputs);
+  if (overflow.length > 0) {
+    reviewerFlags.push(
+      `${'BLOCKER:'} GATE 4 P1 (T1 placement clause): ${overflow.length} items carry a dated ` +
+      `compliance or system-event deadline — ${overflow.join(', ')} — which is more than the Now capacity ` +
+      `of ${NOW_CAPACITY}. Deadline-pinned items are exempt from displacement, so no reordering brings ` +
+      `Phase 1 within capacity: the roadmap is over-committed by work that cannot be deferred past its ` +
+      `own date. This is a scoping decision for the engagement, not a placement error — resolve it with ` +
+      `the client rather than by moving a dated item.`,
+    );
   }
 
   for (const d of divergences) {

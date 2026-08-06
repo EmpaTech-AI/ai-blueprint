@@ -43,11 +43,35 @@ export interface MetricSpec {
 // Closed vocabulary. `label` must match on the same line as the number.
 export const METRIC_SPECS: MetricSpec[] = [
   { metric: 'revenue',      unit: 'currency', label: /\b(?:annual\s+)?revenue\b|\bturnover\b|\bnet sales\b|\btotal sales\b/i },
-  { metric: 'gross_profit', unit: 'currency', label: /\bgross profit\b/i },
-  { metric: 'net_profit',   unit: 'currency', label: /\bnet profit\b|\bnet income\b|\bprofit after tax\b|\bEBITDA\b|\boperating profit\b/i },
-  { metric: 'total_costs',  unit: 'currency', label: /\btotal costs?\b|\btotal expenses?\b|\boperating expenses?\b|\bopex\b|\bcost of (?:goods sold|sales)\b|\bCOGS\b/i },
-  { metric: 'net_margin',   unit: 'percent',  label: /\bnet (?:profit )?margin\b|\bprofit margin\b|\bEBITDA margin\b/i },
-  { metric: 'gross_margin', unit: 'percent',  label: /\bgross margin\b/i },
+  // ── v37.9: the P&L LADDER ────────────────────────────────────────────────────────────────────────
+  // The register named one conflation ("revenue − COGS is gross profit, not net profit"). Auditing the
+  // vocabulary for that one found it was three, all of the same kind — `total_costs` held two component
+  // labels and `net_profit` held two higher-up profit levels:
+  //
+  //     total_costs  ⊇ {cost of goods sold, COGS, operating expenses, opex}
+  //     net_profit   ⊇ {EBITDA, operating profit}
+  //
+  // Splitting only COGS would have left `operating expenses` producing the identical false fire, and on
+  // more packs — almost every P&L states an opex line. So the levels are now separate metrics and each
+  // cost level pairs with the profit level it actually produces:
+  //
+  //     revenue − COGS        = gross profit
+  //     gross profit − opex   = operating profit
+  //     revenue − total costs = net profit
+  //
+  // EBITDA gets its own metric with NO subtraction identity: it differs from operating profit by the
+  // D&A add-back, which is not derivable from anything these documents reliably state. It still
+  // participates in range containment (A17a), multi-valued reporting (A17c) and its own margin ratio.
+  { metric: 'gross_profit',     unit: 'currency', label: /\bgross profit\b/i },
+  { metric: 'operating_profit', unit: 'currency', label: /\boperating profit\b|\bEBIT\b(?!DA)/i },
+  { metric: 'ebitda',           unit: 'currency', label: /\bEBITDA\b/i },
+  { metric: 'net_profit',       unit: 'currency', label: /\bnet profit\b|\bnet income\b|\bprofit after tax\b/i },
+  { metric: 'total_costs',      unit: 'currency', label: /\btotal costs?\b|\btotal expenses?\b|\btotal cost base\b/i },
+  { metric: 'cogs',             unit: 'currency', label: /\bcost of (?:goods sold|sales)\b|\bCOGS\b/i },
+  { metric: 'opex',             unit: 'currency', label: /\boperating (?:expenses?|costs?)\b|\bopex\b/i },
+  { metric: 'net_margin',       unit: 'percent',  label: /\bnet (?:profit )?margin\b|\bprofit margin\b/i },
+  { metric: 'gross_margin',     unit: 'percent',  label: /\bgross margin\b/i },
+  { metric: 'ebitda_margin',    unit: 'percent',  label: /\bEBITDA margin\b/i },
   { metric: 'headcount',    unit: 'count',    label: /\bheadcount\b|\bemployees\b|\bstaff\b|\bFTEs?\b|\bnumber of employees\b/i },
   { metric: 'departments',  unit: 'count',    label: /\bdepartments?\b/i },
   { metric: 'budget',       unit: 'currency', label: /\bbudget\b/i },
@@ -103,7 +127,7 @@ const MULTIPLIER: Record<string, number> = {
 // A currency/count magnitude with optional symbol, thousands separators, decimal, and scale suffix.
 // Uses the same no-plain-whitespace separator class as NUM_CORE — see instance 19 below. `parseRange`
 // reads this, and a form range ("€5M–€8M") never needs a space-separated thousands group.
-const NUM = String.raw`(?:[€$£]\s*)?(\d{1,3}(?:[,   ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(k|m|mn|bn|b|thousand|million|billion)?`;
+const NUM = String.raw`(?:[€$£]\s*)?(?<![A-Za-z0-9])(\d{1,3}(?:[,   ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(k|m|mn|bn|b|thousand|million|billion)?`;
 const PCT = String.raw`(\d+(?:\.\d+)?)\s*%`;
 // En-dash, em-dash, hyphen, "to", "–" — the form emits "€5M–€8M".
 const RANGE_SEP = String.raw`\s*(?:[-–—]|to)\s*`;
@@ -126,7 +150,37 @@ const RANGE_SEP = String.raw`\s*(?:[-–—]|to)\s*`;
 // European typesetting and cannot be produced by a cell boundary — but an ordinary space between digit
 // groups is a boundary, not a separator.
 const THOUSANDS_SEP = String.raw`[,   ]`;
-const NUM_CORE = String.raw`(\d{1,3}(?:${THOUSANDS_SEP}\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`;
+// Register instances 20/20b (v37.9) — SUB-TOKEN boundaries, Law 1's smallest instances yet. A digit
+// that sits INSIDE an alphanumeric identifier is not a quantity:
+//   `B2B`  → the `2` took `B` as a scale suffix → phantom €2.0 BILLION (Luna 4/4)
+//   `M365` → `365` admitted as a headcount (Meridian 2/4)
+// The rule is that a numeric token must be a WHOLE token: not entered part-way, and not left part-way.
+// It disposes of `FY2025` for free. Urgent rather than tidy: freight vocabulary is dense in exactly these
+// shapes — EUR2 pallets, FTL2 lanes, 24/7 desks, ISO container codes, M365 — so VelocityFreight would
+// have been flooded.
+//
+// Three conditions, and each of the last two exists because the first was not enough on its own:
+//
+//   NOT_IN_IDENTIFIER  the first attempt was `(?<![A-Za-z])`, and the tests written for this item caught
+//                      it inside the hour: rejecting the position after a LETTER does not stop the engine
+//                      advancing INTO the digit run and matching there. `M365` was rejected at `3` and
+//                      admitted at `65` — a false figure with its magnitude reduced, which is worse than
+//                      an obvious one. A preceding digit must be excluded too.
+//   WHOLE_TOKEN        without it, the ratio guard below is defeated by backtracking: `24/7` fails the
+//                      ratio lookahead on `24`, the group backtracks to `2`, and `2` passes. Requiring
+//                      that no digit follows makes the captured token maximal, so there is nothing
+//                      shorter to fall back to.
+//   NOT_A_RATIO        `24/7`, `2/5` (the inventory's own quality scores), `01/2025` — a number that is
+//                      one side of a slash pair is a shorthand or a ratio, never a currency amount or a
+//                      count. Both halves are covered: the lookahead rejects the left, the lookbehind
+//                      the right. This is the one condition beyond the register's filing, added because
+//                      `24/7` survived the boundary rule and TC3 is dense in it.
+const NOT_IN_IDENTIFIER = String.raw`(?<![A-Za-z0-9])`;
+const WHOLE_TOKEN = String.raw`(?!\d)`;
+const NOT_A_RATIO_HEAD = String.raw`(?!\s*/\s*\d)`;
+const NOT_A_RATIO_TAIL = String.raw`(?<!\d\s*/\s*)`;
+const NUM_CORE = String.raw`${NOT_IN_IDENTIFIER}${NOT_A_RATIO_TAIL}` +
+  String.raw`(\d{1,3}(?:${THOUSANDS_SEP}\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)${WHOLE_TOKEN}${NOT_A_RATIO_HEAD}`;
 // E1 (v37.7): a SINGLE-LETTER scale suffix must be ATTACHED to its number; only full words may be
 // separated by a space. This is the phantom €2.0B: `pdf-parse` concatenated a figure with a neighbouring
 // column label — `Revenue 2.0 B 1,486,200` — and `\s*(b)\b` read the standalone column header "B" as
@@ -136,7 +190,11 @@ const SCALE_LETTER = String.raw`(k|m|mn|bn|b)`;
 const NUM_SYMBOL = new RegExp(String.raw`[€$£]\s*${NUM_CORE}(?:${SCALE_LETTER}\b|\s*${SCALE_WORD}\b)?`, 'i');
 const NUM_SUFFIXED = new RegExp(`${NUM_CORE}(?:${SCALE_LETTER}\\b|\\s*${SCALE_WORD}\\b)`, 'i');
 const NUM_BARE = new RegExp(NUM_CORE);
-const PERIOD_TOKEN = /\b(?:FY\s?)?20\d{2}(?:\s*[/-]\s*\d{2,4})?\b/gi;
+// v37.9: the token now includes a LEADING month/day group (`01/2025`, `31/12/2025`), not only a trailing
+// one. Without it the strip left the fragment `01/ ` behind, and because `01` was then followed by a slash
+// with no digit after it, the ratio guard let it through as a headcount of 1 — the strip creating the very
+// form the guard was written to reject, one layer up. Same shape as instance 19.
+const PERIOD_TOKEN = /\b(?:\d{1,2}\s*\/\s*){0,2}(?:FY\s?)?20\d{2}(?:\s*[/-]\s*\d{2,4})?\b/gi;
 
 export function stripPeriodTokens(line: string): string {
   const stripped = line.replace(PERIOD_TOKEN, ' ');
@@ -265,6 +323,10 @@ export function isExcludedLine(line: string): boolean {
   return PROJECTION_MARKER.test(line) || UNIT_RATE_MARKER.test(line);
 }
 
+// The COMPONENT cost levels. A row they label is never also admitted as `total_costs` — see the
+// precedence note in `extractClaims`.
+const COMPONENT_COST_LABELS = ['cogs', 'opex'].map(m => METRIC_SPECS.find(s => s.metric === m)!.label);
+
 // A metric label and a number must co-occur on one line. Lines are the unit because client financial
 // documents are overwhelmingly tabular or bulleted — a sentence-spanning claim is rare, and widening
 // the window is what produces false pairings.
@@ -286,6 +348,10 @@ export function extractClaims(text: string, source: string, isForm: boolean): Fi
       //   • in a prose line → the label must precede the figure
       // A mention after the number is commentary about it, not its label.
       if (!labelsThisRow(line, spec.label)) continue;
+      // v37.9 precedence: a component level is NARROWER, and a row like "total cost of goods sold"
+      // satisfies both labels. The narrower one wins, so a component figure is never also admitted as a
+      // total — which would re-create the identity error the split exists to remove.
+      if (spec.metric === 'total_costs' && COMPONENT_COST_LABELS.some(l => labelsThisRow(line, l))) continue;
       const range = spec.unit === 'percent' ? null : parseRange(line);
       const q = range ? null : parseQuantity(line, spec.unit);
       // Quantity-kind check: reject a number written in a form this metric cannot take.
@@ -402,6 +468,24 @@ function checkRangeContainment(claims: FinancialClaim[]): Divergence[] {
 const REL_TOLERANCE = 0.01;   // 1% — client documents round
 const PP_TOLERANCE = 0.5;     // half a percentage point on margins
 
+// The P&L ladder as arithmetic. Each rung is stated once, here, so a level cannot be paired with the
+// wrong one by an edit somewhere else. `label` is how the subtrahend is named in the reviewer message.
+const SUBTRACTION_IDENTITIES = [
+  { minuend: 'revenue',      subtrahend: 'cogs',        result: 'gross_profit',     label: 'COGS' },
+  { minuend: 'gross_profit', subtrahend: 'opex',        result: 'operating_profit', label: 'operating expenses' },
+  { minuend: 'revenue',      subtrahend: 'total_costs', result: 'net_profit',       label: 'total costs' },
+] as const;
+
+// Every margin in the vocabulary, each over revenue. Gross and EBITDA margin were previously unpaired
+// (EBITDA margin was even folded into `net_margin`), so a source could mis-state either one silently.
+const RATIO_IDENTITIES = [
+  { numerator: 'gross_profit', ratio: 'gross_margin' },
+  { numerator: 'net_profit',   ratio: 'net_margin' },
+  { numerator: 'ebitda',       ratio: 'ebitda_margin' },
+] as const;
+
+const words = (metric: string) => metric.replace(/_/g, ' ');
+
 // A17b — derived-financial arithmetic inside ONE source and ONE period.
 function checkDerivedArithmetic(claims: FinancialClaim[]): Divergence[] {
   const out: Divergence[] = [];
@@ -413,31 +497,38 @@ function checkDerivedArithmetic(claims: FinancialClaim[]): Divergence[] {
   }
   for (const [scope, group] of byScope) {
     const pick = (metric: string) => group.find(c => c.metric === metric);
-    const revenue = pick('revenue'), costs = pick('total_costs');
-    const netProfit = pick('net_profit'), netMargin = pick('net_margin');
-
-    if (revenue && costs && netProfit) {
-      const expected = revenue.value! - costs.value!;
-      if (Math.abs(expected - netProfit.value!) > Math.abs(revenue.value!) * REL_TOLERANCE) {
+    // A level the source does not state yields NO check, and that silence is correct rather than a gap:
+    // net profit is not derivable from a gross input. Nothing here guesses a missing level.
+    for (const id of SUBTRACTION_IDENTITIES) {
+      const minuend = pick(id.minuend), subtrahend = pick(id.subtrahend), result = pick(id.result);
+      if (!minuend || !subtrahend || !result) continue;
+      const expected = minuend.value! - subtrahend.value!;
+      if (Math.abs(expected - result.value!) > Math.abs(minuend.value!) * REL_TOLERANCE) {
         out.push({
-          check: 'A17b', metric: 'net_profit',
-          formStated: `revenue ${fmt(revenue.value!, 'currency')} − costs ${fmt(costs.value!, 'currency')} = ${fmt(expected, 'currency')}`,
-          documentStated: `stated net profit ${fmt(netProfit.value!, 'currency')} (${scope})`,
-          detail: `the source contradicts its own arithmetic by ${fmt(Math.abs(expected - netProfit.value!), 'currency')}. ` +
-            `Lines: "${revenue.raw}" / "${costs.raw}" / "${netProfit.raw}".`,
+          check: 'A17b', metric: id.result,
+          formStated: `${words(id.minuend)} ${fmt(minuend.value!, 'currency')} − ${id.label} ` +
+            `${fmt(subtrahend.value!, 'currency')} = ${fmt(expected, 'currency')}`,
+          documentStated: `stated ${words(id.result)} ${fmt(result.value!, 'currency')} (${scope})`,
+          detail: `the source contradicts its own arithmetic by ${fmt(Math.abs(expected - result.value!), 'currency')}. ` +
+            `Lines: "${minuend.raw}" / "${subtrahend.raw}" / "${result.raw}".`,
           severity: 'blocker',
         });
       }
     }
-    if (revenue && netProfit && netMargin && revenue.value !== 0) {
-      const expected = (netProfit.value! / revenue.value!) * 100;
-      if (Math.abs(expected - netMargin.value!) > PP_TOLERANCE) {
+    const revenue = pick('revenue');
+    for (const id of RATIO_IDENTITIES) {
+      const numerator = pick(id.numerator), ratio = pick(id.ratio);
+      if (!revenue || !numerator || !ratio || revenue.value === 0) continue;
+      const expected = (numerator.value! / revenue.value!) * 100;
+      if (Math.abs(expected - ratio.value!) > PP_TOLERANCE) {
         out.push({
-          check: 'A17b', metric: 'net_margin',
-          formStated: `net profit ${fmt(netProfit.value!, 'currency')} ÷ revenue ${fmt(revenue.value!, 'currency')} = ${expected.toFixed(1)}%`,
-          documentStated: `stated margin ${fmt(netMargin.value!, 'percent')} (${scope})`,
-          detail: `the source mis-states its own profitability by ${Math.abs(expected - netMargin.value!).toFixed(1)} ` +
-            `percentage points. Lines: "${revenue.raw}" / "${netProfit.raw}" / "${netMargin.raw}".`,
+          check: 'A17b', metric: id.ratio,
+          formStated: `${words(id.numerator)} ${fmt(numerator.value!, 'currency')} ÷ revenue ` +
+            `${fmt(revenue.value!, 'currency')} = ${expected.toFixed(1)}%`,
+          documentStated: `stated ${words(id.ratio)} ${fmt(ratio.value!, 'percent')} (${scope})`,
+          detail: `the source mis-states its own ${words(id.ratio)} by ` +
+            `${Math.abs(expected - ratio.value!).toFixed(1)} percentage points. ` +
+            `Lines: "${revenue.raw}" / "${numerator.raw}" / "${ratio.raw}".`,
           severity: 'blocker',
         });
       }

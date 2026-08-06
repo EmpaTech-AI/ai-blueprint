@@ -401,7 +401,7 @@ describe('A14 — an Active?=yes row must really be scheduled/event + functionin
 
   it('BLOCKERs a manual export claimed as active — it inflates coverage and under-states PP-0', () => {
     const flags = validateDataInventory(activeButManual).reviewerFlags;
-    expect(flags.some(f => /A14 \(active-integration integrity\).*mechanism=manual/.test(f))).toBe(true);
+    expect(flags.some(f => /A14 \(N4 active-integration integrity\).*mechanism=manual/.test(f))).toBe(true);
   });
 
   it('BLOCKERs a broken feed claimed as active', () => {
