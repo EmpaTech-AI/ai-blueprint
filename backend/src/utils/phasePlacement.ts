@@ -188,8 +188,23 @@ const PHASE_OF_HEADING: Array<[RegExp, Phase]> = [
 
 // Where did the roadmap actually place each ID? Uses structural positions only, per N3 — a prose mention
 // is a discussion, not a placement.
-export function emittedPlacement(roadmap: string): Map<string, Phase> {
-  const out = new Map<string, Phase>();
+// ── S4-UNIQ (v37.10): every structural occurrence, not the first one per id ───────────────────────
+//
+// `emittedPlacement` returns a Map keyed by id, so an opportunity emitted in TWO phases collapsed to its
+// first occurrence and `validatePlacement` reported agreement. **That is why S4-DUP shipped undetected**
+// — not a v37.9 regression, but a property nothing had ever asked about, since the P-rules were written.
+// It is Class F in its purest form: the reader's data structure made the question unaskable.
+//
+// The fix is to collect occurrences first and derive the Map from them, so the two readings can never
+// drift again: whatever `emittedPlacement` sees is a projection of what S4-UNIQ sees.
+export interface EmittedOccurrence {
+  id: string;
+  phase: Phase;
+  line: string;
+}
+
+export function emittedOccurrences(roadmap: string): EmittedOccurrence[] {
+  const out: EmittedOccurrence[] = [];
   let current: Phase | null = null;
   for (const line of roadmap.split('\n')) {
     for (const [re, phase] of PHASE_OF_HEADING) if (re.test(line)) current = phase;
@@ -199,9 +214,43 @@ export function emittedPlacement(roadmap: string): Map<string, Phase> {
     const structural = /^\**\s*(?:element|id|opportunity)\s*\**\s*[:—-]/i.test(t)
       || t.startsWith('|') || /^#{1,6}[ \t]/.test(t);
     if (!structural) continue;
-    for (const id of t.match(/\bH-[A-Z]+-\d+\b/gi) ?? []) {
-      if (!out.has(id.toLowerCase())) out.set(id.toLowerCase(), current);
+    // Within ONE line an id repeated is a row referencing itself (a table's id column plus a
+    // cross-reference), not two placements — so a line contributes each id at most once.
+    for (const id of new Set((t.match(/\bH-[A-Z]+-\d+\b/gi) ?? []).map(s => s.toLowerCase()))) {
+      out.push({ id, phase: current, line: t.slice(0, 160) });
     }
+  }
+  return out;
+}
+
+export function emittedPlacement(roadmap: string): Map<string, Phase> {
+  const out = new Map<string, Phase>();
+  for (const o of emittedOccurrences(roadmap)) if (!out.has(o.id)) out.set(o.id, o.phase);
+  return out;
+}
+
+export interface DuplicateEmission {
+  id: string;
+  phases: Phase[];          // distinct phases, in emission order
+  occurrences: number;
+  lines: string[];
+}
+
+// An id appearing more than once across the phase sections. Two kinds, and they are different defects:
+//   • CROSS-PHASE — the roadmap places one opportunity in two phases. Self-contradicting by construction:
+//     whatever clause text each copy carries, at most one can be true. This is S4-DUP.
+//   • SAME-PHASE — a row emitted twice in one phase. Not a contradiction, but it inflates the phase count
+//     the P1 capacity rule is read against, so it cannot be ignored either.
+export function duplicateEmissions(roadmap: string): DuplicateEmission[] {
+  const byId = new Map<string, EmittedOccurrence[]>();
+  for (const o of emittedOccurrences(roadmap)) {
+    if (!byId.has(o.id)) byId.set(o.id, []);
+    byId.get(o.id)!.push(o);
+  }
+  const out: DuplicateEmission[] = [];
+  for (const [id, os] of byId) {
+    if (os.length < 2) continue;
+    out.push({ id, phases: [...new Set(os.map(o => o.phase))], occurrences: os.length, lines: os.map(o => o.line) });
   }
   return out;
 }
@@ -215,6 +264,26 @@ export function validatePlacement(roadmap: string, inputs: PlacementInput[]): Pl
   for (const d of derived) {
     const actual = emitted.get(d.id) ?? null;
     if (actual !== null && actual !== d.phase) divergences.push({ id: d.id, derived: d.phase, emitted: actual });
+  }
+
+  // ── S4-UNIQ runs FIRST and unconditionally ──
+  // Before the advisory early-return, because a duplicate render is a defect whatever the P-rules'
+  // status is: it does not depend on P1, P2, or on the derived map agreeing with anything. Placing it
+  // after the return would have made the guard's reach depend on a pin the Practice owns.
+  for (const dup of duplicateEmissions(roadmap)) {
+    const crossPhase = dup.phases.length > 1;
+    reviewerFlags.push(
+      crossPhase
+        ? `${'BLOCKER:'} GATE 4 S4-UNIQ (duplicate placement): ${dup.id.toUpperCase()} is rendered in ` +
+          `${dup.phases.length} phases — ${dup.phases.join(' and ')} — across ${dup.occurrences} ` +
+          `structural rows. One opportunity has one phase, so at most one copy's clause text can be true ` +
+          `and the deliverable contradicts itself wherever the reader looks second. Rows: ` +
+          `${dup.lines.map(l => `"${l}"`).join(' · ')}. Emit it once.`
+        : `${'BLOCKER:'} GATE 4 S4-UNIQ (duplicate row): ${dup.id.toUpperCase()} is rendered ` +
+          `${dup.occurrences} times in ${dup.phases[0]}. Not self-contradicting, but Phase 1's item count ` +
+          `is what the P1 capacity rule is read against, so a repeated row makes a compliant roadmap look ` +
+          `over-committed. Rows: ${dup.lines.map(l => `"${l}"`).join(' · ')}.`,
+    );
   }
 
   if (!P_RULES_ENFORCING) {

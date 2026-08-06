@@ -131,8 +131,20 @@ describe('item 2 — narration escapes the strip by position or by markup', () =
   });
 
   it('preserves the bullet lead when a narration sentence is removed from a list item', () => {
-    expect(stripStageNarration('- Margin held at 4.2%. Emitting Section 3 next.'))
+    expect(stripStageNarration('- Margin held at 4.2%. Emitting Chunk 3 next.'))
       .toBe('- Margin held at 4.2%.');
+  });
+
+  it('v37.10 NARROWING: a tail-position SHARED unit is deliberately out of reach', () => {
+    // This assertion is the inverse of what v37.9 shipped, and the inversion is the point. "Emitting
+    // Section 3 next" at the tail IS narration — but the rule that reaches it also destroys "Deliver
+    // Step 1 by March" and "complete Stage 2 of the migration", which is what it did on Meridian's S4.
+    // Section/Stage/Step are ordinary client roadmap English, so they are matched `^`-anchored only.
+    // Pinned as a stated limit rather than left as a silently dropped assertion.
+    const tail = '- Margin held at 4.2%. Emitting Section 3 next.';
+    expect(stripStageNarration(tail)).toBe(tail);
+    // The head-position form of the same words is still removed.
+    expect(stripStageNarration('Emitting Section 3 next.').trim()).toBe('');
   });
 
   it('does NOT strip a machine-channel name used as a real sentence subject', () => {

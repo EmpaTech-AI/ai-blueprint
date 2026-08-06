@@ -28,7 +28,7 @@ import { CorrectionRecord, makeRecord } from './correctionLog';
 // A14 rejected `mechanism=scheduled (celigo connector)` — the mechanism IS scheduled; the parenthetical
 // names the tool. Rating, data grade and PP-0 severity carried the identical bug and were fixed in the
 // same sweep (`Degraded (siloed, 2/5)`, `Early (capped)`, `Critical systemic` without parentheses).
-import { normaliseEnumCell, enumMatches, enumEquals, isYes, namesResolve } from './enumNormalise';
+import { normaliseEnumCell, enumMatches, enumEquals, isYes, namesResolve, resolveName } from './enumNormalise';
 export { normaliseEnumCell, enumMatches, isYes };
 
 // ─── Parsed shapes ───────────────────────────────────────────────────────────────
@@ -276,13 +276,83 @@ export interface ActivePredicates {
   cited: boolean;          // P-d — Document-Backed or Form-Stated, not inferred
 }
 
+// ── P-b's annotation read (v37.10) ────────────────────────────────────────────────────────────────
+//
+// `enumMatches` takes the LEADING TOKEN, which is right for an annotated enum — `scheduled (celigo
+// connector)` is scheduled — but it means the annotation is never read at all. LunaCart T1 emitted a
+// mechanism cell whose annotation contradicted its own leading token, and the leading-token rule declared
+// P-b satisfied on the strength of the word the author had already qualified away.
+//
+// Both directions are a self-contradiction, and neither is evidence that data moves without human action:
+//   `scheduled (manual CSV drop)`     → reads as automatic, describes a person
+//   `manual (nightly scheduled feed)` → reads as manual, describes a schedule
+//
+// The two term lists are deliberately narrow. Terms that describe the FORMAT rather than the actor are
+// excluded — a `scheduled (nightly CSV export)` feed is automatic, and admitting `csv`/`export` as
+// evidence of human action would false-fire on the most ordinary automatic integration there is. Only
+// words that can only mean a person, or can only mean a machine, are counted.
+const MECHANISM_AUTOMATIC_TERM = /\b(?:scheduled|automatic|automated|event[- ]driven|webhook|real[- ]?time|streaming)\b/i;
+const MECHANISM_MANUAL_TERM = /\b(?:manual(?:ly)?|by hand|re-?keyed?|copy[- ]paste|ad[- ]?hoc|human)\b/i;
+
+// The annotation is everything after the leading token — a parenthetical, a dash gloss, or trailing words.
+export function mechanismAnnotation(mechanism: string): string {
+  const leading = normaliseEnumCell(mechanism);
+  if (!leading) return '';
+  const i = mechanism.toLowerCase().indexOf(leading);
+  return i < 0 ? '' : mechanism.slice(i + leading.length);
+}
+
+// Returns a description when the cell disagrees with itself, else null.
+export function mechanismSelfContradiction(mechanism: string): string | null {
+  const leading = normaliseEnumCell(mechanism);
+  const annotation = mechanismAnnotation(mechanism);
+  if (!leading || !annotation.trim()) return null;
+  const leadingAuto = MECHANISM_AUTOMATIC_TERM.test(leading);
+  const leadingManual = MECHANISM_MANUAL_TERM.test(leading) || /^(?:none|unbuilt)$/.test(leading);
+  if (leadingAuto && MECHANISM_MANUAL_TERM.test(annotation)) {
+    return `the cell reads "${leading}" but its own annotation describes human action ` +
+      `("${annotation.trim()}"), so the qualifier contradicts the value it qualifies`;
+  }
+  if (leadingManual && MECHANISM_AUTOMATIC_TERM.test(annotation)) {
+    return `the cell reads "${leading}" but its own annotation describes an automatic mechanism ` +
+      `("${annotation.trim()}"), so the qualifier contradicts the value it qualifies`;
+  }
+  return null;
+}
+
+// v37.10 (instance 23): P-a resolves through the shared name layer instead of `Set.has`. The endpoint
+// cells and the Core Systems rows are written by the same author but not necessarily with the same
+// product-tier suffix — `shopify` vs `shopify plus`, `netsuite` vs `netsuite erp` — and exact membership
+// answered "not inventoried" for integrations that plainly were. That under-stated coverage, which
+// under-states PP-0 severity, which is the silent direction.
+//
+// The normaliser this routes to already existed: it was built for A15 in v37.5a and P-a simply did not use
+// it. The lesson I take is not "add a layer" but "a new predicate must be built on the comparison layer
+// the codebase already has" — writing `Set.has` was the whole defect.
 export function activePredicates(i: IntegrationRow, inventoriedSystems: Set<string>): ActivePredicates {
   return {
-    inventoried: inventoriedSystems.has(i.a) && inventoriedSystems.has(i.b),
-    automatic: enumMatches(i.mechanism, ['scheduled', 'event']).ok,
+    inventoried: namesResolve(i.a, inventoriedSystems).ok && namesResolve(i.b, inventoriedSystems).ok,
+    // A cell that disagrees with itself is not evidence of anything, so a self-contradiction fails P-b
+    // rather than resolving to whichever half the reader happens to parse.
+    automatic: enumMatches(i.mechanism, ['scheduled', 'event']).ok && mechanismSelfContradiction(i.mechanism) === null,
     functioning: enumMatches(i.status, ['functioning']).ok,
     cited: GROUNDED_CONFIDENCE.test(i.confidence),
   };
+}
+
+// Why P-a failed, in the words the reviewer needs: a missing row and a naming collision are different
+// corrections. Empty when P-a holds.
+export function inventoriedDetail(i: IntegrationRow, inventoriedSystems: Set<string>): string[] {
+  const out: string[] = [];
+  for (const [side, cell] of [['A', i.a], ['B', i.b]] as const) {
+    const r = namesResolve(cell, inventoriedSystems);
+    for (const m of r.missing) out.push(`system ${side} "${m}" is not a row in the Core Systems table`);
+    for (const a of r.ambiguous) {
+      out.push(`system ${side} "${a.name}" is ambiguous — it could be ${a.candidates.join(' or ')}; ` +
+        `name it as written in the Core Systems table`);
+    }
+  }
+  return out;
 }
 
 export const derivedActive = (p: ActivePredicates): boolean =>
@@ -302,8 +372,14 @@ export function computeInventory(inv: DataInventory): ComputedInventory {
   const seen = new Set<string>();
   for (const i of inv.integrations) {
     if (!derivedActive(activePredicates(i, inventoriedSystems))) continue;
-    if (!coreIds.has(i.a) || !coreIds.has(i.b)) continue;
-    seen.add([i.a, i.b].sort().join('|'));
+    // v37.10: the core-membership filter resolves through the same name layer as P-a. The first cut of
+    // the instance-23 fix routed P-a and left this line on `Set.has`, so a `shopify`/`shopify plus`
+    // mismatch still produced coverage 0 — the pair derived ACTIVE and was then dropped one line later.
+    // Fixing one of two comparisons on the same pair of cells is not fixing the boundary.
+    const a = resolveName(i.a, coreIds).resolved, b = resolveName(i.b, coreIds).resolved;
+    if (!a || !b) continue;
+    // Deduplicate on the RESOLVED names, so `shopify↔postgres` and `shopify plus↔postgres` are one pair.
+    seen.add([a, b].sort().join('|'));
   }
   const activeIntegrations = seen.size;
   return {
@@ -451,8 +527,11 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
     const mech = enumMatches(i.mechanism, ['scheduled', 'event']);
     const stat = enumMatches(i.status, ['functioning']);
     const why = [
-      !p.inventoried ? `P-a: one or both endpoints are not rows in the Core Systems table` : null,
-      !p.automatic ? `P-b: mechanism=${i.mechanism || 'absent'} → normalised "${mech.normalised || 'empty'}" (must be scheduled or event)` : null,
+      !p.inventoried ? `P-a: ${inventoriedDetail(i, inventoriedSystems).join('; ')}` : null,
+      !p.automatic
+        ? (mechanismSelfContradiction(i.mechanism)
+            ?? `P-b: mechanism=${i.mechanism || 'absent'} → normalised "${mech.normalised || 'empty'}" (must be scheduled or event)`)
+        : null,
       !p.functioning ? `P-c: status=${i.status || 'absent'} → normalised "${stat.normalised || 'empty'}" (must be functioning)` : null,
       !p.cited ? `P-d: confidence=${i.confidence || 'absent'} (must be Document-Backed or Form-Stated)` : null,
     ].filter(Boolean);
@@ -517,16 +596,88 @@ export function validateDataInventory(dossier: string): InventoryGuardResult {
   const declared = inv.coreSystems.map(s => s.system);
   for (const r of inv.recordClasses) {
     const resolution = namesResolve(r.systemOfRecord, declared);
-    if (!resolution.ok) {
+    if (resolution.ok) continue;
+    // v37.10: the two failure kinds are reported separately because they are different corrections —
+    // a missing row is a gap in the inventory, a collision is a naming choice the author has to make.
+    if (resolution.missing.length > 0) {
       reviewerFlags.push(
         `${BLOCKER_PREFIX} GATE 1 A15 (cross-table integrity): record class ${r.recordClass} names ` +
         `system of record "${r.systemOfRecord}", of which ${resolution.missing.map(m => `"${m}"`).join(', ')} ` +
         `${resolution.missing.length === 1 ? 'is' : 'are'} absent from the Core Systems table. Every system ` +
         `of record must appear there (Core?=yes or no) or the two tables describe different stacks. ` +
-        `Compound cells ("a + b", "a / b") and annotations ("(migrating)") are tolerated — this names the ` +
-        `system that genuinely has no row.`,
+        `Compound cells ("a + b", "a / b"), annotations ("(migrating)") and product-tier short forms ` +
+        `("netsuite" for "netsuite erp") are tolerated — this names the system that genuinely has no row.`,
       );
     }
+    for (const a of resolution.ambiguous) {
+      reviewerFlags.push(
+        `${BLOCKER_PREFIX} GATE 1 A15 (name collision): record class ${r.recordClass} names system of ` +
+        `record "${a.name}", which could resolve to ${a.candidates.map(c => `"${c}"`).join(' or ')}. A short ` +
+        `form is resolved only when it can mean ONE declared system; with two candidates the guard will ` +
+        `not guess, because guessing here silently attributes a record class to the wrong system. Write ` +
+        `the name as it appears in the Core Systems table.`,
+      );
+    }
+  }
+
+  // ── A20 (v37.10): inventory COMPLETENESS — Class F #6 ──
+  // Every A11–A15 assertion checks that what the tables say is consistent. None of them asked whether the
+  // tables say ENOUGH, and the Data grade is computed over whatever rows happen to be present — so an
+  // omitted record class does not make the grade wrong, it makes it unfounded, which is worse because
+  // nothing looks amiss. Two questions, both previously unasked:
+  checked.push('A20');
+  const declaredSystems = inv.coreSystems.map(s => s.system);
+  const classRows = inv.recordClasses.map(r => r.recordClass);
+
+  // A20a — every record class the Core Systems table CLAIMS a system holds has a Record Classes row.
+  //
+  // **LOUD, NOT BLOCKING, and the severity is the finding.** The intake contract requires only that every
+  // `Core?=yes` system name ≥1 record class (A15); it does NOT require the Record Classes table to
+  // enumerate every class named. So the grade being computed over a SUBSET is permitted by the spec — and
+  // the LunaCart golden exercises it: shopify declares `orders, products` with a row for `orders` only,
+  // and postgres declares `analytics` with no row at all.
+  //
+  // A BLOCKER here would be me legislating a rule the contract does not carry, on the golden case, which
+  // is the F13 error exactly. So this reports what cannot be known and escalates the spec question rather
+  // than deciding it: an omitted class does not make the Data grade wrong, it makes it ungrounded for that
+  // class, and a reader cannot tell the difference from the artifact. If the Practice rules the table must
+  // be exhaustive, this becomes a BLOCKER and the golden fixture gains two rows — a one-line change here.
+  // ONE flag per inventory, carrying a coverage FRACTION. The first cut emitted one advisory per unrated
+  // class and produced 2–4 lines on every fixture in the codebase — which is itself the finding: the
+  // subset is the NORM, not an anomaly, because column 2 of Core Systems lists what a system holds while
+  // the Record Classes table lists what was analysed. Per-class flags at that volume would train the
+  // reviewer to skip the whole check, which is the GATE-4 failure mode this guard layer exists to avoid.
+  // A fraction says the same thing in one line and is the part a reviewer can act on.
+  const declaredClasses = inv.coreSystems.flatMap(s => s.recordClasses.map(rc => ({ rc, system: s.system })));
+  const unrated = declaredClasses.filter(d => !namesResolve(d.rc, classRows).ok);
+  if (unrated.length > 0) {
+    reviewerFlags.push(
+      `⚠ GATE 1 A20a (Data-grade coverage — SPEC QUESTION, not a defect): the Data grade is computed over ` +
+      `${declaredClasses.length - unrated.length} of the ${declaredClasses.length} record classes the Core ` +
+      `Systems table declares. UNRATED: ${unrated.map(u => `"${u.rc}" (${u.system})`).join(', ')}. Those ` +
+      `classes are unrated, NOT Reliable — D4 Step 4 aggregates over the rows that exist, so the grade is ` +
+      `correct for what it covers and silent about what it does not, and nothing on the face of the ` +
+      `artifact distinguishes the two. The contract permits the subset (A15 requires only ≥1 class per ` +
+      `system), so this is reported rather than blocked. Ruling needed: must the Record Classes table be ` +
+      `exhaustive over declared classes? If yes this becomes a BLOCKER and the goldens gain rows.`,
+    );
+  }
+
+  // A20b — every integration endpoint has a Core Systems row, whatever the row's Active? value.
+  // P-a already refuses to count an un-inventoried pair as active, but where the author ALSO wrote no,
+  // the two agree and the missing system is never named. Agreement is not the same as completeness.
+  const unknownEndpoints = new Set<string>();
+  for (const i of inv.integrations) {
+    for (const cell of [i.a, i.b]) for (const m of namesResolve(cell, declaredSystems).missing) unknownEndpoints.add(m);
+  }
+  if (unknownEndpoints.size > 0) {
+    reviewerFlags.push(
+      `${BLOCKER_PREFIX} GATE 1 A20b (inventory completeness): the Integrations table references ` +
+      `${[...unknownEndpoints].map(s => `"${s}"`).join(', ')}, which ${unknownEndpoints.size === 1 ? 'has' : 'have'} ` +
+      `no Core Systems row. An inactive row referencing an unknown system reads as a checked negative when ` +
+      `it is an unchecked one — n_core is computed from the Core Systems table alone, so an absent system ` +
+      `changes the coverage DENOMINATOR without appearing anywhere a reviewer looks.`,
+    );
   }
 
   return { reviewerFlags, records, checked, unavailableReason: null };

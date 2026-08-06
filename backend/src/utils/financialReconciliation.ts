@@ -208,6 +208,43 @@ export function stripPeriodTokens(line: string): string {
 // figure then yields no claim at all, which is the correct outcome for a section title.
 const ENUMERATOR_PREFIX = /^([ \t]*(?:[-*•]\s*)?#{0,4}[ \t]*)(\d{1,2}[.)])(\s+)/;
 
+// ── Instances 22 / 22b (v37.10): the level ladder needed SELECTION rules, not only level rules ────
+//
+// v37.9 split the P&L into levels but left two questions unasked, and each new comparator failed at
+// exactly one boundary — the shape Law 1 predicts for a comparator shipped without enumerating its
+// boundary classes:
+//
+//   22   COMPONENT PREFIX. `*Other* Operating Expenses` satisfied the `opex` label and was taken as THE
+//        opex figure. It is one line item inside opex, so `gross profit − other-opex` is not operating
+//        profit and the identity fired on a consistent pack. Same error as COGS-as-total, one level down.
+//   22b  SEGMENT QUALIFIER. A segment's margin was picked over an entity-level line that AGREED with the
+//        arithmetic — `pick()` took the first claim for the metric, and the segment line happened to come
+//        first. The document was right; the selection was wrong.
+//
+// Two different rules because they act at different times. A component figure is never the level's total,
+// so it is refused at EXTRACTION. A segment figure is a legitimate claim that must simply never outrank
+// the entity-level one, so it is de-prioritised at SELECTION and still appears in the A17c table.
+const COMPONENT_QUALIFIER = /\b(?:other|sundry|misc(?:ellaneous)?|various|remaining|residual)\b/i;
+const SEGMENT_QUALIFIER = /\b(?:segment|division|region|business unit|product line|channel|subsidiary|branch|vertical|service line|by (?:segment|region|channel|product))\b/i;
+
+// The label REGION of a line — the text a row label may occupy. Factored out of `labelsThisRow` so the
+// qualifier rules read exactly the same span the metric label was matched in; testing a qualifier against
+// the whole line would let a mention in a later cell disqualify a correct row.
+export function rowLabelText(line: string): string {
+  const cells = line.includes('|') ? line.split('|') : line.includes('\t') ? line.split('\t') : null;
+  if (cells) return cells.map(c => c.trim()).find(c => c.length > 0) ?? '';
+  const masked = line.replace(/\b(?:FY\s?)?20\d{2}\b/gi, m => ' '.repeat(m.length));
+  const figure = /[€$£]?\s*\d/.exec(masked);
+  if (!figure) return line;
+  return line.slice(0, figure.index) + line.slice(figure.index, figure.index + 24);
+}
+
+// Does this row label a COMPONENT of its metric rather than the metric itself?
+export const labelsAComponent = (line: string): boolean => COMPONENT_QUALIFIER.test(rowLabelText(line));
+
+// Does this row scope its metric to a segment rather than the whole entity?
+export const labelsASegment = (line: string): boolean => SEGMENT_QUALIFIER.test(rowLabelText(line));
+
 // Is `label` the ROW LABEL of this line, rather than a mention somewhere in it? (Register item 16.)
 // Tab-separated cells come from the position-aware renderer; pipe-separated from markdown tables.
 export function labelsThisRow(line: string, label: RegExp): boolean {
@@ -352,6 +389,10 @@ export function extractClaims(text: string, source: string, isForm: boolean): Fi
       // satisfies both labels. The narrower one wins, so a component figure is never also admitted as a
       // total — which would re-create the identity error the split exists to remove.
       if (spec.metric === 'total_costs' && COMPONENT_COST_LABELS.some(l => labelsThisRow(line, l))) continue;
+      // Instance 22: a component-qualified row is a line item inside the level, never the level's own
+      // figure. Refused outright rather than admitted and de-prioritised, because there is no arithmetic
+      // this figure can correctly participate in — the same reason EBITDA carries no subtraction identity.
+      if (labelsAComponent(line)) continue;
       const range = spec.unit === 'percent' ? null : parseRange(line);
       const q = range ? null : parseQuantity(line, spec.unit);
       // Quantity-kind check: reject a number written in a form this metric cannot take.
@@ -496,7 +537,20 @@ function checkDerivedArithmetic(claims: FinancialClaim[]): Divergence[] {
     byScope.get(key)!.push(c);
   }
   for (const [scope, group] of byScope) {
-    const pick = (metric: string) => group.find(c => c.metric === metric);
+    // Instance 22b: selection, not first-match. Within one scope a metric may be claimed by an
+    // entity-level row and by one or more segment rows; only the entity-level figure belongs in an
+    // entity-level identity. Ordering was doing the choosing, which meant the arithmetic depended on the
+    // order the client happened to lay out their table in.
+    const pick = (metric: string) => {
+      const all = group.filter(c => c.metric === metric);
+      if (all.length < 2) return all[0];
+      const entityLevel = all.filter(c => !labelsASegment(c.raw));
+      const pool = entityLevel.length > 0 ? entityLevel : all;
+      // Among equally-scoped candidates, the least-qualified label is the entity's own line. This is the
+      // residual heuristic for a segment named WITHOUT a qualifier word ("Retail gross margin"), which no
+      // closed vocabulary can catch — see the release note's limitations.
+      return [...pool].sort((a, b) => rowLabelText(a.raw).length - rowLabelText(b.raw).length)[0];
+    };
     // A level the source does not state yields NO check, and that silence is correct rather than a gap:
     // net profit is not derivable from a gross input. Nothing here guesses a missing level.
     for (const id of SUBTRACTION_IDENTITIES) {

@@ -137,12 +137,32 @@ export function stripCheckpointScaffold(text: string): string {
 // the text (no trailing newline — which is what any earlier strip's `.trim()` leaves behind) was not
 // removed. `(?:\n|$)` closes that. The bullet forms deliberately still require the newline: they match
 // any `•`/`*` line, and letting them run to EOF would widen an already-broad pattern.
+// ── v37.10: the `m` flag was the defect, and it is the worst one in this file ──────────────────────
+//
+// Both patterns carried `/m`, which makes `^` match the start of ANY LINE. A function named
+// "preamble" was therefore free to fire in the middle of the document — and the bullet alternative
+// `\*[^\n]*\n` matches **any line beginning with `*`**, which in a markdown deliverable means:
+//
+//     **H-RT-07 — Compliance register automation**     a bold opportunity heading
+//     *Why now:* the ISO audit lands in July.          the A18 anchor line
+//     * Returns are reconciled by hand each Friday.    an ordinary findings bullet
+//
+// Any run of two or more such lines was deleted from wherever it appeared. **This is a second, older
+// cause of the reported "malformed Now block / missing `Why now:` line"** — independent of the v37.9
+// narration strip, present since before v37.4, and it deletes the anchor A18 then flags as absent.
+//
+// The comment above already claimed the bullet block is stripped "if it appears before any `# ` heading".
+// It did not check that. Anchoring to the START OF TEXT makes the claim true by construction rather than
+// by assertion, which is the shape this codebase keeps having to relearn: a bounded strip must be bounded
+// by its anchor, not by the author's intention.
+//
+// Leading whitespace is tolerated because earlier strips in the pipe `.trim()` and may leave a newline.
 export function stripOperatorPreamble(text: string): string {
-  // Strip leading "I have/I've" acknowledgement lines
-  let result = text.replace(/^(?:I (?:have|'ve)[^\n]*(?:\n|$))+\n*/m, '').trimStart();
-  // Strip pre-flight status block if it appears before any `# ` heading
-  // Pattern: bullet-list status lines ending with "Proceeding to Chunk N."
-  result = result.replace(/^(?:•[^\n]*\n|\*[^\n]*\n|[Nn]o missing[^\n]*(?:\n|$)|[Pp]roceeding to[^\n]*(?:\n|$))+\n*/m, '').trimStart();
+  // "I have/I've" acknowledgement lines — at the top of the document only.
+  let result = text.replace(/^\s*(?:I (?:have|'ve)[^\n]*(?:\n|$))+\n*/, '').trimStart();
+  // The pre-flight status block — bullet-list status lines, "No missing…", "Proceeding to Chunk N."
+  // Still deliberately broad in WHAT it matches, now strictly bounded in WHERE.
+  result = result.replace(/^\s*(?:•[^\n]*\n|\*[^\n]*\n|[Nn]o missing[^\n]*(?:\n|$)|[Pp]roceeding to[^\n]*(?:\n|$))+\n*/, '').trimStart();
   return result;
 }
 
@@ -355,16 +375,24 @@ export function stripSelfAudit(text: string): string {
 const MK = String.raw`(?:[*_\u0060]{1,3}[ \t]*)?`;   // an emphasis run: ** __ *** or a code span (u0060 = backtick)
 const LEAD = String.raw`^[ \t]*(?:[-*•+][ \t]+)?#{0,4}[ \t]*${MK}`;   // indent · bullet · heading · emphasis
 
+// The two unit vocabularies, split in v37.10 because the split IS the safety argument (see the
+// phrase-anywhere note below). PIPELINE_ONLY units exist nowhere but this pipeline's own narration and
+// may therefore be matched at any position; SHARED units are ordinary client English and may only be
+// matched `^`-anchored, as part of a whole-line form.
+const PIPELINE_ONLY_UNIT = String.raw`(?:Chunk|Checkpoint)`;
+const SHARED_UNIT = String.raw`(?:Section|Stage|Step)`;
+const ANY_UNIT = String.raw`(?:${PIPELINE_ONLY_UNIT}|${SHARED_UNIT})`;
+
 const STAGE_NARRATION_LINE = [
   // Document receipts and input acknowledgements.
   new RegExp(`${LEAD}(?:I|We)(?:'ve| have)?\\s+(?:received|reviewed|processed|parsed|analysed|analyzed|completed|read)\\b`, 'i'),
   new RegExp(`${LEAD}(?:Inputs?|Documents?|Materials?|Files?)\\s+(?:received|provided|processed|parsed)\\b`, 'i'),
   new RegExp(`${LEAD}(?:All|Both)\\s+\\d*\\s*(?:documents?|inputs?|files?)\\s+(?:were\\s+)?(?:received|parsed|processed)\\b`, 'i'),
   // Checkpoint / chunk narration.
-  new RegExp(`${LEAD}(?:Checkpoint|Chunk)\\s+${MK}\\d`, 'i'),
+  new RegExp(`${LEAD}${PIPELINE_ONLY_UNIT}\\s+${MK}\\d`, 'i'),
   new RegExp(`${LEAD}(?:Proceeding|Continuing|Moving on)\\s+(?:to|with)\\b`, 'i'),
-  new RegExp(`${LEAD}(?:Producing|Emitting|Generating|Completing|Completed)\\s+${MK}(?:Section|Chunk|Stage|Step)\\b`, 'i'),
-  new RegExp(`${LEAD}(?:Section|Stage|Step)\\s+${MK}\\w+\\s+(?:complete|emitted|produced|done)\\b`, 'i'),
+  new RegExp(`${LEAD}(?:Producing|Emitting|Generating|Completing|Completed)\\s+${MK}${ANY_UNIT}\\b`, 'i'),
+  new RegExp(`${LEAD}${SHARED_UNIT}\\s+${MK}\\w+\\s+(?:complete|emitted|produced|done)\\b`, 'i'),
   // A SHORT line whose whole content is a reference to a machine channel and its emission state
   // ("The DATA_INVENTORY block is emitted above."). Bounded to five trailing words: that is enough for
   // every narration form observed, and short enough that a real sentence using the block as a subject
@@ -376,18 +404,80 @@ const STAGE_NARRATION_LINE = [
 ] as const;
 
 // ── The phrase-anywhere class (instance 21, tail variant) ─────────────────────────────────────────
-// These forms carry their own discriminator. No client-facing section ever contains "produce Chunk 1"
-// or "emit Checkpoint 2" — a production VERB applied to a numbered PIPELINE UNIT is machine narration
-// wherever it appears in the line, so requiring it at position 0 was an accident of how the first
-// examples happened to be written, not a property of the form.
+// A production VERB applied to a numbered pipeline unit is machine narration wherever it appears in the
+// line, so requiring it at position 0 was an accident of how the first examples were written.
 //
-// The vocabulary stays closed (S-37 principle). What changes is that position is no longer part of it.
+// ── v37.10: the noun set is the whole safety argument, and v37.9's was too wide ────────────────────
+// The v37.9 justification read "no client-facing section ever contains 'produce Chunk 1' or 'emit
+// Checkpoint 2'" — which is true, and then the rule was applied to `Section|Stage|Step` as well, for
+// which it is false. Those three are SHARED vocabulary: a roadmap is precisely the document where a
+// client's own work is described in stages and steps. Six of eight ordinary roadmap sentences were
+// destroyed, including the one that matters most:
+//
+//     "*Why now:* Complete Step 1 before the July compliance date."   → the whole line removed
+//     "The team should complete Stage 2 of the migration…"            → removed
+//     "Work begins Step 3 in Q2 once the warehouse feed is live."     → removed
+//
+// **This, not the item-5 restructure, is the v37.9 S4 regression** — see the release note.
+//
+// The rule the noun set has to satisfy is not "closed" but **DISJOINT FROM CLIENT CONTENT**. Closed was
+// always necessary and never sufficient: a finite list of ordinary English words is still ordinary
+// English. So position-free matching is now restricted to the units that exist only inside this
+// pipeline, and `Section|Stage|Step` keep their `^`-anchored whole-line patterns above — where they
+// caused no harm for the eight batches before v37.9 widened them.
 const NARRATION_VERB = String.raw`(?:produc(?:e|es|ed|ing)|emit(?:s|ted|ting)?|generat(?:e|es|ed|ing)|output(?:s|ting)?|deliver(?:s|ed|ing)?|complet(?:e|es|ed|ing)|begin(?:s|ning)?|start(?:s|ed|ing)?)`;
-const PIPELINE_UNIT = String.raw`(?:Chunk|Checkpoint|Section|Stage|Step)`;
+
+// ── CLIENT_PROSE: the assertion that was missing, not the pattern that was missing ─────────────────
+// v37.9's negative tests were the cases I happened to think of. That is the same failure the Practice
+// named as Class F one layer up: the pattern was tested, the PROPERTY was not. The property is
+// "`stripForDelivery` is the identity on ordinary client prose", and it needs a corpus rather than
+// anecdotes — so every strip is now asserted against this list, and any new strip pattern must leave all
+// of it untouched. Every entry is a sentence a real deliverable can contain; the roadmap ones are drawn
+// from the exact shapes v37.9 destroyed.
+export const CLIENT_PROSE: readonly string[] = [
+  // Roadmap prose using the SHARED unit vocabulary — the v37.9 regression class.
+  '*Why now:* Complete Step 1 before the July compliance date.',
+  'The team should complete Stage 2 of the migration before onboarding new clients.',
+  'Deliver Step 1 by March so the pilot can begin.',
+  'Work begins Step 3 in Q2 once the warehouse feed is live.',
+  'This starts Stage 1 of a three-stage consolidation.',
+  'Sequencing: finish Section 4 of the audit, then automate.',
+  '*Sequenced after:* Step 2 (the data-quality remediation).',
+  'Their SOP requires Step 2 now that the ISO audit is scheduled.',
+  'Section 3 of their contract governs the data-retention window.',
+  // Machine-channel names as sentence subjects — the declared out-of-reach case.
+  'The DATA_INVENTORY shows four active integrations across the client stack.',
+  // Ordinary findings prose that brushes the receipt and status vocabularies.
+  'Their finance team received 240 supplier invoices per month, all processed by hand.',
+  'All three warehouses were parsed into a single stock view during the 2024 rollout.',
+  'The operator dashboard is complete; the reviewer queue is not.',
+  'Revenue is €6.4M and gross margin held at 39.1%.',
+];
+
+// ── CLIENT_SECTIONS: the corpus a LINE corpus cannot cover ────────────────────────────────────────
+// `CLIENT_PROSE` catches vocabulary defects. It cannot catch POSITIONAL ones — `stripOperatorPreamble`
+// deleted a bold heading only when a second `*`-leading line followed it, so every line survived on its
+// own and the pair did not. Multi-line blocks are therefore their own corpus, and `stripForDelivery` must
+// be the identity on all of them.
+export const CLIENT_SECTIONS: readonly string[] = [
+  // A roadmap card: bold heading immediately followed by the A18 anchor. The shape that broke.
+  ['## Phase 1 — Now', '', '**H-RT-07 — Compliance register automation**',
+    '*Why now:* the ISO audit lands in July.', '', 'Return rate falls from 34.2% to under 28%.'].join('\n'),
+  // Two anchors in a row, which is what the Phase-2 opener set produces.
+  ['## Phase 2 — Next', '', '**H-RT-03 — Client-portal reporting**',
+    '*Sequenced after:* the data-quality remediation.', '*Why next:* it depends on Phase 1.'].join('\n'),
+  // An ordinary findings bullet list.
+  ['# AI Value Blueprint', '', '## Findings', '', '* Returns are reconciled by hand each Friday.',
+    '* Stock counts drift by 4% between systems.', '', 'Revenue is €6.4M.'].join('\n'),
+  // Roadmap prose using the shared unit vocabulary, in a section rather than alone.
+  ['## Phase 1 — Now', '', '*Why now:* Complete Step 1 before the July compliance date.', '',
+    'The team should complete Stage 2 of the migration before onboarding new clients, and Section 3 of',
+    'their contract governs the data-retention window.'].join('\n'),
+];
 
 const NARRATION_PHRASE = [
-  new RegExp(`\\b${NARRATION_VERB}\\s+${MK}(?:the\\s+)?${MK}${PIPELINE_UNIT}\\s*${MK}\\d`, 'i'),
-  new RegExp(`\\b${PIPELINE_UNIT}\\s*${MK}\\d+${MK}\\s+(?:only|now|next)\\b`, 'i'),
+  new RegExp(`\\b${NARRATION_VERB}\\s+${MK}(?:the\\s+)?${MK}${PIPELINE_ONLY_UNIT}\\s*${MK}\\d`, 'i'),
+  new RegExp(`\\b${PIPELINE_ONLY_UNIT}\\s*${MK}\\d+${MK}\\s+(?:only|now|next)\\b`, 'i'),
 ] as const;
 
 // A phrase that may sit anywhere cannot be removed by deleting the line — a line like

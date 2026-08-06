@@ -22,6 +22,21 @@ import { BLOCKER_PREFIX } from '../types/pipeline';
 import fs from 'fs';
 import path from 'path';
 
+// v37.10: A20a reports an inventory whose Record Classes table is a SUBSET of the classes the Core
+// Systems table declares. The contract permits that, so it is a ⚠ rather than a BLOCKER — which means
+// `toEqual([])` was conflating "no defects" with "nothing to say". These pins assert BOTH halves
+// separately: zero BLOCKERs, and the advisory set is exactly the expected one. Tighter than before,
+// not looser — an unexpected advisory still fails.
+const blockers = (flags: string[]) => flags.filter(f => f.startsWith('BLOCKER:'));
+const advisories = (flags: string[]) => flags.filter(f => !f.startsWith('BLOCKER:'));
+const unratedClassAdvisories = (flags: string[]) => advisories(flags).filter(f => /A20a/.test(f));
+function expectCleanInventory(flags: string[], expectA20a = 0) {
+  expect(blockers(flags)).toEqual([]);
+  expect(unratedClassAdvisories(flags)).toHaveLength(expectA20a);
+  expect(advisories(flags)).toHaveLength(expectA20a);
+}
+
+
 // ── Fixture builder ─────────────────────────────────────────────────────────────
 const block = (opts: {
   core: Array<[string, string, string, string]>;              // system, classes, core?, because
@@ -232,8 +247,8 @@ describe('PINNED — Meridian must not change', () => {
     expect(computed).toMatchObject({ nCore: 5, activeIntegrations: 0, integrationCoverage: 0, dataGrade: 'Early' });
     expect(pp0SeverityFromCoverage(computed.integrationCoverage, false)).toBe('Critical');
     const { reviewerFlags, checked } = validateDataInventory(MERIDIAN);
-    expect(reviewerFlags).toEqual([]);
-    expect(checked).toEqual(['A11', 'A12', 'A13', 'A14', 'A15']);
+    expectCleanInventory(reviewerFlags, 1);   // vincere `placements`, m365/linkedin classes with no row
+    expect(checked).toEqual(['A11', 'A12', 'A13', 'A14', 'A15', 'A20']);
   });
 });
 
@@ -246,7 +261,7 @@ describe('PINNED — LunaCart: the combination no run produced', () => {
     expect(computed.loadBearingDegradedOrAbsent).toBe(2);
     expect(computed.dataGrade).toBe('Early');
     expect(pp0SeverityFromCoverage(computed.integrationCoverage, false)).toBe('High');
-    expect(validateDataInventory(LUNACART).reviewerFlags).toEqual([]);
+    expectCleanInventory(validateDataInventory(LUNACART).reviewerFlags, 1);
   });
 
   it('A12 BLOCKERs the T2–T4 answer (Critical inherited from Meridian)', () => {
@@ -301,8 +316,8 @@ describe('PINNED — Nordwind Band 3 (fixtures/band3_calibration.md)', () => {
 
   it('passes A11–A15 clean', () => {
     const r = validateDataInventory(fixture);
-    expect(r.reviewerFlags).toEqual([]);
-    expect(r.checked).toEqual(['A11', 'A12', 'A13', 'A14', 'A15']);
+    expectCleanInventory(r.reviewerFlags, 1);
+    expect(r.checked).toEqual(['A11', 'A12', 'A13', 'A14', 'A15', 'A20']);
   });
 
   // The anti-fabrication test: forcing Meridian's answer onto a sound Layer 1 must BLOCKER.

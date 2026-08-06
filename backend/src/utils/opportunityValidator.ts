@@ -454,11 +454,17 @@ export function renderPhaseAnchors(
       const why = WHY_NOW_RE.exec(block);
       if (!why) {
         summary.malformed++;
+        // v37.10 — this is now a BLOCKER. It was a bare flag, so a block with no phase-opener line was
+        // reported and SHIPPED, which is the register's "T1's missing `Why now:` line shipping unflagged":
+        // the flag existed and did not stop anything. The opener is not decoration — it is the client's
+        // only statement of why the item sits in this phase, and it is where the locked-feasibility anchor
+        // renders, so a block without one is missing both the reasoning and the anchor.
         reviewerFlags.push(
-          `GATE 4 A18 (anchor render): the Phase ${sec.phase} block ${id || '(no ID cited)'} has no ` +
-          `phase-opener line (one of: ${PHASE_OPENERS.join(' · ')}), so its locked-feasibility anchor ` +
-          `cannot be rendered. Structural defect — the ` +
-          `anchor was NOT guessed into arbitrary prose. Fix the block shape.`,
+          `${BLOCKER_PREFIX} GATE 4 A18 (anchor render): the Phase ${sec.phase} block ` +
+          `${id || '(no ID cited)'} has no phase-opener line (one of: ${PHASE_OPENERS.join(' · ')}), so ` +
+          `its locked-feasibility anchor cannot be rendered and the client is given no statement of why ` +
+          `the item sits in this phase. Structural defect — the anchor was NOT guessed into arbitrary ` +
+          `prose. Fix the block shape.`,
         );
         continue;
       }

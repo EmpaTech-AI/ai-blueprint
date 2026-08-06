@@ -95,11 +95,64 @@ export function normaliseNameList(cell: string): string[] {
   return cleaned.split(NAME_SEPARATOR).map(n => n.trim()).filter(Boolean);
 }
 
-// Does every name in `cell` appear in `declared`? Returns the unresolved ones so a guard can name them
-// — the eight-batch report's own lesson that a flag without a locus survives six batches.
-export function namesResolve(cell: string, declared: Iterable<string>): { ok: boolean; missing: string[] } {
+// ── Instance 23 (v37.10): the qualified-product-name boundary ────────────────────────────────────
+//
+// Set equality was still exact equality one layer in. A client names a system by its PRODUCT TIER in one
+// table and by its short name in another — `shopify plus` / `shopify`, `netsuite erp` / `netsuite` — and
+// N4's P-a predicate, which asks "is this endpoint inventoried", answered no. Integration Coverage then
+// collapsed, and because coverage feeds PP-0 severity the damage was silent and directional.
+//
+// The rule is UNIQUE-PREFIX resolution, and the uniqueness requirement is the whole of it. The comment
+// above explains why the leading-token shortcut was rejected for A15: it maps `shopify plus` onto
+// `shopify` and can match the WRONG system. That objection is answered not by refusing to resolve, but by
+// refusing to resolve AMBIGUOUSLY:
+//
+//   query `shopify`      declared {shopify plus, klaviyo}                → resolves (one candidate)
+//   query `netsuite`     declared {netsuite erp, postgres}               → resolves (one candidate)
+//   query `shopify`      declared {shopify plus, shopify pos}            → UNRESOLVED, both named
+//   query `shopify plus` declared {shopify plus, shopify}                → exact match wins outright
+//
+// Ambiguity is reported, never guessed. That keeps A15's original concern intact — a name that could mean
+// two systems still resolves to neither — while closing the case where it can only mean one.
+const nameTokens = (n: string) => n.split(' ').filter(Boolean);
+
+const isTokenPrefix = (shorter: string[], longer: string[]) =>
+  shorter.length < longer.length && shorter.every((t, i) => t === longer[i]);
+
+export interface NameResolution {
+  resolved: string | null;      // the declared name this resolves to
+  candidates: string[];         // >1 means ambiguous, and `resolved` is null
+  exact: boolean;
+}
+
+export function resolveName(name: string, declared: Iterable<string>): NameResolution {
   const pool = new Set<string>();
   for (const d of declared) for (const n of normaliseNameList(d)) pool.add(n);
-  const missing = normaliseNameList(cell).filter(n => !pool.has(n));
-  return { ok: missing.length === 0, missing };
+  const q = normaliseName(name);
+  if (pool.has(q)) return { resolved: q, candidates: [q], exact: true };
+  const qt = nameTokens(q);
+  const candidates = [...pool].filter(d => {
+    const dt = nameTokens(d);
+    return isTokenPrefix(qt, dt) || isTokenPrefix(dt, qt);
+  });
+  return { resolved: candidates.length === 1 ? candidates[0] : null, candidates, exact: false };
+}
+
+// Does every name in `cell` appear in `declared`? Returns the unresolved ones so a guard can name them
+// — the eight-batch report's own lesson that a flag without a locus survives six batches. `ambiguous`
+// separates "no such system" from "more than one system it could be": the first is a missing row, the
+// second is a naming collision, and they need different corrections.
+export function namesResolve(
+  cell: string,
+  declared: Iterable<string>,
+): { ok: boolean; missing: string[]; ambiguous: Array<{ name: string; candidates: string[] }> } {
+  const missing: string[] = [];
+  const ambiguous: Array<{ name: string; candidates: string[] }> = [];
+  for (const n of normaliseNameList(cell)) {
+    const r = resolveName(n, declared);
+    if (r.resolved) continue;
+    if (r.candidates.length > 1) ambiguous.push({ name: n, candidates: r.candidates });
+    else missing.push(n);
+  }
+  return { ok: missing.length === 0 && ambiguous.length === 0, missing, ambiguous };
 }

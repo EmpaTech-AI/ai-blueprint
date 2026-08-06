@@ -6,6 +6,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.8.0] — 2026-08-06 — v37.10: the sixteen-batch six, and a corrected attribution
+
+Responds to the **sixteen-batch cross-era report** (64 runs, five controlled pairs), which ended the
+eight-batch zero-undetected streak on **S4-DUP** (EH 1.35, 47% of Meridian's era harm) and attributed it
+to v37.9's item-5 control-flow restructure.
+
+### Added
+- **`utils/classFRegistry.ts` — the Class-F enumeration, as CODE.** 34 client-visible properties, each
+  `guarded` / `reported` / `unguarded`, with two executable invariants: the registry may not claim a guard
+  that does not run, and nothing is unguarded without a stated reason. Current assurance coverage
+  **28/34 guarded (0.82)**, 4 reported, **2 honestly unguarded** — both cross-run properties that a
+  per-run assertion cannot see. A markdown enumeration would drift, which is the Class F failure mode.
+- **S4-UNIQ** — `emittedOccurrences` / `duplicateEmissions`. Cross-phase duplicate → BLOCKER;
+  same-phase duplicate row → BLOCKER (it inflates the count P1 is read against). Runs BEFORE the
+  advisory early-return, so its reach does not depend on a pin the Practice owns.
+- **A20a / A20b** — inventory completeness (Class F #6). A20b BLOCKERs an integration endpoint with no
+  Core Systems row; A20a reports the Data grade's class coverage as a **fraction** and escalates the spec
+  question rather than deciding it.
+- **`CLIENT_PROSE` (14 lines) and `CLIENT_SECTIONS` (4 blocks)** — the assertion that was missing, not the
+  pattern. `stripForDelivery` must be the identity on both.
+
+### Fixed
+- **The v37.9 S4 regression: the narration strip's noun set.** The rule a phrase-anywhere vocabulary must
+  satisfy is not "closed" but **disjoint from client content**. v37.9 justified position-free matching with
+  `Chunk`/`Checkpoint` and then applied it to `Section|Stage|Step`, which is ordinary client roadmap
+  English — six of eight representative roadmap sentences were destroyed, including
+  `*Why now:* Complete Step 1 before the July compliance date.`
+- **`stripOperatorPreamble`'s `/m` flag — an older, independent second cause of the same symptom.** Both
+  patterns matched at the start of ANY line, and the bullet alternative `\*[^\n]*\n` matches any line
+  starting with `*` — so any run of two such lines was deleted from anywhere in the document: bold
+  opportunity headings, `*Why now:*` anchors, ordinary findings bullets. Present since before v37.4.
+- **A18's missing-opener flag is now a BLOCKER.** It existed and did not block, which is the register's
+  "`Why now:` line shipping unflagged" — the flag fired and stopped nothing.
+- **Instance 23 (P-a aliases)** — `resolveName` does unique-prefix resolution in the shared name layer:
+  `shopify` → `shopify plus` when that is the only candidate, and **refuses with both named** when it is
+  not. Answers A15's original objection to leading-token matching without giving up resolution. The first
+  cut routed P-a and left the core-membership filter on `Set.has`, so coverage was still 0 — caught by the
+  new suite.
+- **Instances 22 / 22b** — the level ladder needed SELECTION rules. A component-qualified row
+  (`*Other* Operating Expenses`) is refused at extraction; a segment-qualified row is de-prioritised at
+  selection and still reported by A17c.
+- **P-b reads the annotation** — `scheduled (manual CSV drop)` and `manual (nightly scheduled feed)` both
+  fail P-b. The term lists exclude format words, so `scheduled (nightly CSV export)` stays clean.
+
+### Notes
+- Label **v37.9 → v37.10**. **564 tests, 19 suites**; typecheck and build clean.
+- Release note: `rework_docs/2026-08-06_v37_10_Sixteen_Batch_Six_And_Attribution.md`.
+- **Attribution correction:** item 5 produces a **byte-identical** phase map on the Meridian golden — same
+  order, same phases, the pinned 3/2/3 — despite Meridian carrying two dated deadlines. Asserted against
+  a verbatim transcription of the v37.8 single pass. Law 4's founding evidence is inverted.
+
+---
+
 ## [2.7.0] — 2026-08-06 — v37.9: the five-item micro-release, held ahead of TC3
 
 Responds to the **fourteen-batch cross-era report** and the Practice's sequencing decision: hold TC3
